@@ -66,6 +66,33 @@ export default function Order() {
         + `RSVP: ${form.contactPhone}, Regards: ${form.regardsName}\n\n`
         + `🚚 *Courier:*\nName: ${form.courierName}, Phone: ${form.courierPhone}\nAddress: ${form.courierAddress}`;
 
+    // Generate unique Event ID for Deduplication
+    const eventId = 'order_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+
+    // Track Meta Pixel Conversion (Browser-side Lead Event)
+    if (typeof window !== 'undefined' && window.fbq) {
+      window.fbq('track', 'Lead', {
+        value: price,
+        currency: 'BDT',
+        content_name: `${tier === 'premium' ? 'Premium' : 'Affordable'} Card Order`,
+        num_items: Number(selectedQty)
+      }, { eventID: eventId });
+    }
+
+    // Send Meta Conversions API (Server-side Event)
+    fetch('/api/capi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventName: 'Lead',
+        value: price,
+        currency: 'BDT',
+        orderId: eventId,
+        phone: form.contactPhone,
+        url: window.location.href
+      })
+    }).catch(err => console.error('CAPI Call Error:', err));
+
     const url = `https://wa.me/8801701016826?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
   };

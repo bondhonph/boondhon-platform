@@ -37,6 +37,10 @@ Payment: bKash/Nagad/Rocket: 01682588856
       }
     );
     const data = await response.json();
+    if (!response.ok) {
+      console.error('Gemini API Error:', data);
+      return res.status(500).json({ reply: `Gemini error: ${data?.error?.message || 'Unknown error'}` });
+    }
     const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text
       || 'জি ভাইয়া/আপু! 🥰 কীভাবে সাহায্য করতে পারি?';
     res.json({ reply });
