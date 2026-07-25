@@ -1,9 +1,96 @@
-import crypto from 'crypto';
+const AFFORDABLE_IDS = [
+  "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD",
+  "1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-",
+  "1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
+  "1HJTtR-zhhg6v2ph7MikdMDWI-LWJgG0z",
+  "1PRlMp4F1xnQJPURON535pl7t08_thXVA",
+  "1UEAeYYB3Bt5vMYEL-a7AcV1aV21Z04si",
+  "1-_qTV4gq0oKMdfMRxlTZL3yUO98ZGAoi",
+  "15yHXRk2mHI6-cKeooRqT20XeHubRRrPN",
+  "1Yrcqj5g0sZDrL3QaEkfEmKnF12BEs6ir",
+  "1vXwJ68j7x5qfpZdHkMkqLn0tvpblGDpl"
+];
 
-function sha256(text) {
-  if (!text) return null;
-  return crypto.createHash('sha256').update(text.trim().toLowerCase()).digest('hex');
-}
+const PREMIUM_IDS = [
+  "182kOjBhoaqOTq7nr4ryI6re6fRuLITbH",
+  "1cTfbTDJDqBjsV-r7V1OjBZ-Z6tUAqwxj",
+  "1cA-MfI55Hh7ibreMQ4zPvt2i_LKxVHkR",
+  "1fvtC5mT4slvV_kROIej7awAGmCRc7TUl",
+  "1rLVZUQ8lw6ilWM76xxARtbUreQ3JIkdi",
+  "15AQWI3wP2a57-3OxHZTCfSbskgvC5YvH",
+  "1ahoubjUVdc9SJyi5n2rzZIsbugjCjHiz",
+  "1qlwwRe2Mr_gb8CZjkeG0-YxBSGmOHzZu",
+  "1oOdGtYFTz-xNmSLUO-VFS1YODqYZ74HJ",
+  "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy"
+];
+
+const ORDER_POLICY_TEXT = `🛍️ অর্ডার করার নিয়মাবলী:
+১. মোট মূল্যের ৩০% এডভান্স পেমেন্ট করে অর্ডার কনফার্ম করতে হবে।
+২. পেমেন্ট নম্বর: বিকাশ/নগদ/রকেট (পার্সোনাল): 01682588856
+৩. আমাদের ডিজাইনার কার্ডের ডেমো ডিজাইন তৈরি করে আপনাকে পাঠাবে। চূড়ান্ত অনুমোদনের পর প্রিন্ট করা হবে।
+৪. প্রিন্ট শেষে জেলা শহরে ক্যাশ অন ডেলিভারি দেওয়া হবে। গ্রহণের সময় বাকি ৭০% পেমেন্ট করতে হবে।
+৫. ডেলিভারি পেতে ৫ থেকে ৭ কর্মদিবস সময় লাগবে।`;
+
+const DELIVERY_POLICY_TEXT = `🚚 ডেলিভারি ও পলিসি:
+📍 অফিস: মানিকগঞ্জ
+🏭 কারখানা: ফকিরাপুল, লালবাগকেল্লা, বাংলাবাজার, বাবুবাজার
+
+📋 নিয়মাবলী:
+১. বিলের ৩০% অ্যাডভান্স (01682588856)
+২. ডেমো ডিজাইন approve করার পর print
+৩. জেলা শহরে ক্যাশ অন ডেলিভারি
+৪. ৫-৭ কর্মদিবসে ডেলিভারি
+📞 হটলাইন: 01701016826 (WhatsApp)`;
+
+const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
+
+বর-
+নামঃ
+পিতাঃ
+মাতাঃ
+ঠিকানাঃ
+
+কণে-
+নামঃ
+পিতাঃ
+মাতাঃ
+ঠিকানাঃ
+
+গায়ে হলুদ-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজঃ
+সময়ঃ
+স্থানঃ
+
+শুভ বিবাহ-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজঃ
+সময়ঃ
+স্থানঃ
+
+বৌ-ভাত-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজঃ
+সময়ঃ
+স্থানঃ
+
+অভ্যর্থনায়-
+(ছোট বাচ্চাদের নাম):
+প্রয়োজনে (ফোন):
+শুভেচ্ছান্তে নামঃ
+
+🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):
+
+(ফর্মটি কপি করে পূরণ করে পাঠান! 🥰)`;
+
+const DEFAULT_BUTTONS = [
+  { id: 'btn_affordable', title: '💚 Affordable Card' },
+  { id: 'btn_premium', title: '✨ Premium Card' },
+  { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+];
 
 export default async function handler(req, res) {
   // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
@@ -22,29 +109,60 @@ export default async function handler(req, res) {
     return res.status(403).send('Verification Failed');
   }
 
-  // ── 2. HANDLE INCOMING MESSAGES (POST REQUEST) ──
+  // ── 2. HANDLE INCOMING EVENTS (POST REQUEST) ──
   if (req.method === 'POST') {
     try {
       const body = req.body;
 
-      // Check if it's a WhatsApp event
       if (body.object === 'whatsapp_business_account') {
         const entry = body.entry?.[0];
         const changes = entry?.changes?.[0];
         const value = changes?.value;
         const message = value?.messages?.[0];
 
-        if (message && message.type === 'text') {
-          const from = message.from; // Sender's phone number (e.g. 88017XXXXXXXX)
-          const userMessage = message.text?.body || ''; // Received text
+        if (message) {
+          const from = message.from; // Sender's phone number
           const phoneId = value?.metadata?.phone_number_id; // WhatsApp Phone ID
 
-          if (userMessage && phoneId) {
-            // Generate AI Response
-            const aiReply = await getAIResponse(userMessage);
+          if (phoneId && from) {
+            // A. Handle Interactive Button Clicks
+            if (message.type === 'interactive') {
+              const buttonId = message.interactive?.button_reply?.id;
+              await handleButtonClick(phoneId, from, buttonId);
+            } 
+            // B. Handle Text Messages
+            else if (message.type === 'text') {
+              const userMessage = message.text?.body || '';
+              const lowerText = userMessage.toLowerCase().trim();
 
-            // Send Reply back to user via WhatsApp API
-            await sendWhatsAppMessage(phoneId, from, aiReply);
+              // Check if user is asking for photos/images/designs
+              const isPhotoReq = ['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w));
+              
+              if (isPhotoReq) {
+                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের কিছু এক্সক্লুসিভ ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
+                // Send 3 affordable images
+                for (let i = 0; i < 3; i++) {
+                  await sendWhatsAppImage(phoneId, from, `https://lh3.googleusercontent.com/d/${AFFORDABLE_IDS[i]}`);
+                }
+                // Send menu buttons
+                await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
+              } 
+              // Check if user is asking for order details/forms
+              else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
+                await sendWhatsAppMessage(phoneId, from, ORDER_POLICY_TEXT);
+                await sendWhatsAppMessage(phoneId, from, BANGLA_FORM_TEXT);
+                await sendWhatsAppButtons(phoneId, from, 'অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। তথ্য জানতে নিচের বাটনে ক্লিক করুন:', [
+                  { id: 'btn_affordable', title: '💚 Affordable Card' },
+                  { id: 'btn_premium', title: '✨ Premium Card' },
+                  { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+                ]);
+              }
+              // Normal query -> Route to Gemini AI
+              else {
+                const aiReply = await getAIResponse(userMessage);
+                await sendWhatsAppButtons(phoneId, from, aiReply, DEFAULT_BUTTONS);
+              }
+            }
           }
         }
         return res.status(200).send('EVENT_RECEIVED');
@@ -60,14 +178,74 @@ export default async function handler(req, res) {
   return res.status(405).send('Method Not Allowed');
 }
 
-// Helper to call Gemini AI with the official Sales persona
+// Handler for Quick Reply button clicks
+async function handleButtonClick(phoneId, to, buttonId) {
+  if (buttonId === 'btn_affordable') {
+    const text = `💚 Affordable Card (দাম ও বাজেট):
+50 পিস ➔ ২,৭৫০৳
+100 পিস ➔ ৪,৫০০৳
+200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
+
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের কিছু সুন্দর ও সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+    await sendWhatsAppMessage(phoneId, to, text);
+    
+    // Send 3 Affordable images
+    for (let i = 0; i < 3; i++) {
+      await sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${AFFORDABLE_IDS[i]}`);
+    }
+    
+    // Next actions buttons
+    await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
+      { id: 'btn_premium', title: '✨ Premium Card' },
+      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' },
+      { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+    ]);
+  } 
+  else if (buttonId === 'btn_premium') {
+    const text = `✨ Premium Card (এলিগ্যান্ট ও লাক্সারি):
+50 পিস ➔ ৩,২৫০৳
+100 পিস ➔ ৫,৫০০৳
+200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
+
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের লাক্সারি প্রিমিয়াম কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
+    await sendWhatsAppMessage(phoneId, to, text);
+
+    // Send 3 Premium images
+    for (let i = 0; i < 3; i++) {
+      await sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${PREMIUM_IDS[i]}`);
+    }
+
+    // Next actions buttons
+    await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
+      { id: 'btn_affordable', title: '💚 Affordable Card' },
+      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' },
+      { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+    ]);
+  } 
+  else if (buttonId === 'btn_policy') {
+    await sendWhatsAppMessage(phoneId, to, DELIVERY_POLICY_TEXT);
+    await sendWhatsAppButtons(phoneId, to, 'অন্যান্য মেনু:', [
+      { id: 'btn_affordable', title: '💚 Affordable Card' },
+      { id: 'btn_premium', title: '✨ Premium Card' },
+      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
+    ]);
+  } 
+  else if (buttonId === 'btn_order_form') {
+    await sendWhatsAppMessage(phoneId, to, ORDER_POLICY_TEXT);
+    await sendWhatsAppMessage(phoneId, to, BANGLA_FORM_TEXT);
+    await sendWhatsAppButtons(phoneId, to, 'ফর্মটি পূরণ করতে বা ক্যাটালগ দেখতে নিচে চাপুন:', [
+      { id: 'btn_affordable', title: '💚 Affordable Card' },
+      { id: 'btn_premium', title: '✨ Premium Card' },
+      { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+    ]);
+  }
+}
+
+// Call Gemini AI for natural chat queries
 async function getAIResponse(userMsg) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
-      console.error('GEMINI_API_KEY is missing in environment variables.');
-      return 'আসসালামু আলাইকুম! আমি অনন্যা। আমাদের চ্যাট সার্ভিসটি সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন। 😊';
-    }
+    if (!geminiKey) return 'আসসালামু আলাইকুম! আমি অনন্যা। বন্ধন প্রিন্টিং হাউজ থেকে বলছি। কীভাবে সাহায্য করতে পারি? 😊';
 
     const systemPrompt = `You are the official AI Sales Agent of BOONDHON Printing House, based in Manikganj, Bangladesh. Your name is "Ananya" (অনন্যা) — a warm, friendly, polite, highly converting Bengali sales executive.
 Talk in Bengali (Bangladeshi colloquial style) mixed with some English words naturally. Keep responses short and friendly (2-3 sentences max).
@@ -81,49 +259,37 @@ PRICE GUIDE:
 
 👉 Website Order Link: https://project-bx7i1.vercel.app/order`;
 
-    const contents = [
-      {
-        role: 'user',
-        parts: [{ text: userMsg }]
-      }
-    ];
-
-    // Using gemini-3.5-flash as gemini-1.5-flash is deprecated
+    const contents = [{ role: 'user', parts: [{ text: userMsg }] }];
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents,
         systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: { maxOutputTokens: 1000, temperature: 0.8 }
+        generationConfig: { maxOutputTokens: 500, temperature: 0.8 }
       })
     });
 
     if (res.ok) {
       const data = await res.json();
       return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'আসসালামু আলাইকুম! আমি অনন্যা। আপনাকে কীভাবে সাহায্য করতে পারি? 😊';
-    } else {
-      const errData = await res.json();
-      console.error('Gemini API Error in WhatsApp webhook:', errData);
     }
   } catch (err) {
     console.error('Gemini call failed in WhatsApp handler:', err.message);
   }
-  return 'আসসালামু আলাইকুম! আমি অনন্যা। আপনার মেসেজটি পেয়েছি। অনুগ্রহ করে একটু অপেক্ষা করুন। 😊';
+  return 'আসসালামু আলাইকুম! আমি অনন্যা। বন্ধন প্রিন্টিং হাউজে আপনাকে স্বাগতম। নিচে দেওয়া বাটনগুলোতে ক্লিক করে দাম বা ছবি দেখতে পারেন। 😊';
 }
 
-// Helper to send text reply using WhatsApp Cloud API
+// Meta Graph API Call: Send Text
 async function sendWhatsAppMessage(phoneId, to, text) {
   const whatsappToken = process.env.WHATSAPP_TOKEN;
-  if (!whatsappToken) {
-    console.warn('WHATSAPP_TOKEN is not configured in Vercel environment variables.');
-    return;
-  }
+  if (!whatsappToken) return;
 
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
   try {
-    const res = await fetch(url, {
+    await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${whatsappToken}`,
@@ -137,12 +303,68 @@ async function sendWhatsAppMessage(phoneId, to, text) {
         text: { body: text }
       })
     });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Failed to send WhatsApp message: ${errText}`);
-    }
   } catch (err) {
     console.error('Error in sendWhatsAppMessage:', err.message);
+  }
+}
+
+// Meta Graph API Call: Send Interactive Buttons
+async function sendWhatsAppButtons(phoneId, to, text, buttons) {
+  const whatsappToken = process.env.WHATSAPP_TOKEN;
+  if (!whatsappToken) return;
+
+  const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: to,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: { text: text },
+          action: {
+            buttons: buttons.map(b => ({
+              type: "reply",
+              reply: { id: b.id, title: b.title }
+            }))
+          }
+        }
+      })
+    });
+  } catch (err) {
+    console.error('Error in sendWhatsAppButtons:', err.message);
+  }
+}
+
+// Meta Graph API Call: Send Image
+async function sendWhatsAppImage(phoneId, to, imageUrl) {
+  const whatsappToken = process.env.WHATSAPP_TOKEN;
+  if (!whatsappToken) return;
+
+  const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: to,
+        type: "image",
+        image: { link: imageUrl }
+      })
+    });
+  } catch (err) {
+    console.error('Error in sendWhatsAppImage:', err.message);
   }
 }
