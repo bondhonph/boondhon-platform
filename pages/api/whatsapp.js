@@ -217,11 +217,12 @@ export default async function handler(req, res) {
                 const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
                 await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
                 
-                // Call-To-Action (CTA) for remaining designs -> Link corrected to /products
-                await sendWhatsAppMessage(phoneId, from, '🌸 এখানে সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ চমৎকার ডিজাইন দেখতে এবং অনলাইনে অর্ডার করতে আমাদের ওয়েবসাইট প্রোডাক্ট গ্যালারি ভিজিট করুন: https://project-bx7i1.vercel.app/products 🔗');
-                
-                // Send menu buttons
-                await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
+                // Prompt to see more images inside chat
+                await sendWhatsAppButtons(phoneId, from, 'আমাদের কালেকশনের আরও চমৎকার ডিজাইন দেখতে নিচের যেকোনো বাটনে ক্লিক করুন:', [
+                  { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
+                  { id: 'btn_premium', title: '✨ Premium Card' },
+                  { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
+                ]);
               } 
               // Check if user is asking for order details/forms
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
@@ -258,50 +259,66 @@ export default async function handler(req, res) {
 async function handleButtonClick(phoneId, to, buttonId) {
   if (buttonId === 'btn_affordable') {
     const text = `💚 Affordable Card (দাম ও বাজেট):
-50 পিস ➔ ২,৭ ১৫০৳
+50 পিস ➔ ২,৭৫০৳
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
     // Send 12 Affordable images in parallel (instantly creates a beautiful grouped album on WhatsApp!)
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
-    // CTA for more images -> Link corrected to /products
-    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ কাস্টম ও সাশ্রয়ী ডিজাইন দেখতে আমাদের ওয়েবসাইট গ্যালারি ভিজিট করুন: https://project-bx7i1.vercel.app/products 🔗');
-    
-    // Next actions buttons
-    await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
+    // Next action buttons with "Show More" option
+    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
+      { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
       { id: 'btn_premium', title: '✨ Premium Card' },
-      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' },
-      { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
     ]);
   } 
+  else if (buttonId === 'btn_more_affordable') {
+    await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি চমৎকার Affordable ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
+    const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
+    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+
+    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
+      { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
+      { id: 'btn_premium', title: '✨ Premium Card' },
+      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
+    ]);
+  }
   else if (buttonId === 'btn_premium') {
     const text = `✨ Premium Card (এলিগ্যান্ট ও লাক্সারি):
 50 পিস ➔ ৩,২৫০৳
 100 পিস ➔ ৫,৫০০৳
 200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি এক্সক্লুসিভ কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি প্রিমিয়াম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
     // Send 12 Premium images in parallel
     const randomImgs = getRandomImages(PREMIUM_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
-    // CTA for more images -> Link corrected to /products
-    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি প্রিমিয়াম ডিজাইন পাঠানো হয়েছে। আমাদের ক্যাটালগের আরও ৭০+ এক্সক্লুসিভ ও লাক্সারি ডিজাইন দেখতে আমাদের ওয়েবসাইট গ্যালারি ভিজিট করুন: https://project-bx7i1.vercel.app/products 🔗');
-
-    // Next actions buttons
-    await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
+    // Next action buttons with "Show More" option
+    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
+      { id: 'btn_more_premium', title: '📸 আরও ছবি দেখুন' },
       { id: 'btn_affordable', title: '💚 Affordable Card' },
-      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' },
-      { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
     ]);
   } 
+  else if (buttonId === 'btn_more_premium') {
+    await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি এক্সক্লুসিভ Premium ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
+    const randomImgs = getRandomImages(PREMIUM_IDS, 12);
+    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+
+    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
+      { id: 'btn_more_premium', title: '📸 আরও ছবি দেখুন' },
+      { id: 'btn_affordable', title: '💚 Affordable Card' },
+      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
+    ]);
+  }
   else if (buttonId === 'btn_policy') {
     await sendWhatsAppMessage(phoneId, to, DELIVERY_POLICY_TEXT);
     await sendWhatsAppButtons(phoneId, to, 'অন্যান্য মেনু:', [
