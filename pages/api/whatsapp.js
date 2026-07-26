@@ -40,7 +40,7 @@ const DELIVERY_POLICY_TEXT = `🚚 ডেলিভারি ও পলিসি:
 ২. ডেমো ডিজাইন approve করার পর print
 ৩. জেলা শহরে ক্যাশ অন ডেলিভারি
 ৪. ৫-৭ কর্মদিবসে ডেলিভারি
-📞 হটলাইন: 01701016826 (WhatsApp)`;
+📞 হটライン: 01701016826 (WhatsApp)`;
 
 const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
 
@@ -92,10 +92,9 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
 
-// Helper to get random subset of image URLs
-function getRandomImages(ids, count) {
-  const shuffled = [...ids].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count).map(id => `https://lh3.googleusercontent.com/d/${id}`);
+// Helper to get all image URLs
+function getAllImages(ids) {
+  return ids.map(id => `https://lh3.googleusercontent.com/d/${id}`);
 }
 
 export default async function handler(req, res) {
@@ -145,10 +144,10 @@ export default async function handler(req, res) {
               const isPhotoReq = ['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w));
               
               if (isPhotoReq) {
-                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের ৫টি র্যান্ডম ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
-                // Send 5 random images in parallel for instant delivery
-                const randomImgs = getRandomImages(AFFORDABLE_IDS, 5);
-                await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
+                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সব ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
+                // Send all images in parallel (this creates a WhatsApp album with +6 overlay!)
+                const imgs = getAllImages(AFFORDABLE_IDS);
+                await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
                 
                 // Send menu buttons
                 await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
@@ -192,12 +191,12 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের ৫টি র্যান্ডম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
-    // Send 5 random Affordable images in parallel (automatically groups them as a single album on WhatsApp!)
-    const randomImgs = getRandomImages(AFFORDABLE_IDS, 5);
-    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    // Send all Affordable images in parallel
+    const imgs = getAllImages(AFFORDABLE_IDS);
+    await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
     
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
@@ -212,12 +211,12 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৫,৫০০৳
 200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের ৫টি র্যান্ডম প্রিমিয়াম কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব প্রিমিয়াম কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
-    // Send 5 random Premium images in parallel (automatically groups them as a single album on WhatsApp!)
-    const randomImgs = getRandomImages(PREMIUM_IDS, 5);
-    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    // Send all Premium images in parallel
+    const imgs = getAllImages(PREMIUM_IDS);
+    await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
