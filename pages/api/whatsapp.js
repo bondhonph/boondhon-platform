@@ -146,11 +146,10 @@ export default async function handler(req, res) {
               
               if (isPhotoReq) {
                 await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের ৫টি র্যান্ডম ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
-                // Send 5 random images
+                // Send 5 random images in parallel for instant delivery
                 const randomImgs = getRandomImages(AFFORDABLE_IDS, 5);
-                for (const imgUrl of randomImgs) {
-                  await sendWhatsAppImage(phoneId, from, imgUrl);
-                }
+                await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
+                
                 // Send menu buttons
                 await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
               } 
@@ -196,11 +195,9 @@ async function handleButtonClick(phoneId, to, buttonId) {
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের ৫টি র্যান্ডম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
-    // Send 5 random Affordable images
+    // Send 5 random Affordable images in parallel (automatically groups them as a single album on WhatsApp!)
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 5);
-    for (const imgUrl of randomImgs) {
-      await sendWhatsAppImage(phoneId, to, imgUrl);
-    }
+    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
     
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
@@ -218,11 +215,9 @@ async function handleButtonClick(phoneId, to, buttonId) {
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের ৫টি র্যান্ডম প্রিমিয়াম কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
-    // Send 5 random Premium images
+    // Send 5 random Premium images in parallel (automatically groups them as a single album on WhatsApp!)
     const randomImgs = getRandomImages(PREMIUM_IDS, 5);
-    for (const imgUrl of randomImgs) {
-      await sendWhatsAppImage(phoneId, to, imgUrl);
-    }
+    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
