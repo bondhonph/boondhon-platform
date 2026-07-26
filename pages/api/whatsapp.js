@@ -40,7 +40,7 @@ const DELIVERY_POLICY_TEXT = `🚚 ডেলিভারি ও পলিসি:
 ২. ডেমো ডিজাইন approve করার পর print
 ৩. জেলা শহরে ক্যাশ অন ডেলিভারি
 ৪. ৫-৭ কর্মদিবসে ডেলিভারি
-📞 হটライン: 01701016826 (WhatsApp)`;
+📞 হটলাইন: 01701016826 (WhatsApp)`;
 
 const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
 
@@ -145,7 +145,7 @@ export default async function handler(req, res) {
               
               if (isPhotoReq) {
                 await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সব ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
-                // Send all images in parallel (this creates a WhatsApp album with +6 overlay!)
+                // Send all 10 Affordable images in parallel (this creates a WhatsApp album with +6 overlay!)
                 const imgs = getAllImages(AFFORDABLE_IDS);
                 await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
                 
@@ -191,10 +191,10 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব ডিজাইনের ১০টি ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
-    // Send all Affordable images in parallel
+    // Send all 10 Affordable images in parallel
     const imgs = getAllImages(AFFORDABLE_IDS);
     await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
     
@@ -211,12 +211,12 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৫,৫০০৳
 200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব প্রিমিয়াম কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের এক্সক্লুসিভ কালেকশনের ৪টি ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
-    // Send all Premium images in parallel
-    const imgs = getAllImages(PREMIUM_IDS);
-    await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    // Send only 4 Premium images in parallel
+    const premiumImgs = PREMIUM_IDS.slice(0, 4).map(id => `https://lh3.googleusercontent.com/d/${id}`);
+    await Promise.all(premiumImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
