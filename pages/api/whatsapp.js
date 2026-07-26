@@ -159,6 +159,9 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
 
+// Helper to delay execution
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 // Helper to get random subset of image URLs up to a limit (default 12 for grid/album)
 function getRandomImages(ids, count = 12) {
   const shuffled = [...ids].sort(() => 0.5 - Math.random());
@@ -213,10 +216,14 @@ export default async function handler(req, res) {
               
               if (isPhotoReq) {
                 await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সেরা ১২টি চমৎকার ডিজাইনের ছবি নিচে অ্যালবাম আকারে দেওয়া হলো: 🥰');
-                // Send 12 random images in parallel for rich display
+                
+                // Send 12 random images in parallel
                 const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
                 await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
                 
+                // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
+                await delay(2500);
+
                 // Prompt to see more images inside chat
                 await sendWhatsAppButtons(phoneId, from, 'আমাদের কালেকশনের আরও চমৎকার ডিজাইন দেখতে নিচের যেকোনো বাটনে ক্লিক করুন:', [
                   { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
@@ -263,12 +270,15 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
     // Send 12 Affordable images in parallel (instantly creates a beautiful grouped album on WhatsApp!)
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+
+    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
+    await delay(2500);
 
     // Next action buttons with "Show More" option
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
@@ -281,6 +291,9 @@ async function handleButtonClick(phoneId, to, buttonId) {
     await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি চমৎকার Affordable ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+
+    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
+    await delay(2500);
 
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
       { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
@@ -301,6 +314,9 @@ async function handleButtonClick(phoneId, to, buttonId) {
     const randomImgs = getRandomImages(PREMIUM_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
+    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
+    await delay(2500);
+
     // Next action buttons with "Show More" option
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
       { id: 'btn_more_premium', title: '📸 আরও ছবি দেখুন' },
@@ -312,6 +328,9 @@ async function handleButtonClick(phoneId, to, buttonId) {
     await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি এক্সক্লুসিভ Premium ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
     const randomImgs = getRandomImages(PREMIUM_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+
+    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
+    await delay(2500);
 
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
       { id: 'btn_more_premium', title: '📸 আরও ছবি দেখুন' },
