@@ -78,7 +78,7 @@ const PREMIUM_IDS = [
   "1KUI4gzdhT-1I_LpzCMCQL8Sgfy4dU_Im",
   "1amD4c_CLTODq8nca3N_H40vPiY53VTm",
   "1j2a0DIwsKoXWomTJ9RuJm1RncFH3mbqg",
-  "1Cl0fyeCN4T4mUxt-mhEQe6z6ZzBXsQsK",
+  "Cl0fyeCN4T4mUxt-mhEQe6z6ZzBXsQsK",
   "1Tpq2cCmWEooN2SYUIEgq-elk6tRK_5tV",
   "1wlnH6L9DQcYtHHRDtPmrLGz-u6bslOgl",
   "1ZrP-OujlWQGLEln1u8YTa4e3kjQY0yzI",
@@ -217,12 +217,13 @@ export default async function handler(req, res) {
               if (isPhotoReq) {
                 await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সেরা ১২টি চমৎকার ডিজাইনের ছবি নিচে অ্যালবাম আকারে দেওয়া হলো: 🥰');
                 
-                // Send 12 random images in parallel
+                // Start sending 12 images concurrently
                 const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
-                await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
+                const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl));
                 
-                // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
-                await delay(2500);
+                // Overlap the 3s delay with image uploads to prevent Vercel execution timeout (max 10s)
+                await delay(3000);
+                await Promise.all(imagePromises);
 
                 // Prompt to see more images inside chat
                 await sendWhatsAppButtons(phoneId, from, 'আমাদের কালেকশনের আরও চমৎকার ডিজাইন দেখতে নিচের যেকোনো বাটনে ক্লিক করুন:', [
@@ -273,12 +274,13 @@ async function handleButtonClick(phoneId, to, buttonId) {
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
-    // Send 12 Affordable images in parallel (instantly creates a beautiful grouped album on WhatsApp!)
+    // Start sending 12 images concurrently
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
-    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
 
-    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
-    await delay(2500);
+    // Overlap the 3s delay with uploads to prevent timeouts
+    await delay(3000);
+    await Promise.all(imagePromises);
 
     // Next action buttons with "Show More" option
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
@@ -289,11 +291,14 @@ async function handleButtonClick(phoneId, to, buttonId) {
   } 
   else if (buttonId === 'btn_more_affordable') {
     await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি চমৎকার Affordable ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
+    
+    // Start sending 12 images concurrently
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
-    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
 
-    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
-    await delay(2500);
+    // Overlap delay
+    await delay(3000);
+    await Promise.all(imagePromises);
 
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
       { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
@@ -310,12 +315,13 @@ async function handleButtonClick(phoneId, to, buttonId) {
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি প্রিমিয়াম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
-    // Send 12 Premium images in parallel
+    // Start sending 12 images concurrently
     const randomImgs = getRandomImages(PREMIUM_IDS, 12);
-    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
 
-    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
-    await delay(2500);
+    // Overlap delay
+    await delay(3000);
+    await Promise.all(imagePromises);
 
     // Next action buttons with "Show More" option
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
@@ -326,11 +332,14 @@ async function handleButtonClick(phoneId, to, buttonId) {
   } 
   else if (buttonId === 'btn_more_premium') {
     await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি এক্সক্লুসিভ Premium ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
+    
+    // Start sending 12 images concurrently
     const randomImgs = getRandomImages(PREMIUM_IDS, 12);
-    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
 
-    // Wait 2.5 seconds to ensure Meta processes and displays all images before the buttons!
-    await delay(2500);
+    // Overlap delay
+    await delay(3000);
+    await Promise.all(imagePromises);
 
     await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
       { id: 'btn_more_premium', title: '📸 আরও ছবি দেখুন' },
