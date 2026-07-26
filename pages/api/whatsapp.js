@@ -32,7 +32,7 @@ const ORDER_POLICY_TEXT = `🛍️ অর্ডার করার নিয়ম�
 ৫. ডেলিভারি পেতে ৫ থেকে ৭ কর্মদিবস সময় লাগবে।`;
 
 const DELIVERY_POLICY_TEXT = `🚚 ডেলিভারি ও পলিসি:
-📍 অফিস: মানিকগঞ্জ
+📍 অফিস: Manikganj
 🏭 কারখানা: ফকিরাপুল, লালবাগকেল্লা, বাংলাবাজার, বাবুবাজার
 
 📋 নিয়মাবলী:
@@ -63,7 +63,7 @@ const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বা�
 সময়ঃ
 স্থানঃ
 
-শুভ বিবাহ-
+शुभ বিবাহ-
 তারিখ (ইংরেজি):
 তারিখ (বাংলা):
 রোজঃ
@@ -91,6 +91,12 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_premium', title: '✨ Premium Card' },
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
+
+// Helper to get random subset of image URLs
+function getRandomImages(ids, count) {
+  const shuffled = [...ids].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count).map(id => `https://lh3.googleusercontent.com/d/${id}`);
+}
 
 export default async function handler(req, res) {
   // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
@@ -139,10 +145,11 @@ export default async function handler(req, res) {
               const isPhotoReq = ['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w));
               
               if (isPhotoReq) {
-                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের কিছু এক্সক্লুসিভ ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
-                // Send 3 affordable images
-                for (let i = 0; i < 3; i++) {
-                  await sendWhatsAppImage(phoneId, from, `https://lh3.googleusercontent.com/d/${AFFORDABLE_IDS[i]}`);
+                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের ৫টি র্যান্ডম ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
+                // Send 5 random images
+                const randomImgs = getRandomImages(AFFORDABLE_IDS, 5);
+                for (const imgUrl of randomImgs) {
+                  await sendWhatsAppImage(phoneId, from, imgUrl);
                 }
                 // Send menu buttons
                 await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
@@ -186,12 +193,13 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের কিছু সুন্দর ও সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের ৫টি র্যান্ডম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
-    // Send 3 Affordable images
-    for (let i = 0; i < 3; i++) {
-      await sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${AFFORDABLE_IDS[i]}`);
+    // Send 5 random Affordable images
+    const randomImgs = getRandomImages(AFFORDABLE_IDS, 5);
+    for (const imgUrl of randomImgs) {
+      await sendWhatsAppImage(phoneId, to, imgUrl);
     }
     
     // Next actions buttons
@@ -207,12 +215,13 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৫,৫০০৳
 200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের লাক্সারি প্রিমিয়াম কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের ৫টি র্যান্ডম প্রিমিয়াম কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
-    // Send 3 Premium images
-    for (let i = 0; i < 3; i++) {
-      await sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${PREMIUM_IDS[i]}`);
+    // Send 5 random Premium images
+    const randomImgs = getRandomImages(PREMIUM_IDS, 5);
+    for (const imgUrl of randomImgs) {
+      await sendWhatsAppImage(phoneId, to, imgUrl);
     }
 
     // Next actions buttons
