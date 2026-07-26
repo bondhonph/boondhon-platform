@@ -217,8 +217,8 @@ export default async function handler(req, res) {
                 const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
                 await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
                 
-                // Call-To-Action (CTA) for remaining designs
-                await sendWhatsAppMessage(phoneId, from, '🌸 এখানে সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ চমৎকার ডিজাইন দেখতে এবং অনলাইনে অর্ডার করতে আমাদের ওয়েবসাইট ভিজিট করুন: https://project-bx7i1.vercel.app/order 🔗');
+                // Call-To-Action (CTA) for remaining designs -> Link corrected to /products
+                await sendWhatsAppMessage(phoneId, from, '🌸 এখানে সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ চমৎকার ডিজাইন দেখতে এবং অনলাইনে অর্ডার করতে আমাদের ওয়েবসাইট প্রোডাক্ট গ্যালারি ভিজিট করুন: https://project-bx7i1.vercel.app/products 🔗');
                 
                 // Send menu buttons
                 await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
@@ -258,7 +258,7 @@ export default async function handler(req, res) {
 async function handleButtonClick(phoneId, to, buttonId) {
   if (buttonId === 'btn_affordable') {
     const text = `💚 Affordable Card (দাম ও বাজেট):
-50 পিস ➔ ২,৭৫০৳
+50 পিস ➔ ২,৭ ১৫০৳
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
@@ -269,8 +269,8 @@ async function handleButtonClick(phoneId, to, buttonId) {
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
-    // CTA for more images
-    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ কাস্টম ও সাশ্রয়ী ডিজাইন দেখতে আমাদের ওয়েবসাইট ভিজিট করুন: https://project-bx7i1.vercel.app/order 🔗');
+    // CTA for more images -> Link corrected to /products
+    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ কাস্টম ও সাশ্রয়ী ডিজাইন দেখতে আমাদের ওয়েবসাইট গ্যালারি ভিজিট করুন: https://project-bx7i1.vercel.app/products 🔗');
     
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
@@ -292,8 +292,8 @@ async function handleButtonClick(phoneId, to, buttonId) {
     const randomImgs = getRandomImages(PREMIUM_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
-    // CTA for more images
-    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি প্রিমিয়াম ডিজাইন পাঠানো হয়েছে। আমাদের ক্যাটালগের আরও ৭০+ এক্সক্লুসিভ ও লাক্সারি ডিজাইন দেখতে আমাদের ওয়েবসাইট ভিজিট করুন: https://project-bx7i1.vercel.app/order 🔗');
+    // CTA for more images -> Link corrected to /products
+    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি প্রিমিয়াম ডিজাইন পাঠানো হয়েছে। আমাদের ক্যাটালগের আরও ৭০+ এক্সক্লুসিভ ও লাক্সারি ডিজাইন দেখতে আমাদের ওয়েবসাইট গ্যালারি ভিজিট করুন: https://project-bx7i1.vercel.app/products 🔗');
 
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
@@ -337,7 +337,7 @@ PRICE GUIDE:
 100 pcs → Affordable: ৪,৫০০৳ | Premium: ৫,৫০০৳
 200 pcs → Affordable: ৭,০০০৳ | Premium: ৯,০০০৳ | FREE নিকাহনামা 🎁
 
-👉 Website Order Link: https://project-bx7i1.vercel.app/order`;
+👉 Website Products Link: https://project-bx7i1.vercel.app/products`;
 
     const contents = [{ role: 'user', parts: [{ text: userMsg }] }];
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
