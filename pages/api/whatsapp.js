@@ -217,6 +217,9 @@ export default async function handler(req, res) {
                 const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
                 await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
                 
+                // Call-To-Action (CTA) for remaining designs
+                await sendWhatsAppMessage(phoneId, from, '🌸 এখানে সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ চমৎকার ডিজাইন দেখতে এবং অনলাইনে অর্ডার করতে আমাদের ওয়েবসাইট ভিজিট করুন: https://project-bx7i1.vercel.app/order 🔗');
+                
                 // Send menu buttons
                 await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
               } 
@@ -259,12 +262,15 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের অন্যতম সেরা ১২টি ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
     // Send 12 Affordable images in parallel (instantly creates a beautiful grouped album on WhatsApp!)
     const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+
+    // CTA for more images
+    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি ডিজাইন পাঠানো হয়েছে। আমাদের গ্যালারিতে আরও ৮০+ কাস্টম ও সাশ্রয়ী ডিজাইন দেখতে আমাদের ওয়েবসাইট ভিজিট করুন: https://project-bx7i1.vercel.app/order 🔗');
     
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
@@ -285,6 +291,9 @@ async function handleButtonClick(phoneId, to, buttonId) {
     // Send 12 Premium images in parallel
     const randomImgs = getRandomImages(PREMIUM_IDS, 12);
     await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+
+    // CTA for more images
+    await sendWhatsAppMessage(phoneId, to, '🌸 এখানে আমাদের অন্যতম সেরা ১২টি প্রিমিয়াম ডিজাইন পাঠানো হয়েছে। আমাদের ক্যাটালগের আরও ৭০+ এক্সক্লুসিভ ও লাক্সারি ডিজাইন দেখতে আমাদের ওয়েবসাইট ভিজিট করুন: https://project-bx7i1.vercel.app/order 🔗');
 
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
