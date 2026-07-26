@@ -211,12 +211,12 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৫,৫০০৳
 200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের এক্সক্লুসিভ কালেকশনের ৪টি ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব প্রিমিয়াম কালেকশনের ১০টি ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
-    // Send only 4 Premium images in parallel
-    const premiumImgs = PREMIUM_IDS.slice(0, 4).map(id => `https://lh3.googleusercontent.com/d/${id}`);
-    await Promise.all(premiumImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    // Send all 10 Premium images in parallel
+    const imgs = getAllImages(PREMIUM_IDS);
+    await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
