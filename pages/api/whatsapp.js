@@ -8,7 +8,54 @@ const AFFORDABLE_IDS = [
   "1-_qTV4gq0oKMdfMRxlTZL3yUO98ZGAoi",
   "15yHXRk2mHI6-cKeooRqT20XeHubRRrPN",
   "1Yrcqj5g0sZDrL3QaEkfEmKnF12BEs6ir",
-  "1vXwJ68j7x5qfpZdHkMkqLn0tvpblGDpl"
+  "1vXwJ68j7x5qfpZdHkMkqLn0tvpblGDpl",
+  "1GWw91oefwyYr9sHSQXjePTSX-KwPjy7I",
+  "1_tnTz7HWDf4CVJHORPlani7pjEcLdm7X",
+  "1OMy_r94N_iUqvPW1t5fAGa4Sv3C_MIqF",
+  "1rXCxMziCgTImURvkahNp-AvneVljg-CW",
+  "1k_hzTbXOxxJg9rJ2OW-tnIkzLNYUqkOf",
+  "1bgYpcqh4pVLDy8yfwrS40X5ejtCFxmFv",
+  "1tLW7C2gwOmlZzGXh3bw0o7xjAPKrudIA",
+  "1ZEGHQfvuKNv-J5ZZadHKGfVAe4cvQnGq",
+  "1WE3kfWsd-0nrptiQ0fWi3dsd4iEcdw3t",
+  "1kLilyZRrhgrRfHn4aiTEcUBOu5fNDegs",
+  "1Cf7jQxeb5pyXvnA6HzGg_dYk3ZBrJ9z5",
+  "11UIRwmetqLkMU5qThwv5Vc7GnuASrZSa",
+  "1eXUGJyYhnNBXZ7PFwDgXgY-ql8cYADsh",
+  "1weNuPU3fBvPMkbFAGPiMm_ttEETSuQ9A",
+  "1PyKeX16mmVGaqKuZCujRskmip1LyGEgo",
+  "1luY2hOgpjUjXr_lGJbCQTumxKZFZrmJ4",
+  "1XanrmX4aOoDmjxha6lr5bYzlkZHglsTZ",
+  "1BBFuVKgKRUJV2pubIWiXgZlT3582Vcup",
+  "1wvf3jJjpV1sPuiO_Vj509y0UJABxbnuB",
+  "1TkCMzyPmSk9m2bIrRUInOm6epp2TQnV1",
+  "1H5lEN0baeoMMWL693BIXVYjrtZVipooO",
+  "14UHCDYmLowJbPfS-7Ve2Nx-tKno1MJU0",
+  "1CsDarakKEaGyVe8JqT05Mff988RztJX",
+  "1IDHV2uPD4AHjhsk75GJSETp9qQdpqPB4",
+  "1VGLRJbDyatJqfX0VEr3yGkRJMI23yRiL",
+  "1v1Fb2d2CP-v4N7Z2qVIqywIyph673I5Y",
+  "1X5yEsU9S8oYeFMEc8bjEm4XecbrR6fWA",
+  "1BkNP_edXf6c3wIP5lALPG2sjSp1C3d3z",
+  "1qKDy730IKVUH3e7U3zgUK863ekoYNGVS",
+  "1OVG52rNA1Ud-pG6gA-RtyRZkhE85tgkK",
+  "1nKQgpTV5txr5SO-6MYL4wnMskhLvkJJn",
+  "1lmdXd0R5pgyJqXhgGwYzzerX4NXPpOyZ",
+  "1cDyh8T6RQ7cOMY_js8TxQYrDO8BPy4cS",
+  "1eBePCdCDIMMvu6rZd-feOqvI8jPX44PU",
+  "1EOVX2gwvUotLFdfO5gO0Px8MaJwon9dY",
+  "1yA0KGGFMfYUQ8-9hpotpxNhagSSdp7xD",
+  "1inPC5SKDpW5epcxa-fFgXp9C9jowISPO",
+  "1WDJrtj_A5gk6KfolOju3TzfyVUm5Gt40",
+  "1gDDPhlDVI5Fu-nBdUPsM964FiuHz0YoU",
+  "18hlxoUBDiBuV_nxiqfPffkmW5mGmxdZA",
+  "1g7WVBZC6EqVPjZGqwnyYpDU-ehayWqCf",
+  "1jdh-o3_3_4xJGQbumQ258HN0fuc9qkZo",
+  "19-H4R6pAVCbU-P9BvLInXkcY2OZ1bUzo",
+  "1aqEN_fGQfJOYP4T1EdZuRbc-UpXJPTNj",
+  "1TtkzWXQisd7UShIg46wdW6vmWYbpUjkk",
+  "1vj8zzSFy1H_c7fAGi_REfMR-R8IPwTfK",
+  "1Q_DJOcMXmZrR7P9szIw9LWQ5-dyRLO2y"
 ];
 
 const PREMIUM_IDS = [
@@ -21,7 +68,27 @@ const PREMIUM_IDS = [
   "1ahoubjUVdc9SJyi5n2rzZIsbugjCjHiz",
   "1qlwwRe2Mr_gb8CZjkeG0-YxBSGmOHzZu",
   "1oOdGtYFTz-xNmSLUO-VFS1YODqYZ74HJ",
-  "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy"
+  "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy",
+  "11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme",
+  "1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB",
+  "1f327zMbxf9s_Z2WSYhA4cAIF_NBiveKW",
+  "1T_pxOh0mn36N882wUMyYSsXKoZE4w1XA",
+  "1OQqgPUW0j1C5Ggvh50oTnnw5VsgEQv5I",
+  "15FGsZ0xdZd7DYZb4awafD8ysH_8g-A9O",
+  "1KUI4gzdhT-1I_LpzCMCQL8Sgfy4dU_Im",
+  "1amD4c_CLTODq8nca3N_H40vPiY53VTm",
+  "1j2a0DIwsKoXWomTJ9RuJm1RncFH3mbqg",
+  "1Cl0fyeCN4T4mUxt-mhEQe6z6ZzBXsQsK",
+  "1Tpq2cCmWEooN2SYUIEgq-elk6tRK_5tV",
+  "1wlnH6L9DQcYtHHRDtPmrLGz-u6bslOgl",
+  "1ZrP-OujlWQGLEln1u8YTa4e3kjQY0yzI",
+  "1U6HoCb65TnMZsfKmGQ9wujvvppKzD7HY",
+  "1pbevqRrVV2_aYSNSMF8q7jMqnDMGpAUn",
+  "1KTSwcHJmwu1XximtqvbgSnP4Zrskg8T_",
+  "1ZG7hoRZgcj5F_UMCidzJSI2yAYoiUAf6",
+  "1uMyZI2cVy_uABGNPNoe-pXul2pPPhC_U",
+  "1gITGc6TLsrSjYkdMhURcUUNQH1y1GFpc",
+  "1FTFe6klyuHyUBsOfLeN_QsZABlhF_I1U"
 ];
 
 const ORDER_POLICY_TEXT = `🛍️ অর্ডার করার নিয়মাবলী:
@@ -92,9 +159,10 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
 
-// Helper to get all image URLs
-function getAllImages(ids) {
-  return ids.map(id => `https://lh3.googleusercontent.com/d/${id}`);
+// Helper to get random subset of image URLs up to a limit (default 12 for grid/album)
+function getRandomImages(ids, count = 12) {
+  const shuffled = [...ids].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, Math.min(count, ids.length)).map(id => `https://lh3.googleusercontent.com/d/${id}`);
 }
 
 export default async function handler(req, res) {
@@ -144,10 +212,10 @@ export default async function handler(req, res) {
               const isPhotoReq = ['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w));
               
               if (isPhotoReq) {
-                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সব ডিজাইনের ছবি নিচে দেওয়া হলো: 🥰');
-                // Send all 10 Affordable images in parallel (this creates a WhatsApp album with +6 overlay!)
-                const imgs = getAllImages(AFFORDABLE_IDS);
-                await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
+                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সেরা ১২টি চমৎকার ডিজাইনের ছবি নিচে অ্যালবাম আকারে দেওয়া হলো: 🥰');
+                // Send 12 random images in parallel for rich display
+                const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
+                await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl)));
                 
                 // Send menu buttons
                 await sendWhatsAppButtons(phoneId, from, 'আরো ক্যাটাগরির কার্ড ও দাম দেখতে নিচের বাটনে ক্লিক করুন:', DEFAULT_BUTTONS);
@@ -191,12 +259,12 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব ডিজাইনের ১০টি ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের অন্যতম সেরা ১২টি ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
     
-    // Send all 10 Affordable images in parallel
-    const imgs = getAllImages(AFFORDABLE_IDS);
-    await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    // Send 12 Affordable images in parallel (instantly creates a beautiful grouped album on WhatsApp!)
+    const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
+    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
     
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
@@ -211,12 +279,12 @@ async function handleButtonClick(phoneId, to, buttonId) {
 100 পিস ➔ ৫,৫০০৳
 200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সব প্রিমিয়াম কালেকশনের ১০টি ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি এক্সক্লুসিভ কালেকশনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, text);
 
-    // Send all 10 Premium images in parallel
-    const imgs = getAllImages(PREMIUM_IDS);
-    await Promise.all(imgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
+    // Send 12 Premium images in parallel
+    const randomImgs = getRandomImages(PREMIUM_IDS, 12);
+    await Promise.all(randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl)));
 
     // Next actions buttons
     await sendWhatsAppButtons(phoneId, to, 'পরবর্তী করণীয় নির্বাচন করুন:', [
