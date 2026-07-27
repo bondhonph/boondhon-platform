@@ -78,7 +78,7 @@ const PREMIUM_IDS = [
   "1KUI4gzdhT-1I_LpzCMCQL8Sgfy4dU_Im",
   "1amD4c_CLTODq8nca3N_H40vPiY53VTm",
   "1j2a0DIwsKoXWomTJ9RuJm1RncFH3mbqg",
-  "Cl0fyeCN4T4mUxt-mhEQe6z6ZzBXsQsK",
+  "1Cl0fyeCN4T4mUxt-mhEQe6z6ZzBXsQsK",
   "1Tpq2cCmWEooN2SYUIEgq-elk6tRK_5tV",
   "1wlnH6L9DQcYtHHRDtPmrLGz-u6bslOgl",
   "1ZrP-OujlWQGLEln1u8YTa4e3kjQY0yzI",
@@ -162,12 +162,6 @@ const DEFAULT_BUTTONS = [
 // Helper to delay execution
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// Helper to get random subset of image URLs up to a limit (default 12 for grid/album)
-function getRandomImages(ids, count = 12) {
-  const shuffled = [...ids].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, Math.min(count, ids.length)).map(id => `https://lh3.googleusercontent.com/d/${id}`);
-}
-
 export default async function handler(req, res) {
   // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
   if (req.method === 'GET') {
@@ -215,22 +209,8 @@ export default async function handler(req, res) {
               const isPhotoReq = ['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w));
               
               if (isPhotoReq) {
-                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সেরা ১২টি চমৎকার ডিজাইনের ছবি নিচে অ্যালবাম আকারে দেওয়া হলো: 🥰');
-                
-                // Start sending 12 images concurrently
-                const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
-                const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl));
-                
-                // Overlap the 3s delay with image uploads to prevent Vercel execution timeout (max 10s)
-                await delay(3000);
-                await Promise.all(imagePromises);
-
-                // Prompt to see more images inside chat
-                await sendWhatsAppButtons(phoneId, from, 'আমাদের কালেকশনের আরও চমৎকার ডিজাইন দেখতে নিচের যেকোনো বাটনে ক্লিক করুন:', [
-                  { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
-                  { id: 'btn_premium', title: '✨ Premium Card' },
-                  { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
-                ]);
+                // Send first batch of Affordable Cards starting at offset 0
+                await sendBatchImages(phoneId, from, 'affordable', 0);
               } 
               // Check if user is asking for order details/forms
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
@@ -263,89 +243,83 @@ export default async function handler(req, res) {
   return res.status(405).send('Method Not Allowed');
 }
 
-// Handler for Quick Reply button clicks
-async function handleButtonClick(phoneId, to, buttonId) {
-  if (buttonId === 'btn_affordable') {
-    const text = `💚 Affordable Card (দাম ও বাজেট):
+// Helper to send a specific batch of images and generate sequential "Show More" buttons stateless
+async function sendBatchImages(phoneId, to, type, offset) {
+  const ids = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
+  const start = offset;
+  const end = offset + 12;
+  const batch = ids.slice(start, end);
+
+  if (batch.length === 0) {
+    // Wrap around if offset exceeds total images
+    return sendBatchImages(phoneId, to, type, 0);
+  }
+
+  const label = type === 'premium' ? 'Premium' : 'Affordable';
+
+  if (offset === 0) {
+    const introText = type === 'premium' 
+      ? `✨ Premium Card (এলিগ্যান্ট ও লাক্সারি):
+50 পিস ➔ ৩,২৫০৳
+100 পিস ➔ ৫,৫০০৳
+200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
+
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের অন্যতম সেরা ১২টি প্রিমিয়াম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`
+      : `💚 Affordable Card (দাম ও বাজেট):
 50 পিস ➔ ২,৭৫০৳
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
-    await sendWhatsAppMessage(phoneId, to, text);
     
-    // Start sending 12 images concurrently
-    const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
-    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
+    await sendWhatsAppMessage(phoneId, to, introText);
+  } else {
+    await sendWhatsAppMessage(phoneId, to, `আমাদের ${label} কালেকশন থেকে আরও ১২টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`);
+  }
 
-    // Overlap the 3s delay with uploads to prevent timeouts
-    await delay(3000);
-    await Promise.all(imagePromises);
+  // Start sending batch concurrently
+  const imagePromises = batch.map(id => sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${id}`));
 
-    // Next action buttons with "Show More" option
-    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
-      { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
-      { id: 'btn_premium', title: '✨ Premium Card' },
-      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
-    ]);
+  // 3s delay concurrently to give image uploads priority
+  await delay(3000);
+  await Promise.all(imagePromises);
+
+  // Check if we hit the end of the catalog
+  const isWrapped = end >= ids.length;
+  const nextOffset = isWrapped ? 0 : end;
+
+  const nextButtonId = `btn_more_${type}_${nextOffset}`;
+  const otherType = type === 'premium' ? 'affordable' : 'premium';
+  const otherLabel = type === 'premium' ? '💚 Affordable Card' : '✨ Premium Card';
+  const otherButtonId = `btn_${otherType}`;
+
+  let buttonText = 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:';
+  if (isWrapped) {
+    buttonText = `আমাদের সব ${label} ডিজাইনের ছবি দেখানো শেষ হয়েছে! আবার প্রথম থেকে দেখতে বা অর্ডার করতে চাপুন:`;
+  }
+
+  await sendWhatsAppButtons(phoneId, to, buttonText, [
+    { id: nextButtonId, title: '📸 আরও ছবি দেখুন' },
+    { id: otherButtonId, title: otherLabel },
+    { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
+  ]);
+}
+
+// Handler for Quick Reply button clicks
+async function handleButtonClick(phoneId, to, buttonId) {
+  if (buttonId === 'btn_affordable') {
+    await sendBatchImages(phoneId, to, 'affordable', 0);
   } 
-  else if (buttonId === 'btn_more_affordable') {
-    await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি চমৎকার Affordable ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
-    
-    // Start sending 12 images concurrently
-    const randomImgs = getRandomImages(AFFORDABLE_IDS, 12);
-    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
-
-    // Overlap delay
-    await delay(3000);
-    await Promise.all(imagePromises);
-
-    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
-      { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
-      { id: 'btn_premium', title: '✨ Premium Card' },
-      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
-    ]);
+  else if (buttonId.startsWith('btn_more_affordable_')) {
+    const offset = parseInt(buttonId.replace('btn_more_affordable_', '')) || 0;
+    await sendBatchImages(phoneId, to, 'affordable', offset);
   }
   else if (buttonId === 'btn_premium') {
-    const text = `✨ Premium Card (এলিগ্যান্ট ও লাক্সারি):
-50 পিস ➔ ৩,২৫০৳
-100 পিস ➔ ৫,৫০০৳
-200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
-
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি প্রিমিয়াম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
-    await sendWhatsAppMessage(phoneId, to, text);
-
-    // Start sending 12 images concurrently
-    const randomImgs = getRandomImages(PREMIUM_IDS, 12);
-    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
-
-    // Overlap delay
-    await delay(3000);
-    await Promise.all(imagePromises);
-
-    // Next action buttons with "Show More" option
-    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
-      { id: 'btn_more_premium', title: '📸 আরও ছবি দেখুন' },
-      { id: 'btn_affordable', title: '💚 Affordable Card' },
-      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
-    ]);
+    await sendBatchImages(phoneId, to, 'premium', 0);
   } 
-  else if (buttonId === 'btn_more_premium') {
-    await sendWhatsAppMessage(phoneId, to, 'আমাদের গ্যালারি থেকে আরও ১২টি এক্সক্লুসিভ Premium ডিজাইনের ছবি নিচে পাঠানো হলো: 👇');
-    
-    // Start sending 12 images concurrently
-    const randomImgs = getRandomImages(PREMIUM_IDS, 12);
-    const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, to, imgUrl));
-
-    // Overlap delay
-    await delay(3000);
-    await Promise.all(imagePromises);
-
-    await sendWhatsAppButtons(phoneId, to, 'আরও নতুন ডিজাইনের ছবি দেখতে বা অর্ডার করতে বাটনে চাপুন:', [
-      { id: 'btn_more_premium', title: '📸 আরও ছবি দেখুন' },
-      { id: 'btn_affordable', title: '💚 Affordable Card' },
-      { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
-    ]);
+  else if (buttonId.startsWith('btn_more_premium_')) {
+    const offset = parseInt(buttonId.replace('btn_more_premium_', '')) || 0;
+    await sendBatchImages(phoneId, to, 'premium', offset);
   }
   else if (buttonId === 'btn_policy') {
     await sendWhatsAppMessage(phoneId, to, DELIVERY_POLICY_TEXT);
