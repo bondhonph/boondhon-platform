@@ -162,6 +162,12 @@ const DEFAULT_BUTTONS = [
 // Helper to delay execution
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
+// Helper to get random subset of image URLs up to a limit (default 12 for grid/album)
+function getRandomImages(ids, count = 12) {
+  const shuffled = [...ids].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, Math.min(count, ids.length)).map(id => `https://lh3.googleusercontent.com/d/${id}`);
+}
+
 export default async function handler(req, res) {
   // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
   if (req.method === 'GET') {
@@ -274,7 +280,7 @@ async function sendBatchImages(phoneId, to, type, offset) {
     
     await sendWhatsAppMessage(phoneId, to, introText);
   } else {
-    await sendWhatsAppMessage(phoneId, to, `আমাদের ${label} কালেকশন থেকে আরও ১২টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`);
+    await sendWhatsAppMessage(phoneId, to, `আমাদের ${label} কালেকশন থেকে আরও ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`);
   }
 
   // Start sending batch concurrently
@@ -282,7 +288,9 @@ async function sendBatchImages(phoneId, to, type, offset) {
 
   // 3s delay concurrently to give image uploads priority
   await delay(3000);
-  await Promise.all(imagePromises);
+  
+  // Use Promise.allSettled to ensure individual image upload errors NEVER block the final action buttons!
+  await Promise.allSettled(imagePromises);
 
   // Check if we hit the end of the catalog
   const isWrapped = end >= ids.length;
@@ -388,7 +396,7 @@ async function sendWhatsAppMessage(phoneId, to, text) {
 
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${whatsappToken}`,
@@ -402,6 +410,10 @@ async function sendWhatsAppMessage(phoneId, to, text) {
         text: { body: text }
       })
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Failed to send WhatsApp text message: ${errText}`);
+    }
   } catch (err) {
     console.error('Error in sendWhatsAppMessage:', err.message);
   }
@@ -414,7 +426,7 @@ async function sendWhatsAppButtons(phoneId, to, text, buttons) {
 
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${whatsappToken}`,
@@ -437,6 +449,10 @@ async function sendWhatsAppButtons(phoneId, to, text, buttons) {
         }
       })
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Failed to send WhatsApp buttons: ${errText}`);
+    }
   } catch (err) {
     console.error('Error in sendWhatsAppButtons:', err.message);
   }
@@ -449,7 +465,7 @@ async function sendWhatsAppImage(phoneId, to, imageUrl) {
 
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${whatsappToken}`,
@@ -463,6 +479,10 @@ async function sendWhatsAppImage(phoneId, to, imageUrl) {
         image: { link: imageUrl }
       })
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Failed to send WhatsApp image [${imageUrl}]: ${errText}`);
+    }
   } catch (err) {
     console.error('Error in sendWhatsAppImage:', err.message);
   }
