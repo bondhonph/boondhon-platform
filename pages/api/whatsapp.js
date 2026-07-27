@@ -162,8 +162,8 @@ const DEFAULT_BUTTONS = [
 // Helper to delay execution
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-// Helper to get random subset of image URLs up to a limit (default 12 for grid/album)
-function getRandomImages(ids, count = 12) {
+// Helper to get random subset of image URLs up to a limit (default 8 for safe rate limits)
+function getRandomImages(ids, count = 8) {
   const shuffled = [...ids].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, Math.min(count, ids.length)).map(id => `https://lh3.googleusercontent.com/d/${id}`);
 }
@@ -215,8 +215,22 @@ export default async function handler(req, res) {
               const isPhotoReq = ['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w));
               
               if (isPhotoReq) {
-                // Send first batch of Affordable Cards starting at offset 0
-                await sendBatchImages(phoneId, from, 'affordable', 0);
+                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সেরা ৮টি চমৎকার ডিজাইনের ছবি নিচে অ্যালবাম আকারে দেওয়া হলো: 🥰');
+                
+                // Send 8 random images in parallel for rate-limit protection
+                const randomImgs = getRandomImages(AFFORDABLE_IDS, 8);
+                const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl));
+                
+                // Overlap the 3s delay with image uploads to prevent Vercel execution timeout (max 10s)
+                await delay(3000);
+                await Promise.allSettled(imagePromises);
+
+                // Prompt to see more images inside chat
+                await sendWhatsAppButtons(phoneId, from, 'আমাদের কালেকশনের আরও চমৎকার ডিজাইন দেখতে নিচের যেকোনো বাটনে ক্লিক করুন:', [
+                  { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
+                  { id: 'btn_premium', title: '✨ Premium Card' },
+                  { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
+                ]);
               } 
               // Check if user is asking for order details/forms
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
@@ -253,7 +267,7 @@ export default async function handler(req, res) {
 async function sendBatchImages(phoneId, to, type, offset) {
   const ids = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const start = offset;
-  const end = offset + 12;
+  const end = offset + 8; // Send 8 images to avoid Meta's 40 messages/minute pair rate limits
   const batch = ids.slice(start, end);
 
   if (batch.length === 0) {
@@ -270,17 +284,17 @@ async function sendBatchImages(phoneId, to, type, offset) {
 100 পিস ➔ ৫,৫০০৳
 200 পিস ➔ ৯,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের অন্যতম সেরা ১২টি প্রিমিয়াম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ৮টি প্রিমিয়াম ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`
       : `💚 Affordable Card (দাম ও বাজেট):
 50 পিস ➔ ২,৭৫০৳
 100 পিস ➔ ৪,৫০০৳
 200 পিস ➔ ৭,০০০৳ (+ ১টি প্রিমিয়াম নিকাহনামা একদম ফ্রি! 🎁)
 
-অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ১২টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ৮টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     
     await sendWhatsAppMessage(phoneId, to, introText);
   } else {
-    await sendWhatsAppMessage(phoneId, to, `আমাদের ${label} কালেকশন থেকে আরও ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`);
+    await sendWhatsAppMessage(phoneId, to, `আমাদের ${label} কালেকশন থেকে আরও ৮টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`);
   }
 
   // Start sending batch concurrently
