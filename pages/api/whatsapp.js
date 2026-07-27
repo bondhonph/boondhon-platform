@@ -117,7 +117,7 @@ const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বা�
 মাতাঃ
 ঠিকানাঃ
 
-কণে-
+Kণে-
 নামঃ
 পিতাঃ
 মাতাঃ
@@ -211,26 +211,16 @@ export default async function handler(req, res) {
               const userMessage = message.text?.body || '';
               const lowerText = userMessage.toLowerCase().trim();
 
-              // Check if user is asking for photos/images/designs
-              const isPhotoReq = ['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w));
-              
-              if (isPhotoReq) {
-                await sendWhatsAppMessage(phoneId, from, 'আসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউজের আমাদের সেরা ৮টি চমৎকার ডিজাইনের ছবি নিচে অ্যালবাম আকারে দেওয়া হলো: 🥰');
-                
-                // Send 8 random images in parallel for rate-limit protection
-                const randomImgs = getRandomImages(AFFORDABLE_IDS, 8);
-                const imagePromises = randomImgs.map(imgUrl => sendWhatsAppImage(phoneId, from, imgUrl));
-                
-                // Overlap the 3s delay with image uploads to prevent Vercel execution timeout (max 10s)
-                await delay(3000);
-                await Promise.allSettled(imagePromises);
-
-                // Prompt to see more images inside chat
-                await sendWhatsAppButtons(phoneId, from, 'আমাদের কালেকশনের আরও চমৎকার ডিজাইন দেখতে নিচের যেকোনো বাটনে ক্লিক করুন:', [
-                  { id: 'btn_more_affordable', title: '📸 আরও ছবি দেখুন' },
-                  { id: 'btn_premium', title: '✨ Premium Card' },
-                  { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
-                ]);
+              // Meta Ad Direct Trigger (Instantly sends first batch of card images without AI delays)
+              if (lowerText.includes('affordable কালেকশন') || lowerText.includes('affordable collection') || lowerText.includes('affordable নিয়ে')) {
+                await sendBatchImages(phoneId, from, 'affordable', 0);
+              } 
+              else if (lowerText.includes('premium কালেকশন') || lowerText.includes('premium collection') || lowerText.includes('premium নিয়ে')) {
+                await sendBatchImages(phoneId, from, 'premium', 0);
+              }
+              // Check if user is asking for photos/images/designs generally
+              else if (['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w))) {
+                await sendBatchImages(phoneId, from, 'affordable', 0);
               } 
               // Check if user is asking for order details/forms
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
