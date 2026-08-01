@@ -227,11 +227,9 @@ export default async function handler(req, res) {
               messageId: message.id
             });
 
-            // ── FORWARD NOTIFICATION TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
-            if (from !== OWNER_PHONE) {
-              const alertMessage = `🔔 নতুন মেসেজ এসেছে!\n📱 কাস্টমার: +${from}\n💬 মেসেজ: ${incomingText}\n👉 উত্তর দিতে লিঙ্কে যান: https://boondhon-platform-qr9a.vercel.app/chat`;
-              sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
-            }
+            // ── ALWAYS FORWARD NOTIFICATION TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
+            const alertMessage = `🔔 নতুন মেসেজ এসেছে!\n📱 কাস্টমার: +${from}\n💬 মেসেজ: ${incomingText}\n👉 লাইভ চ্যাট: https://boondhon-platform-qr9a.vercel.app/chat`;
+            sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
 
             // ── HUMAN TAKEOVER CHECK ──
             // If human agent has taken over this conversation, skip auto-reply!

@@ -167,7 +167,21 @@ export default function ChatDashboard() {
     return Math.max(0, Math.ceil(diff / (1000 * 60)));
   };
 
-  const filteredConvs = conversations.filter(c => 
+  // Ensure active conversation is ALWAYS included in left list
+  const combinedConversations = [...conversations];
+  if (activeConv && activeConv.phone && !combinedConversations.some(c => c.phone === activeConv.phone)) {
+    combinedConversations.unshift({
+      phone: activeConv.phone,
+      name: activeConv.name || `+${activeConv.phone}`,
+      lastMessage: activeConv.lastMessage || 'মেসেজ সচল আছে',
+      lastTimestamp: activeConv.lastTimestamp || Date.now(),
+      human_active: activeConv.human_active,
+      paused_until: activeConv.paused_until,
+      unreadCount: activeConv.unreadCount || 0
+    });
+  }
+
+  const filteredConvs = combinedConversations.filter(c => 
     c.phone.includes(searchTerm) || (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -216,7 +230,7 @@ export default function ChatDashboard() {
                 <div className="flex-1 overflow-y-auto divide-y divide-white/5">
                   {filteredConvs.length === 0 ? (
                     <div className="p-8 text-center text-gray-500 text-sm">
-                      কোনো চ্যাট হিস্ট্রি পাওয়া যায়নি।<br/>হোয়াটসঅ্যাপে মেসেজ আসরে এখানে ভেসে উঠবে।
+                      কোনো চ্যাট হিস্ট্রি পাওয়া যায়নি।<br/>হোয়াটসঅ্যাপে মেসেজ আসলে এখানে ভেসে উঠবে।
                     </div>
                   ) : (
                     filteredConvs.map((conv) => {
