@@ -1,6 +1,8 @@
 import { conversationStore } from '../../lib/store';
 import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppImage, delay } from '../../lib/whatsapp-api';
 
+const OWNER_PHONE = '8801701016826';
+
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD",
   "1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-",
@@ -197,6 +199,7 @@ export default async function handler(req, res) {
           if (phoneId && from) {
             let incomingText = '';
             let buttonId = null;
+            let mediaImageUrl = null;
 
             if (message.type === 'interactive') {
               buttonId = message.interactive?.button_reply?.id;
@@ -204,7 +207,12 @@ export default async function handler(req, res) {
             } else if (message.type === 'text') {
               incomingText = message.text?.body || '';
             } else if (message.type === 'image') {
-              incomingText = '[Customer sent an image]';
+              const mediaId = message.image?.id;
+              const caption = message.image?.caption || '';
+              if (mediaId) {
+                mediaImageUrl = `/api/media?mediaId=${mediaId}`;
+              }
+              incomingText = caption ? `📷 Photo: ${caption}` : '📷 [Customer sent a photo]';
             } else {
               incomingText = `[Customer sent ${message.type}]`;
             }
@@ -213,10 +221,17 @@ export default async function handler(req, res) {
             conversationStore.addMessage(from, {
               sender: 'customer',
               text: incomingText,
+              image: mediaImageUrl,
               timestamp: message.timestamp ? parseInt(message.timestamp) * 1000 : Date.now(),
               phoneId: phoneId,
               messageId: message.id
             });
+
+            // ── FORWARD NOTIFICATION TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
+            if (from !== OWNER_PHONE) {
+              const alertMessage = `🔔 নতুন মেসেজ এসেছে!\n📱 কাস্টমার: +${from}\n💬 মেসেজ: ${incomingText}\n👉 উত্তর দিতে লিঙ্কে যান: https://boondhon-platform-qr9a.vercel.app/chat`;
+              sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
+            }
 
             // ── HUMAN TAKEOVER CHECK ──
             // If human agent has taken over this conversation, skip auto-reply!
@@ -406,7 +421,7 @@ Advance payment rule: 30% advance on bKash/Nagad/Rocket (01682588856).
 PRICE GUIDE:
 50 pcs → Affordable: ২,৭৫০৳ | Premium: ৩,২৫০৳
 100 pcs → Affordable: ৪,৫০০৳ | Premium: ৫,৫০০৳
-200 pcs → Affordable: ৭,০০০৳ | Premium: ৯,০০০৳ | FREE নিকাহনামা 🎁
+200 pcs → Affordable: ৭,০০০৳ | FREE নিকাহনামা 🎁
 
 👉 Website Products Link: https://project-bx7i1.vercel.app/products`;
 
