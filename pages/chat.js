@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Navbar from '../components/Navbar';
-import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap } from 'lucide-react';
+import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, AlertTriangle } from 'lucide-react';
 
 export default function ChatDashboard() {
   const [conversations, setConversations] = useState([]);
@@ -12,6 +12,7 @@ export default function ChatDashboard() {
   const [imageUrl, setImageUrl] = useState('');
   const [showImageInput, setShowImageInput] = useState(false);
   const [sending, setSending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -75,6 +76,8 @@ export default function ChatDashboard() {
     if ((!messageText.trim() && !imageUrl.trim()) || !selectedPhone || sending) return;
 
     setSending(true);
+    setErrorMessage('');
+
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
@@ -87,16 +90,20 @@ export default function ChatDashboard() {
         })
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        const data = await res.json();
         setActiveConv(data.conversation);
         setMessageText('');
         setImageUrl('');
         setShowImageInput(false);
         fetchConversations();
+      } else {
+        setErrorMessage(data.error || 'Failed to send message via WhatsApp API');
       }
     } catch (err) {
       console.error('Error sending message:', err);
+      setErrorMessage(err.message);
     } finally {
       setSending(false);
     }
@@ -105,6 +112,7 @@ export default function ChatDashboard() {
   // Handle Toggle Human Takeover / Resume Bot
   const handleToggleBot = async (newActiveState) => {
     if (!selectedPhone) return;
+    setErrorMessage('');
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
@@ -131,6 +139,8 @@ export default function ChatDashboard() {
   const handleSendQuickReply = async (qrId) => {
     if (!selectedPhone || sending) return;
     setSending(true);
+    setErrorMessage('');
+
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
@@ -143,13 +153,17 @@ export default function ChatDashboard() {
         })
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        const data = await res.json();
         setActiveConv(data.conversation);
         fetchConversations();
+      } else {
+        setErrorMessage(data.error || 'Failed to send quick reply via WhatsApp API');
       }
     } catch (err) {
       console.error('Error sending quick reply:', err);
+      setErrorMessage(err.message);
     } finally {
       setSending(false);
     }
@@ -213,6 +227,20 @@ export default function ChatDashboard() {
           </div>
 
           <div className="max-w-7xl mx-auto px-4 py-6">
+            
+            {/* ERROR BANNER IF META TOKEN OR API FAILS */}
+            {errorMessage && (
+              <div className="mb-4 p-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={18} className="text-rose-400" />
+                  <span><strong>মেসেজ পাঠানো যায়নি:</strong> {errorMessage}</span>
+                </div>
+                <button onClick={() => setErrorMessage('')} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[720px]">
               
               {/* LEFT SIDEBAR: Conversations List */}

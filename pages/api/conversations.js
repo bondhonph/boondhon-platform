@@ -3,7 +3,6 @@ import { QUICK_REPLIES } from '../../lib/quick-replies';
 import { sendWhatsAppMessage, sendWhatsAppImage, delay } from '../../lib/whatsapp-api';
 
 export default async function handler(req, res) {
-  // ── GET: Fetch Conversations or Single History ──
   if (req.method === 'GET') {
     try {
       const { phone } = req.query;
@@ -29,7 +28,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── POST: Actions (send_message, toggle_bot, send_quick_reply) ──
   if (req.method === 'POST') {
     try {
       const { action, phone, text, imageUrl, quickReplyId, active, pauseDuration } = req.body;
@@ -43,37 +41,40 @@ export default async function handler(req, res) {
 
       // 1. Manual Reply (Text / Image) from Dashboard
       if (action === 'send_message') {
-        let sentText = false;
-        let sentImage = false;
+        let lastError = null;
 
         // Send Text if provided
         if (text && text.trim()) {
-          sentText = await sendWhatsAppMessage(phoneId, phone, text.trim());
-          if (sentText) {
+          const resText = await sendWhatsAppMessage(phoneId, phone, text.trim());
+          if (resText.success) {
             conversationStore.addMessage(phone, {
               sender: 'agent',
               text: text.trim(),
               timestamp: Date.now()
             });
+          } else {
+            lastError = resText.error;
           }
         }
 
         // Send Image if provided
         if (imageUrl && imageUrl.trim()) {
-          if (sentText) await delay(1000); // small gap
-          sentImage = await sendWhatsAppImage(phoneId, phone, imageUrl.trim());
-          if (sentImage) {
+          if (!lastError) await delay(1000);
+          const resImg = await sendWhatsAppImage(phoneId, phone, imageUrl.trim());
+          if (resImg.success) {
             conversationStore.addMessage(phone, {
               sender: 'agent',
               image: imageUrl.trim(),
               text: '',
               timestamp: Date.now()
             });
+          } else {
+            lastError = resImg.error;
           }
         }
 
-        if (!sentText && !sentImage) {
-          return res.status(400).json({ error: 'Failed to send message via WhatsApp API' });
+        if (lastError) {
+          return res.status(400).json({ error: `Meta WhatsApp API error: ${lastError}` });
         }
 
         // Automatically activate Human Takeover for 30 minutes on manual reply!
@@ -99,31 +100,42 @@ export default async function handler(req, res) {
           return res.status(404).json({ error: 'Quick reply not found' });
         }
 
-        // Send text first
-        if (qr.text) {
-          await sendWhatsAppMessage(phoneId, phone, qr.text);
-          conversationStore.addMessage(phone, {
-            sender: 'agent',
-            text: qr.text,
-            timestamp: Date.now()
-          });
-        }
+        let lastError = null;
 
-        // Send image set if available
-        if (qr.images && Array.isArray(qr.images)) {
-          for (const imgUrl of qr.images) {
-            await delay(1200);
-            await sendWhatsAppImage(phoneId, phone, imgUrl);
+        if (qr.text) {
+          const resText = await sendWhatsAppMessage(phoneId, phone, qr.text);
+          if (resText.success) {
             conversationStore.addMessage(phone, {
               sender: 'agent',
-              image: imgUrl,
-              text: '',
+              text: qr.text,
               timestamp: Date.now()
             });
+          } else {
+            lastError = resText.error;
           }
         }
 
-        // Automatically activate Human Takeover for 30 minutes on quick reply!
+        if (qr.images && Array.isArray(qr.images)) {
+          for (const imgUrl of qr.images) {
+            await delay(1200);
+            const resImg = await sendWhatsAppImage(phoneId, phone, imgUrl);
+            if (resImg.success) {
+              conversationStore.addMessage(phone, {
+                sender: 'agent',
+                image: imgUrl,
+                text: '',
+                timestamp: Date.now()
+              });
+            } else {
+              lastError = resImg.error;
+            }
+          }
+        }
+
+        if (lastError) {
+          return res.status(400).json({ error: `Meta WhatsApp API error: ${lastError}` });
+        }
+
         conversationStore.setHumanTakeover(phone, true, pauseDuration || 30);
 
         const updatedConv = conversationStore.getConversation(phone);
