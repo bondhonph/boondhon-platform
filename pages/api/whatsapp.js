@@ -1,3 +1,6 @@
+import { conversationStore } from '../../lib/store';
+import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppImage, delay } from '../../lib/whatsapp-api';
+
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD",
   "1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-",
@@ -159,15 +162,6 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
 
-// Helper to delay execution
-const delay = ms => new Promise(res => setTimeout(res, ms));
-
-// Helper to get random subset of image URLs up to a limit (default 8 for safe rate limits)
-function getRandomImages(ids, count = 8) {
-  const shuffled = [...ids].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, Math.min(count, ids.length)).map(id => `https://lh3.googleusercontent.com/d/${id}`);
-}
-
 export default async function handler(req, res) {
   // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
   if (req.method === 'GET') {
@@ -201,41 +195,75 @@ export default async function handler(req, res) {
           const phoneId = value?.metadata?.phone_number_id; // WhatsApp Phone ID
 
           if (phoneId && from) {
-            // A. Handle Interactive Button Clicks
+            let incomingText = '';
+            let buttonId = null;
+
             if (message.type === 'interactive') {
-              const buttonId = message.interactive?.button_reply?.id;
+              buttonId = message.interactive?.button_reply?.id;
+              incomingText = message.interactive?.button_reply?.title || `[Button: ${buttonId}]`;
+            } else if (message.type === 'text') {
+              incomingText = message.text?.body || '';
+            } else if (message.type === 'image') {
+              incomingText = '[Customer sent an image]';
+            } else {
+              incomingText = `[Customer sent ${message.type}]`;
+            }
+
+            // Always store customer message in conversation store
+            conversationStore.addMessage(from, {
+              sender: 'customer',
+              text: incomingText,
+              timestamp: message.timestamp ? parseInt(message.timestamp) * 1000 : Date.now(),
+              phoneId: phoneId,
+              messageId: message.id
+            });
+
+            // ── HUMAN TAKEOVER CHECK ──
+            // If human agent has taken over this conversation, skip auto-reply!
+            if (conversationStore.isHumanActive(from)) {
+              console.log(`Human takeover active for ${from}, skipping bot auto-reply.`);
+              return res.status(200).send('EVENT_RECEIVED');
+            }
+
+            // ── BOT AUTO-REPLY LOGIC ──
+            if (message.type === 'interactive') {
               await handleButtonClick(phoneId, from, buttonId);
             } 
-            // B. Handle Text Messages
             else if (message.type === 'text') {
-              const userMessage = message.text?.body || '';
-              const lowerText = userMessage.toLowerCase().trim();
+              const lowerText = incomingText.toLowerCase().trim();
 
-              // Meta Ad Direct Trigger (Instantly sends first batch of card images without AI delays)
+              // Meta Ad Direct Trigger
               if (lowerText.includes('affordable কালেকশন') || lowerText.includes('affordable collection') || lowerText.includes('affordable নিয়ে')) {
                 await sendBatchImages(phoneId, from, 'affordable', 0);
               } 
               else if (lowerText.includes('premium কালেকশন') || lowerText.includes('premium collection') || lowerText.includes('premium নিয়ে')) {
                 await sendBatchImages(phoneId, from, 'premium', 0);
               }
-              // Check if user is asking for photos/images/designs generally
+              // Photo request check
               else if (['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w))) {
                 await sendBatchImages(phoneId, from, 'affordable', 0);
               } 
-              // Check if user is asking for order details/forms
+              // Order form / details check
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
                 await sendWhatsAppMessage(phoneId, from, ORDER_POLICY_TEXT);
+                conversationStore.addMessage(from, { sender: 'bot', text: ORDER_POLICY_TEXT });
+                
                 await sendWhatsAppMessage(phoneId, from, BANGLA_FORM_TEXT);
-                await sendWhatsAppButtons(phoneId, from, 'অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। তথ্য জানতে নিচের বাটনে ক্লিক করুন:', [
+                conversationStore.addMessage(from, { sender: 'bot', text: BANGLA_FORM_TEXT });
+
+                const btnPrompt = 'অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। তথ্য জানতে নিচের বাটনে ক্লিক করুন:';
+                await sendWhatsAppButtons(phoneId, from, btnPrompt, [
                   { id: 'btn_affordable', title: '💚 Affordable Card' },
                   { id: 'btn_premium', title: '✨ Premium Card' },
                   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
                 ]);
+                conversationStore.addMessage(from, { sender: 'bot', text: btnPrompt });
               }
               // Normal query -> Route to Gemini AI
               else {
-                const aiReply = await getAIResponse(userMessage);
+                const aiReply = await getAIResponse(incomingText);
                 await sendWhatsAppButtons(phoneId, from, aiReply, DEFAULT_BUTTONS);
+                conversationStore.addMessage(from, { sender: 'bot', text: aiReply });
               }
             }
           }
@@ -261,7 +289,6 @@ async function sendBatchImages(phoneId, to, type, offset) {
   const batch = ids.slice(start, end);
 
   if (batch.length === 0) {
-    // Wrap around if offset exceeds total images
     return sendBatchImages(phoneId, to, type, 0);
   }
 
@@ -283,20 +310,22 @@ async function sendBatchImages(phoneId, to, type, offset) {
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ৮টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     
     await sendWhatsAppMessage(phoneId, to, introText);
+    conversationStore.addMessage(to, { sender: 'bot', text: introText });
   } else {
-    await sendWhatsAppMessage(phoneId, to, `আমাদের ${label} কালেকশন থেকে আরও ৮টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`);
+    const nextMsg = `আমাদের ${label} কালেকশন থেকে আরও ৮টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
+    await sendWhatsAppMessage(phoneId, to, nextMsg);
+    conversationStore.addMessage(to, { sender: 'bot', text: nextMsg });
   }
 
-  // Start sending batch concurrently
+  // Send images concurrently
   const imagePromises = batch.map(id => sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${id}`));
-
-  // 3s delay concurrently to give image uploads priority
   await delay(3000);
-  
-  // Use Promise.allSettled to ensure individual image upload errors NEVER block the final action buttons!
   await Promise.allSettled(imagePromises);
 
-  // Check if we hit the end of the catalog
+  // Log image batch in store
+  conversationStore.addMessage(to, { sender: 'bot', text: `[Sent ${batch.length} ${label} Card Images]` });
+
+  // Check end of catalog
   const isWrapped = end >= ids.length;
   const nextOffset = isWrapped ? 0 : end;
 
@@ -315,6 +344,7 @@ async function sendBatchImages(phoneId, to, type, offset) {
     { id: otherButtonId, title: otherLabel },
     { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
   ]);
+  conversationStore.addMessage(to, { sender: 'bot', text: buttonText });
 }
 
 // Handler for Quick Reply button clicks
@@ -335,20 +365,30 @@ async function handleButtonClick(phoneId, to, buttonId) {
   }
   else if (buttonId === 'btn_policy') {
     await sendWhatsAppMessage(phoneId, to, DELIVERY_POLICY_TEXT);
-    await sendWhatsAppButtons(phoneId, to, 'অন্যান্য মেনু:', [
+    conversationStore.addMessage(to, { sender: 'bot', text: DELIVERY_POLICY_TEXT });
+
+    const btnPrompt = 'অন্যান্য মেনু:';
+    await sendWhatsAppButtons(phoneId, to, btnPrompt, [
       { id: 'btn_affordable', title: '💚 Affordable Card' },
       { id: 'btn_premium', title: '✨ Premium Card' },
       { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
     ]);
+    conversationStore.addMessage(to, { sender: 'bot', text: btnPrompt });
   } 
   else if (buttonId === 'btn_order_form') {
     await sendWhatsAppMessage(phoneId, to, ORDER_POLICY_TEXT);
+    conversationStore.addMessage(to, { sender: 'bot', text: ORDER_POLICY_TEXT });
+
     await sendWhatsAppMessage(phoneId, to, BANGLA_FORM_TEXT);
-    await sendWhatsAppButtons(phoneId, to, 'ফর্মটি পূরণ করতে বা ক্যাটালগ দেখতে নিচে চাপুন:', [
+    conversationStore.addMessage(to, { sender: 'bot', text: BANGLA_FORM_TEXT });
+
+    const btnPrompt = 'ফর্মটি পূরণ করতে বা ক্যাটালগ দেখতে নিচে চাপুন:';
+    await sendWhatsAppButtons(phoneId, to, btnPrompt, [
       { id: 'btn_affordable', title: '💚 Affordable Card' },
       { id: 'btn_premium', title: '✨ Premium Card' },
       { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
     ]);
+    conversationStore.addMessage(to, { sender: 'bot', text: btnPrompt });
   }
 }
 
@@ -391,103 +431,4 @@ PRICE GUIDE:
     console.error('Gemini call failed in WhatsApp handler:', err.message);
   }
   return 'আসসালামু আলাইকুম! আমি অনন্যা। বন্ধন প্রিন্টিং হাউজে আপনাকে স্বাগতম। নিচে দেওয়া বাটনগুলোতে ক্লিক করে দাম বা ছবি দেখতে পারেন। 😊';
-}
-
-// Meta Graph API Call: Send Text
-async function sendWhatsAppMessage(phoneId, to, text) {
-  const whatsappToken = process.env.WHATSAPP_TOKEN;
-  if (!whatsappToken) return;
-
-  const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: to,
-        type: "text",
-        text: { body: text }
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Failed to send WhatsApp text message: ${errText}`);
-    }
-  } catch (err) {
-    console.error('Error in sendWhatsAppMessage:', err.message);
-  }
-}
-
-// Meta Graph API Call: Send Interactive Buttons
-async function sendWhatsAppButtons(phoneId, to, text, buttons) {
-  const whatsappToken = process.env.WHATSAPP_TOKEN;
-  if (!whatsappToken) return;
-
-  const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: to,
-        type: "interactive",
-        interactive: {
-          type: "button",
-          body: { text: text },
-          action: {
-            buttons: buttons.map(b => ({
-              type: "reply",
-              reply: { id: b.id, title: b.title }
-            }))
-          }
-        }
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Failed to send WhatsApp buttons: ${errText}`);
-    }
-  } catch (err) {
-    console.error('Error in sendWhatsAppButtons:', err.message);
-  }
-}
-
-// Meta Graph API Call: Send Image
-async function sendWhatsAppImage(phoneId, to, imageUrl) {
-  const whatsappToken = process.env.WHATSAPP_TOKEN;
-  if (!whatsappToken) return;
-
-  const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: to,
-        type: "image",
-        image: { link: imageUrl }
-      })
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Failed to send WhatsApp image [${imageUrl}]: ${errText}`);
-    }
-  } catch (err) {
-    console.error('Error in sendWhatsAppImage:', err.message);
-  }
 }
