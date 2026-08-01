@@ -17,6 +17,7 @@ export default function Navbar() {
     { href: '/products', label: 'কার্ড গ্যালারি' },
     { href: '/pricing', label: 'মূল্য তালিকা' },
     { href: '/order', label: 'অর্ডার' },
+    { href: '/chat', label: '💬 লাইভ চ্যাট' },
     { href: '/dashboard', label: 'Dashboard' },
   ];
 
