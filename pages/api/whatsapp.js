@@ -22,6 +22,57 @@ const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
+const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
+১. মোট মূল্যের ৩০% এডভান্স (পেমেন্ট) করে অর্ডার কনফার্ম করতে হবে।
+২. পেমেন্ট নম্বর: বিকাশ/নগদ/রকেট (পারসোনাল): 01682588856
+৩. আমাদের ডিজাইনার কার্ডের ডেমো ডিজাইন তৈরি করে আপনাকে পাঠাবে। চূড়ান্ত অনুমোদনের পর প্রিন্ট করা হবে।
+৪. প্রিন্ট শেষে জেলা শহরে ক্যাশ অন ডেলিভারি দেওয়া হবে। গ্রহণের সময় বাকি ৭০% পেমেন্ট করতে হবে।
+৫. ডেলিভারি পেতে ৫ থেকে ৭ কর্মদিবস সময় লাগবে।`;
+
+const BANGLA_ORDER_FORM_TEXT = `📝 *বিয়ের কার্ডের বাংলা ফর্ম* 🌸
+
+বর-
+নাম:
+পিতা:
+মাতা:
+ঠিকানা:
+
+কনে-
+নাম:
+পিতা:
+মাতা:
+ঠিকানা:
+
+গায়ে হলুদ-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজ:
+সময়:
+স্থান:
+
+শুভ বিবাহ-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজ:
+সময়:
+স্থান:
+
+বৌ-ভাত-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজ:
+সময়:
+স্থান:
+
+ধন্যবাদান্তে
+(ছোট সোনামণিদের নাম):
+প্রয়োজনে (ফোন):
+শুভেচ্ছান্তে নাম:
+
+🚚 কুরিয়ার ইনফক্স (নাম, মোবাইল, ঠিকানা):
+
+(লেখাটি কপি করে পূরণ করে পাঠান) 🌸`;
+
 // Helper to send single image with caption
 async function sendWhatsAppImage(phoneId, to, imageUrl, caption) {
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
@@ -148,6 +199,19 @@ async function send8CardGallery(phoneId, to, type, offset = 0) {
   await sendWhatsAppInteractive(phoneId, to, text, buttons);
 }
 
+// Send the exact text order form template from user's screenshot
+async function sendTextOrderForm(phoneId, to) {
+  await sendWhatsAppMessage(phoneId, to, ORDER_RULES_MSG);
+  await sendWhatsAppMessage(phoneId, to, BANGLA_ORDER_FORM_TEXT);
+
+  const buttonText = `অথবা সরাসরি ডিজিটাল ফর্মে তথ্য পূরণ করতে আমাদের ওয়েবসাইটে ভিসিট করুন:\n👉 https://boondhon-platform-qr9a.vercel.app/order`;
+  const buttons = [
+    { id: 'btn_affordable', title: '💚 Affordable Card' },
+    { id: 'btn_premium', title: '✨ Premium Card' }
+  ];
+  await sendWhatsAppInteractive(phoneId, to, buttonText, buttons);
+}
+
 export default async function handler(req, res) {
   // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
   if (req.method === 'GET') {
@@ -215,14 +279,9 @@ export default async function handler(req, res) {
             else if (txt.includes('premium') || txt.includes('প্রিমিয়াম') || btnId === 'btn_premium') {
               await send8CardGallery(phoneId, from, 'premium', 0);
             }
-            // Order Form click
-            else if (btnId === 'btn_order' || txt.includes('অর্ডার') || txt.includes('order')) {
-              const replyText = `📝 BOONDHON অনলাইন অর্ডার ফর্ম:\n\nঅর্ডার করতে আমাদের ওয়েবসাইটে গিয়ে আপনার পছন্দের কার্ড আইডি ও তথ্য দিয়ে অর্ডার বুক করুন:\n👉 https://boondhon-platform-qr9a.vercel.app/order\n\n💳 ৩০% অগ্রিম পেমেন্ট (bKash/Nagad/Rocket): 01682588856\n📞 হটলাইন: 01863586302`;
-              const buttons = [
-                { id: 'btn_affordable', title: '💚 Affordable Card' },
-                { id: 'btn_premium', title: '✨ Premium Card' }
-              ];
-              await sendWhatsAppInteractive(phoneId, from, replyText, buttons);
+            // Order Form click or request -> Send exact Text Order Form from user screenshot
+            else if (btnId === 'btn_order' || txt.includes('অর্ডার') || txt.includes('order') || txt.includes('ফর্ম') || txt.includes('form')) {
+              await sendTextOrderForm(phoneId, from);
             }
             // Policy click
             else if (txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ঠিকানা') || btnId === 'btn_policy' || txt.includes('অফিস')) {
