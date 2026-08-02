@@ -182,32 +182,34 @@ export default function Products() {
                 <X size={20} />
               </button>
 
-              {/* Left Side Arrow Button (Previous Card) */}
-              <button
-                onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                title="পূর্ববর্তী কার্ড (Previous Card)"
-                className="absolute -left-4 sm:-left-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 border border-white/20 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-50">
-                <ChevronLeft size={28} />
-              </button>
-
-              {/* Right Side Arrow Button (Next Card) */}
-              <button
-                onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                title="পরবর্তী কার্ড (Next Card)"
-                className="absolute -right-4 sm:-right-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 border border-white/20 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-50">
-                <ChevronRight size={28} />
-              </button>
-
               {/* Main Card Image Box */}
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-slate-950">
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-slate-950 group">
                 <img
                   src={driveUrl(selectedId)}
                   alt={`Wedding card ${selectedCode}`}
                   className="w-full max-h-[75vh] object-contain mx-auto"
                 />
 
+                {/* Left Side Arrow Button (ON IMAGE) */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                  title="পূর্ববর্তী কার্ড (Previous Card)"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/85 border border-white/30 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-30">
+                  <ChevronLeft size={28} />
+                </button>
+
+                {/* Right Side Arrow Button (ON IMAGE) */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                  title="পরবর্তী কার্ড (Next Card)"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/85 border border-white/30 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-30">
+                  <ChevronRight size={28} />
+                </button>
+
                 {/* Top Badge: Design Code & Counter */}
-                <div className="absolute top-3 left-3 bg-slate-900/90 text-white text-xs font-mono font-bold px-3 py-1.5 rounded-full border border-white/20 shadow-lg flex items-center gap-2">
+                <div className="absolute top-3 left-3 bg-slate-900/90 text-white text-xs font-mono font-bold px-3 py-1.5 rounded-full border border-white/20 shadow-lg flex items-center gap-2 z-20">
                   <span className="text-brand-gold">{selectedCode}</span>
                   <span className="text-gray-400 text-[10px]">({selectedIndex + 1} / {ids.length})</span>
                 </div>

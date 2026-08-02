@@ -11,7 +11,7 @@ const QUICK_REPLIES = [
 
 const WELCOME = {
   role: 'bot',
-  content: 'আসসালামু আলাইকুম! 🌸 আমি Payel, BOONDHON-এর AI সহকারী। আপনাকে কীভাবে সাহায্য করতে পারি? 😊'
+  content: 'আসসালামু আলাইকুম! 🌸 আমি অনন্যা, BOONDHON Printing House-এর সহকারী। আপনাকে কীভাবে সাহায্য করতে পারি? 😊'
 };
 
 export default function Chatbot() {
@@ -79,7 +79,7 @@ export default function Chatbot() {
           <div className="flex items-center gap-3 p-4 border-b border-brand-blue/10 bg-gradient-to-r from-brand-blue/20 to-transparent">
             <div className="w-10 h-10 rounded-full bg-brand-blue/20 flex items-center justify-center text-lg">🌸</div>
             <div>
-              <p className="text-white font-semibold text-sm">Payel</p>
+              <p className="text-white font-semibold text-sm">অনন্যা</p>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <p className="text-green-400 text-xs">Online · BOONDHON</p>
