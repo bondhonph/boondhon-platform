@@ -28,8 +28,8 @@ export default function App({ Component, pageProps }) {
   return (
     <>
       <Head>
-        {/* Meta Facebook Domain Verification Tag */}
-        <meta name="facebook-domain-verification" content="f27lencl7fhskbbhq7mesokid4nohg" />
+        {/* Exact Meta Facebook Domain Verification Tag from Screenshot */}
+        <meta name="facebook-domain-verification" content="xtunzge9c0uo4srlow8qw136zin7r3" />
       </Head>
 
       {pixelId && (
