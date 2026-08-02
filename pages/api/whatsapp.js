@@ -117,52 +117,37 @@ const DELIVERY_POLICY_TEXT = `🚚 ডেলিভারি ও পলিসি:
 const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
 
 বর-
-নামঃ
-পিতাঃ
-মাতাঃ
-ঠিকানাঃ
+নামঃ | পিতাঃ | মাতাঃ | ঠিকানাঃ
 
 Kণে-
-নামঃ
-পিতাঃ
-মাতাঃ
-ঠিকানাঃ
+নামঃ | পিতাঃ | মাতাঃ | ঠিকানাঃ
 
 গায়ে হলুদ-
-তারিখ (ইংরেজি):
-তারিখ (বাংলা):
-রোজঃ
-সময়ঃ
-স্থানঃ
+তারিখ (ইংরেজি/বাংলা): | রোজঃ | সময়ঃ | স্থানঃ
 
 शुभ বিবাহ-
-তারিখ (ইংরেজি):
-তারিখ (বাংলা):
-রোজঃ
-সময়ঃ
-স্থানঃ
+তারিখ (ইংরেজি/বাংলা): | রোজঃ | সময়ঃ | স্থানঃ
 
 বৌ-ভাত-
-তারিখ (ইংরেজি):
-তারিখ (বাংলা):
-রোজঃ
-সময়ঃ
-স্থানঃ
+তারিখ (ইংরেজি/বাংলা): | রোজঃ | সময়ঃ | স্থানঃ
 
-অভ্যর্থনায়-
-(ছোট বাচ্চাদের নাম):
+অভ্যর্থনায় (ছোট বাচ্চাদের নাম):
 প্রয়োজনে (ফোন):
 শুভেচ্ছান্তে নামঃ
-
-🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):
-
-(ফর্মটি কপি করে পূরণ করে পাঠান! 🥰)`;
+🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):`;
 
 const DEFAULT_BUTTONS = [
   { id: 'btn_affordable', title: '💚 Affordable Card' },
   { id: 'btn_premium', title: '✨ Premium Card' },
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
+
+// Helper to notify owner's personal WhatsApp about bot replies
+async function notifyOwnerBotActivity(phoneId, targetCustomer, text) {
+  if (targetCustomer === OWNER_PHONE) return;
+  const alertTxt = `🤖 [বট ➔ +${targetCustomer}]:\n"${text}"`;
+  await sendWhatsAppMessage(phoneId, OWNER_PHONE, alertTxt);
+}
 
 export default async function handler(req, res) {
   // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
@@ -245,12 +230,10 @@ export default async function handler(req, res) {
                 let targetPhone = null;
                 let replyContent = '';
 
-                // Check if 2nd part is phone number (e.g. r 8801682588856 hello)
                 if (parts.length >= 3 && /^\d{10,14}$/.test(parts[1])) {
                   targetPhone = parts[1];
                   replyContent = parts.slice(2).join(' ');
                 } else {
-                  // Fallback to last active customer phone
                   targetPhone = conversationStore.getLastCustomerPhone();
                   replyContent = parts.slice(1).join(' ');
                 }
@@ -268,7 +251,6 @@ export default async function handler(req, res) {
                 // Send reply to target customer directly!
                 const sendRes = await sendWhatsAppMessage(phoneId, targetPhone, replyContent.trim());
                 if (sendRes.success) {
-                  // Log in conversation store & activate 30-min takeover
                   conversationStore.addMessage(targetPhone, {
                     sender: 'agent',
                     text: replyContent.trim(),
@@ -276,7 +258,7 @@ export default async function handler(req, res) {
                   });
                   conversationStore.setHumanTakeover(targetPhone, true, 30);
 
-                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `✅ মেসেজ সফলভাবে পাঠানো হয়েছে!\n📱 কাস্টমার: +${targetPhone}\n💬 আপনার উত্তর: "${replyContent.trim()}"\n⏸️ (এই কাস্টমারের জন্য বট ৩০মিনিট পজ করা হলো)`);
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `✅ কাস্টমার +${targetPhone} এর ইনবক্সে মেসেজ সফলভাবে পাঠানো হয়েছে!`);
                 } else {
                   await sendWhatsAppMessage(phoneId, OWNER_PHONE, `❌ কাস্টমার +${targetPhone} এর কাছে মেসেজ পাঠাতে ব্যর্থ: ${sendRes.error}`);
                 }
@@ -294,10 +276,10 @@ export default async function handler(req, res) {
               messageId: message.id
             });
 
-            // ── ALERT NOTIFICATION TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
+            // ── FORWARD CUSTOMER MESSAGE TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
             if (from !== OWNER_PHONE) {
-              const alertMessage = `🔔 নতুন কাস্টমার মেসেজ!\n📱 কাস্টমার: +${from}\n💬 মেসেজ: ${incomingText}\n\n👉 সরাসরি হোয়াটসঅ্যাপে উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা সংক্ষেপে: r আপনার উত্তর)`;
-              sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
+              const alertMessage = `👤 [কাস্টমার +${from}]:\n"${incomingText}"\n\n👉 উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা সংক্ষেপে: r আপনার উত্তর)`;
+              await sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
             }
 
             // ── HUMAN TAKEOVER CHECK ──
@@ -328,9 +310,11 @@ export default async function handler(req, res) {
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
                 await sendWhatsAppMessage(phoneId, from, ORDER_POLICY_TEXT);
                 conversationStore.addMessage(from, { sender: 'bot', text: ORDER_POLICY_TEXT });
-                
+                await notifyOwnerBotActivity(phoneId, from, ORDER_POLICY_TEXT);
+
                 await sendWhatsAppMessage(phoneId, from, BANGLA_FORM_TEXT);
                 conversationStore.addMessage(from, { sender: 'bot', text: BANGLA_FORM_TEXT });
+                await notifyOwnerBotActivity(phoneId, from, BANGLA_FORM_TEXT);
 
                 const btnPrompt = 'অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। তথ্য জানতে নিচের বাটনে ক্লিক করুন:';
                 await sendWhatsAppButtons(phoneId, from, btnPrompt, [
@@ -345,6 +329,7 @@ export default async function handler(req, res) {
                 const aiReply = await getAIResponse(incomingText);
                 await sendWhatsAppButtons(phoneId, from, aiReply, DEFAULT_BUTTONS);
                 conversationStore.addMessage(from, { sender: 'bot', text: aiReply });
+                await notifyOwnerBotActivity(phoneId, from, aiReply);
               }
             }
           }
@@ -392,10 +377,12 @@ async function sendBatchImages(phoneId, to, type, offset) {
     
     await sendWhatsAppMessage(phoneId, to, introText);
     conversationStore.addMessage(to, { sender: 'bot', text: introText });
+    await notifyOwnerBotActivity(phoneId, to, introText);
   } else {
     const nextMsg = `আমাদের ${label} কালেকশন থেকে আরও ৮টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     await sendWhatsAppMessage(phoneId, to, nextMsg);
     conversationStore.addMessage(to, { sender: 'bot', text: nextMsg });
+    await notifyOwnerBotActivity(phoneId, to, nextMsg);
   }
 
   // Send images concurrently
@@ -405,6 +392,7 @@ async function sendBatchImages(phoneId, to, type, offset) {
 
   // Log image batch in store
   conversationStore.addMessage(to, { sender: 'bot', text: `[Sent ${batch.length} ${label} Card Images]` });
+  await notifyOwnerBotActivity(phoneId, to, `[Sent ${batch.length} ${label} Card Images]`);
 
   // Check end of catalog
   const isWrapped = end >= ids.length;
@@ -447,6 +435,7 @@ async function handleButtonClick(phoneId, to, buttonId) {
   else if (buttonId === 'btn_policy') {
     await sendWhatsAppMessage(phoneId, to, DELIVERY_POLICY_TEXT);
     conversationStore.addMessage(to, { sender: 'bot', text: DELIVERY_POLICY_TEXT });
+    await notifyOwnerBotActivity(phoneId, to, DELIVERY_POLICY_TEXT);
 
     const btnPrompt = 'অন্যান্য মেনু:';
     await sendWhatsAppButtons(phoneId, to, btnPrompt, [
@@ -459,9 +448,11 @@ async function handleButtonClick(phoneId, to, buttonId) {
   else if (buttonId === 'btn_order_form') {
     await sendWhatsAppMessage(phoneId, to, ORDER_POLICY_TEXT);
     conversationStore.addMessage(to, { sender: 'bot', text: ORDER_POLICY_TEXT });
+    await notifyOwnerBotActivity(phoneId, to, ORDER_POLICY_TEXT);
 
     await sendWhatsAppMessage(phoneId, to, BANGLA_FORM_TEXT);
     conversationStore.addMessage(to, { sender: 'bot', text: BANGLA_FORM_TEXT });
+    await notifyOwnerBotActivity(phoneId, to, BANGLA_FORM_TEXT);
 
     const btnPrompt = 'ফর্মটি পূরণ করতে বা ক্যাটালগ দেখতে নিচে চাপুন:';
     await sendWhatsAppButtons(phoneId, to, btnPrompt, [
