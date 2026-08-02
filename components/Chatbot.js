@@ -52,7 +52,7 @@ export default function Chatbot() {
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'bot', content: data.reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'bot', content: 'একটু সমস্যা হচ্ছে। WhatsApp করুন: 01701016826 🥰' }]);
+      setMessages(prev => [...prev, { role: 'bot', content: 'একটু সমস্যা হচ্ছে। WhatsApp করুন: 01863586302 🥰' }]);
     }
     setLoading(false);
   };
@@ -140,7 +140,7 @@ export default function Chatbot() {
               </button>
             </div>
             <div className="flex justify-between mt-2">
-              <a href="https://wa.me/8801701016826" target="_blank" rel="noreferrer"
+              <a href="https://wa.me/8801863586302" target="_blank" rel="noreferrer"
                 className="text-green-400 text-xs hover:underline">💬 WhatsApp করুন</a>
               <a href="/order" className="text-brand-blue text-xs hover:underline">📝 অর্ডার করুন</a>
             </div>

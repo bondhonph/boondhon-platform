@@ -42,8 +42,8 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <a href="tel:01701016826" className="flex items-center gap-2 text-sm text-brand-blue border border-brand-blue/30 px-4 py-2 rounded-full hover:bg-brand-blue/10 transition-all">
-              <Phone size={14} />01701016826
+            <a href="tel:01863586302" className="flex items-center gap-2 text-sm text-brand-blue border border-brand-blue/30 px-4 py-2 rounded-full hover:bg-brand-blue/10 transition-all">
+              <Phone size={14} />01863586302
             </a>
             <Link href="/order" className="bg-gradient-to-r from-brand-blue to-blue-400 text-white text-sm px-5 py-2 rounded-full font-semibold hover:shadow-lg hover:shadow-brand-blue/30 transition-all">
               অর্ডার করুন
