@@ -20,10 +20,12 @@ export default function Chatbot() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [unread, setUnread] = useState(1);
-  const bottomRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }, [messages, loading]);
 
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function Chatbot() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] px-4 py-3 text-sm leading-relaxed ${m.role === 'user' ? 'chat-bubble-user text-white' : 'chat-bubble-bot text-gray-200'}`}>
@@ -119,8 +121,6 @@ export default function Chatbot() {
                 ))}
               </div>
             )}
-
-            <div ref={bottomRef}></div>
           </div>
 
           {/* Input */}
