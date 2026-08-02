@@ -1,74 +1,22 @@
-export default async function handler(req, res) {
-  // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
-  if (req.method === 'GET') {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
-    const verifyToken = process.env.VERIFY_TOKEN || "BOONDHON_SECRET_2026";
-
-    if (mode && token) {
-      if (mode === 'subscribe' && token === verifyToken) {
-        console.log('WhatsApp Webhook Verified Successfully!');
-        return res.status(200).send(challenge);
-      }
-    }
-    return res.status(403).send('Verification Failed');
-  }
-
-  // ── 2. HANDLE INCOMING MESSAGES (POST REQUEST) ──
-  if (req.method === 'POST') {
-    try {
-      const body = req.body;
-
-      // Check if it's a WhatsApp event
-      if (body.object === 'whatsapp_business_account') {
-        const entry = body.entry?.[0];
-        const changes = entry?.changes?.[0];
-        const value = changes?.value;
-        const message = value?.messages?.[0];
-
-        if (message && message.type === 'text') {
-          const from = message.from; // Sender's phone number (e.g. 88017XXXXXXXX)
-          const userMessage = message.text?.body || ''; // Received text
-          const phoneId = value?.metadata?.phone_number_id; // WhatsApp Phone ID
-
-          if (userMessage && phoneId) {
-            // Generate AI Response
-            const aiReply = await getAIResponse(userMessage);
-
-            // Send Reply back to user via WhatsApp API
-            await sendWhatsAppMessage(phoneId, from, aiReply);
-          }
-        }
-        return res.status(200).send('EVENT_RECEIVED');
-      }
-
-      return res.status(404).send('Not a WhatsApp Event');
-    } catch (err) {
-      console.error('Error handling WhatsApp message:', err.message);
-      return res.status(500).json({ error: err.message });
-    }
-  }
-
-  return res.status(405).send('Method Not Allowed');
-}
-
 function getFallbackReply(userText) {
   const txt = (userText || '').toLowerCase();
+  if (txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('কম দাম')) {
+    return '🌸 BOONDHON Affordable Card Collection:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)\n\n👉 অর্ডার করতে ভিসিট করুন: https://boondhon-platform-qr9a.vercel.app/order';
+  }
+  if (txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('রাজকীয়')) {
+    return '✨ BOONDHON Premium Royal Collection:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)\n🎁 ২০০+ পিসে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি!\n\n👉 অর্ডার করতে ভিসিট করুন: https://boondhon-platform-qr9a.vercel.app/order';
+  }
   if (txt.includes('দাম') || txt.includes('price') || txt.includes('কত') || txt.includes('টাকা') || txt.includes('রেট') || txt.includes('rate')) {
     return 'আসসালামু আলাইকুম! 🌸 BOONDHON-এর কার্ডের মূল্য তালিকা:\n• Affordable: ৫০পিস ২,৭৫০৳ | ১০০পিস ৪,৫০০৳ | ২০০পিস ৭,০০০৳\n• Premium: ৫০পিস ৩,২৫০৳ | ১০০পিস ৫,৫০০৳ | ২০০পিস ৯,০০০৳\n🎁 ২০০+ পিসে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🥰';
   }
   if (txt.includes('অর্ডার') || txt.includes('order') || txt.includes('কিনব') || txt.includes('পছন্দ')) {
     return 'অর্ডার করতে ওয়েবসাইটের "অর্ডার" ফর্মে গিয়ে তথ্য দিন অথবা সরাসরি আমাদের হোয়াটসঅ্যাপে মেসেজ দিন: 01863586302 🌸 ৩০% বুকিং মানি দিয়ে অর্ডার কনফার্ম করতে হয়।';
   }
-  if (txt.includes('ঠিকানা') || txt.includes('অফিস') || txt.includes('লোকেশন') || txt.includes('কোথায়') || txt.includes('কোথায়')) {
-    return 'আমাদের অফিস: মানিকগঞ্জ। সারাদেশে ৫-৭ কর্মদিবসের মধ্যে সুন্দরবন/এসএ পরিবহনের মাধ্যমে ডেলিভারি দেওয়া হয়। 🌸';
+  if (txt.includes('ঠিকানা') || txt.includes('অফিস') || txt.includes('লোকেশন') || txt.includes('কোথায়') || txt.includes('কোথায়') || txt.includes('পলিসি')) {
+    return 'আমাদের অফিস: মানিকগঞ্জ। সারাদেশে ৫-৭ কর্মদিবসের মধ্যে সুন্দরবন/এসএ পরিবহনের মাধ্যমে ডেলিভারি দেওয়া হয়। 🌸 ৩০% অগ্রিম পেমেন্টে অর্ডার নেওয়া হয়।';
   }
   if (txt.includes('পেমেন্ট') || txt.includes('বিকাশ') || txt.includes('নগদ') || txt.includes('রকেট') || txt.includes('টাকা পাঠাব')) {
     return 'আমাদের বিকাশ/নগদ/রকেট পারসোনাল নম্বর: 01682588856 💳 (৩০% অগ্রিম বুকিং ফি দিয়ে ডেমো ডিজাইন কনফার্ম করতে হয়)।';
-  }
-  if (txt.includes('ডেলিভারি') || txt.includes('সময়') || txt.includes('দিন')) {
-    return 'অর্ডার কনফার্ম করার পর ডেমো ডিজাইন আপনার থেকে ওকে করিয়ে ৫-৭ কর্মদিবসের মধ্যে ডেলিভারি করা হয়। 🚚';
   }
   return 'আসসালামু আলাইকুম! 🌸 BOONDHON Printing House-এ আপনাকে স্বাগতম। আপনার পছন্দের কার্ডের মডেল বা পরিমাণ জানান, আমি এখনই তথ্য প্রদান করছি।🥰 Hotline: 01863586302';
 }
@@ -91,12 +39,7 @@ PRICE GUIDE:
 
 👉 Website Order Link: https://boondhon-platform-qr9a.vercel.app/order`;
 
-    const contents = [
-      {
-        role: 'user',
-        parts: [{ text: userMsg }]
-      }
-    ];
+    const contents = [{ role: 'user', parts: [{ text: userMsg }] }];
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
     const res = await fetch(url, {
@@ -111,7 +54,8 @@ PRICE GUIDE:
 
     if (res.ok) {
       const data = await res.json();
-      return data?.candidates?.[0]?.content?.parts?.[0]?.text || getFallbackReply(userMsg);
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
     }
   } catch (err) {
     console.error('Gemini call failed in WhatsApp handler:', err.message);
@@ -147,4 +91,68 @@ async function sendWhatsAppMessage(phoneId, to, text) {
   } catch (err) {
     console.error('Error in sendWhatsAppMessage:', err.message);
   }
+}
+
+export default async function handler(req, res) {
+  // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
+  if (req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    const verifyToken = process.env.VERIFY_TOKEN || "BOONDHON_SECRET_2026";
+
+    if (mode && token) {
+      if (mode === 'subscribe' && token === verifyToken) {
+        console.log('WhatsApp Webhook Verified Successfully!');
+        return res.status(200).send(challenge);
+      }
+    }
+    return res.status(403).send('Verification Failed');
+  }
+
+  // ── 2. HANDLE INCOMING MESSAGES (POST REQUEST) ──
+  if (req.method === 'POST') {
+    try {
+      const body = req.body;
+
+      if (body.object === 'whatsapp_business_account') {
+        const entry = body.entry?.[0];
+        const changes = entry?.changes?.[0];
+        const value = changes?.value;
+        const message = value?.messages?.[0];
+
+        if (message) {
+          const from = message.from; // Sender's phone number
+          const phoneId = value?.metadata?.phone_number_id;
+
+          let userMessage = '';
+          if (message.type === 'text') {
+            userMessage = message.text?.body || '';
+          } else if (message.type === 'interactive') {
+            userMessage = message.interactive?.button_reply?.title || message.interactive?.button_reply?.id || message.interactive?.list_reply?.title || '';
+          } else if (message.type === 'button') {
+            userMessage = message.button?.text || message.button?.payload || '';
+          } else {
+            userMessage = message.caption || 'Hi';
+          }
+
+          if (from && phoneId) {
+            // Generate AI Response (Gemini or Fallback)
+            const aiReply = await getAIResponse(userMessage);
+
+            // Send Reply back to user via WhatsApp API
+            await sendWhatsAppMessage(phoneId, from, aiReply);
+          }
+        }
+        return res.status(200).send('EVENT_RECEIVED');
+      }
+
+      return res.status(404).send('Not a WhatsApp Event');
+    } catch (err) {
+      console.error('Error handling WhatsApp message:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  return res.status(405).send('Method Not Allowed');
 }
