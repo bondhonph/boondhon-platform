@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Chatbot from '../components/Chatbot';
 import { driveUrl, AFFORDABLE_IDS, PREMIUM_IDS, getCardCode } from '../lib/data';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const PAGE_SIZE = 24;
 
@@ -13,7 +14,7 @@ export default function Products() {
   const router = useRouter();
   const [tab, setTab] = useState('affordable');
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(null);
 
   useEffect(() => {
     if (router.query.tab === 'premium') setTab('premium');
@@ -23,6 +24,31 @@ export default function Products() {
   const ids = tab === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const totalPages = Math.ceil(ids.length / PAGE_SIZE);
   const visible = ids.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const handlePrev = useCallback(() => {
+    if (selectedIndex === null) return;
+    setSelectedIndex(prev => (prev > 0 ? prev - 1 : ids.length - 1));
+  }, [selectedIndex, ids.length]);
+
+  const handleNext = useCallback(() => {
+    if (selectedIndex === null) return;
+    setSelectedIndex(prev => (prev < ids.length - 1 ? prev + 1 : 0));
+  }, [selectedIndex, ids.length]);
+
+  // Keyboard arrow keys navigation (Left/Right/Escape)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (selectedIndex === null) return;
+      if (e.key === 'ArrowLeft') handlePrev();
+      if (e.key === 'ArrowRight') handleNext();
+      if (e.key === 'Escape') setSelectedIndex(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIndex, handlePrev, handleNext]);
+
+  const selectedId = selectedIndex !== null ? ids[selectedIndex] : null;
+  const selectedCode = selectedIndex !== null ? getCardCode(tab, selectedIndex) : null;
 
   return (
     <>
@@ -55,11 +81,11 @@ export default function Products() {
 
           {/* Tabs */}
           <div className="flex justify-center gap-4 mb-10">
-            <button onClick={() => { setTab('affordable'); setPage(1); }}
+            <button onClick={() => { setTab('affordable'); setPage(1); setSelectedIndex(null); }}
               className={`px-8 py-3 rounded-full font-semibold transition-all ${tab === 'affordable' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/30' : 'border border-brand-blue/30 text-brand-blue hover:bg-brand-blue/10'}`}>
               🌸 Affordable ({AFFORDABLE_IDS.length})
             </button>
-            <button onClick={() => { setTab('premium'); setPage(1); }}
+            <button onClick={() => { setTab('premium'); setPage(1); setSelectedIndex(null); }}
               className={`px-8 py-3 rounded-full font-semibold transition-all ${tab === 'premium' ? 'bg-brand-gold text-black shadow-lg shadow-brand-gold/30' : 'border border-brand-gold/30 text-brand-gold hover:bg-brand-gold/10'}`}>
               ✨ Premium ({PREMIUM_IDS.length})
             </button>
@@ -81,7 +107,7 @@ export default function Products() {
               const cardCode = getCardCode(tab, globalIdx);
 
               return (
-                <div key={id} className="img-card cursor-pointer relative group" onClick={() => setSelected({ id, code: cardCode })}>
+                <div key={id} className="img-card cursor-pointer relative group" onClick={() => setSelectedIndex(globalIdx)}>
                   {/* Card Code Badge */}
                   <div className="absolute top-2 left-2 z-10 bg-slate-900/90 border border-white/20 text-white text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-md">
                     {cardCode}
@@ -142,32 +168,70 @@ export default function Products() {
           </div>
         </div>
 
-        {/* Lightbox */}
-        {selected && (
-          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
+        {/* Interactive Lightbox Modal with Next/Previous Side Arrows */}
+        {selectedIndex !== null && selectedId && (
+          <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 select-none" onClick={() => setSelectedIndex(null)}>
+            
+            {/* Modal Container */}
             <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
-              <button onClick={() => setSelected(null)} className="absolute -top-10 right-0 text-white text-2xl">✕</button>
-              
-              <div className="relative">
-                <img src={driveUrl(selected.id)} alt={`Wedding card ${selected.code}`} className="w-full rounded-2xl shadow-2xl" />
-                <span className="absolute top-3 left-3 bg-slate-900/90 text-white text-xs font-mono font-bold px-3 py-1 rounded-full border border-white/20">
-                  ডিজাইন কোড: {selected.code}
-                </span>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedIndex(null)}
+                className="absolute -top-12 right-0 text-gray-300 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all">
+                <X size={20} />
+              </button>
+
+              {/* Left Side Arrow Button (Previous Card) */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                title="পূর্ববর্তী কার্ড (Previous Card)"
+                className="absolute -left-4 sm:-left-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 border border-white/20 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-50">
+                <ChevronLeft size={28} />
+              </button>
+
+              {/* Right Side Arrow Button (Next Card) */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                title="পরবর্তী কার্ড (Next Card)"
+                className="absolute -right-4 sm:-right-16 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/90 border border-white/20 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-50">
+                <ChevronRight size={28} />
+              </button>
+
+              {/* Main Card Image Box */}
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-slate-950">
+                <img
+                  src={driveUrl(selectedId)}
+                  alt={`Wedding card ${selectedCode}`}
+                  className="w-full max-h-[75vh] object-contain mx-auto"
+                />
+
+                {/* Top Badge: Design Code & Counter */}
+                <div className="absolute top-3 left-3 bg-slate-900/90 text-white text-xs font-mono font-bold px-3 py-1.5 rounded-full border border-white/20 shadow-lg flex items-center gap-2">
+                  <span className="text-brand-gold">{selectedCode}</span>
+                  <span className="text-gray-400 text-[10px]">({selectedIndex + 1} / {ids.length})</span>
+                </div>
               </div>
 
+              {/* Bottom Action Buttons */}
               <div className="mt-4 flex gap-3">
                 <Link
-                  href={`/order?design=${selected.code}&type=${tab}`}
-                  className="flex-1 text-center bg-brand-blue text-white py-3 rounded-xl font-semibold shadow-lg hover:bg-blue-500 transition-all">
-                  এই ডিজাইনে অর্ডার করুন ({selected.code})
+                  href={`/order?design=${selectedCode}&type=${tab}`}
+                  className="flex-1 text-center bg-gradient-to-r from-brand-blue to-blue-500 text-white py-3.5 rounded-xl font-bold text-sm shadow-xl hover:shadow-brand-blue/30 hover:opacity-95 transition-all">
+                  এই ডিজাইনে অর্ডার করুন ({selectedCode})
                 </Link>
-                <a href={`https://wa.me/8801863586302?text=${encodeURIComponent(`আসসালামু আলাইকুম, আমি ${selected.code} ডিজাইনটি পছন্দ করেছি: ${driveUrl(selected.id)}`)}`}
+                <a href={`https://wa.me/8801863586302?text=${encodeURIComponent(`আসসালামু আলাইকুম, আমি ${selectedCode} ডিজাইনটি পছন্দ করেছি: ${driveUrl(selectedId)}`)}`}
                   target="_blank" rel="noreferrer"
-                  className="flex-1 text-center bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-500 transition-all">
+                  className="flex-1 text-center bg-green-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-green-500 transition-all shadow-lg">
                   WhatsApp করুন
                 </a>
               </div>
+
+              <p className="text-center text-gray-500 text-[11px] mt-2">
+                💡 টিপস: কিবোর্ডের Left (←) ও Right (→) অ্যারো চেপেও কার্ড নেভিগেট করতে পারবেন।
+              </p>
             </div>
+
           </div>
         )}
 
