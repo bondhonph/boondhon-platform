@@ -7,7 +7,10 @@ export default function App({ Component, pageProps }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Track PageView on route change in Single Page App
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+    }
+
     const handleRouteChange = () => {
       if (window.fbq) {
         window.fbq('track', 'PageView')
@@ -46,4 +49,4 @@ export default function App({ Component, pageProps }) {
       <Component {...pageProps} />
     </>
   )
-}
+}
