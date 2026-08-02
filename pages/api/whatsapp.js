@@ -1,15 +1,55 @@
+const AFFORDABLE_IDS = [
+  "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
+  "1HJTtR-zhhg6v2ph7MikdMDWI-LWJgG0z","1PRlMp4F1xnQJPURON535pl7t08_thXVA","1UEAeYYB3Bt5vMYEL-a7AcV1aV21Z04si",
+  "1-_qTV4gq0oKMdfMRxlTZL3yUO98ZGAoi","15yHXRk2mHI6-cKeooRqT20XeHubRRrPN","1Yrcqj5g0sZDrL3QaEkfEmKnF12BEs6ir",
+  "1vXwJ68j7x5qfpZdHkMkqLn0tvpblGDpl","1GWw91oefwyYr9sHSQXjePTSX-KwPjy7I","1_tnTz7HWDf4CVJHORPlani7pjEcLdm7X",
+  "1OMy_r94N_iUqvPW1t5fAGa4Sv3C_MIqF","1rXCxMziCgTImURvkahNp-AvneVljg-CW","1k_hzTbXOxxJg9rJ2OW-tnIkzLNYUqkOf",
+  "1bgYpcqh4pVLDy8yfwrS40X5ejtCFxmFv","1tLW7C2gwOmlZzGXh3bw0o7xjAPKrudIA","1ZEGHQfvuKNv-J5ZZadHKGfVAe4cvQnGq",
+  "1WE3kfWsd-0nrptiQ0fWi3dsd4iEcdw3t","1kLilyZRrhgrRfHn4aiTEcUBOu5fNDegs","1Cf7jQxeb5pyXvnA6HzGg_dYk3ZBrJ9z5",
+  "11UIRwmetqLkMU5qThwv5Vc7GnuASrZSa","1eXUGJyYhnNBXZ7PFwDgXgY-ql8cYADsh","1weNuPU3fBvPMkbFAGPiMm_ttEETSuQ9A"
+];
+
+const PREMIUM_IDS = [
+  "182kOjBhoaqOTq7nr4ryI6re6fRuLITbH","1cTfbTDJDqBjsV-r7V1OjBZ-Z6tUAqwxj","1cA-MfI55Hh7ibreMQ4zPvt2i_LKxVHkR",
+  "1fvtC5mT4slvV_kROIej7awAGmCRc7TUl","1rLVZUQ8lw6ilWM76xxARtbUreQ3JIkdi","15AQWI3wP2a57-3OxHZTCfSbskgvC5YvH",
+  "1ahoubjUVdc9SJyi5n2rzZIsbugjCjHiz","1qlwwRe2Mr_gb8CZjkeG0-YxBSGmOHzZu","1oOdGtYFTz-xNmSLUO-VFS1YODqYZ74HJ",
+  "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB",
+  "1f327zMbxf9s_Z2WSYhA4cAIF_NBiveKW","1T_pxOh0mn36N882wUMyYSsXKoZE4w1XA","1OQqgPUW0j1C5Ggvh50oTnnw5VsgEQv5I",
+  "15FGsZ0xdZd7DYZb4awafD8ysH_8g-A9O","1KUI4gzdhT-1I_LpzCMCQL8Sgfy4dU_Im","1amD4c_CLTODq8nca3N_H40vPiYp53VTm"
+];
+
+const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
+
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
-const SAMPLE_IMAGES = {
-  affordable: "https://lh3.googleusercontent.com/d/1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD",
-  premium: "https://lh3.googleusercontent.com/d/182kOjBhoaqOTq7nr4ryI6re6fRuLITbH"
-};
+// Helper to send single image with caption
+async function sendWhatsAppImage(phoneId, to, imageUrl, caption) {
+  const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: to,
+        type: "image",
+        image: { link: imageUrl, caption: caption || "" }
+      })
+    });
+  } catch (err) {
+    console.error('Error sending WhatsApp image:', err);
+  }
+}
 
-// Send plain text message
+// Helper to send text reply
 async function sendWhatsAppMessage(phoneId, to, text) {
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
   try {
-    const res = await fetch(url, {
+    await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
@@ -23,16 +63,12 @@ async function sendWhatsAppMessage(phoneId, to, text) {
         text: { body: text }
       })
     });
-
-    if (!res.ok) {
-      console.error(`Failed to send WhatsApp text message:`, await res.text());
-    }
   } catch (err) {
-    console.error('Error in sendWhatsAppMessage:', err.message);
+    console.error('Error in sendWhatsAppMessage:', err);
   }
 }
 
-// Send interactive button message with optional image header
+// Helper to send interactive buttons
 async function sendWhatsAppInteractive(phoneId, to, bodyText, buttons, imageUrl) {
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
 
@@ -72,13 +108,44 @@ async function sendWhatsAppInteractive(phoneId, to, bodyText, buttons, imageUrl)
     });
 
     if (!res.ok) {
-      console.warn('Interactive WhatsApp message failed, fallback to plain text:', await res.text());
       await sendWhatsAppMessage(phoneId, to, bodyText);
     }
   } catch (err) {
-    console.error('Error sending interactive WhatsApp message:', err);
     await sendWhatsAppMessage(phoneId, to, bodyText);
   }
+}
+
+// Send batch of 8 card images sequentially and then send "আরও দেখুন" button
+async function send8CardGallery(phoneId, to, type, offset = 0) {
+  const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
+  const batch = idsList.slice(offset, offset + 8);
+  const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
+
+  // Send 8 images sequentially
+  for (let i = 0; i < batch.length; i++) {
+    const id = batch[i];
+    const itemNum = offset + i + 1;
+    const caption = `🃏 ${typeLabel} Card #${itemNum}\nID: ${id.slice(0, 10)}`;
+    await sendWhatsAppImage(phoneId, to, driveUrl(id), caption);
+  }
+
+  const nextOffset = offset + batch.length;
+  const hasMore = nextOffset < idsList.length;
+
+  const priceText = type === 'premium'
+    ? '💰 Premium মূল্য তালিকা:\n• ৫০পিস: ৩,২৫০৳ | ১০০পিস: ৫,৫০০৳ | ২০০পিস: ৯,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!'
+    : '💰 Affordable মূল্য তালিকা:\n• ৫০পিস: ২,৭৫০৳ | ১০০পিস: ৪,৫০০৳ | ২০০পিস: ৭,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!';
+
+  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\n${priceText}\n\nআরও ডিজাইন দেখতে নিচে "👉 আরও দেখুন" বাটনে চাপ দিন:`;
+
+  const buttons = [];
+  if (hasMore) {
+    buttons.push({ id: `more_${type}_${nextOffset}`, title: `👉 আরও দেখুন (${typeLabel})` });
+  }
+  buttons.push({ id: 'btn_order', title: '📝 অনলাইন অর্ডার' });
+  buttons.push({ id: type === 'premium' ? 'btn_affordable' : 'btn_premium', title: type === 'premium' ? '💚 Affordable Card' : '✨ Premium Card' });
+
+  await sendWhatsAppInteractive(phoneId, to, text, buttons);
 }
 
 export default async function handler(req, res) {
@@ -114,12 +181,16 @@ export default async function handler(req, res) {
           const phoneId = value?.metadata?.phone_number_id;
 
           let rawMsg = '';
+          let btnId = '';
+
           if (message.type === 'text') {
             rawMsg = message.text?.body || '';
           } else if (message.type === 'interactive') {
-            rawMsg = message.interactive?.button_reply?.title || message.interactive?.button_reply?.id || message.interactive?.list_reply?.title || '';
+            rawMsg = message.interactive?.button_reply?.title || '';
+            btnId = message.interactive?.button_reply?.id || '';
           } else if (message.type === 'button') {
-            rawMsg = message.button?.text || message.button?.payload || '';
+            rawMsg = message.button?.text || '';
+            btnId = message.button?.payload || '';
           } else {
             rawMsg = message.caption || 'Hi';
           }
@@ -127,26 +198,34 @@ export default async function handler(req, res) {
           const txt = rawMsg.toLowerCase();
 
           if (from && phoneId) {
-            // Handle Affordable Button Click or Query
-            if (txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('btn_affordable')) {
-              const replyText = `🌸 BOONDHON Affordable Card Collection:\n\n• ৫০ পিস: ২,৭৫০৳ (প্রতি পিস ৫৫৳)\n• ১০০ পিস: ৪,৫০০৳ (প্রতি পিস ৪৫৳)\n• ২০০ পিস: ৭,০০০৳ (প্রতি পিস ৩৫৳)\n\n🎁 ২০০+ পিসে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি!\n\n📝 অনলাইন অর্ডার ফর্ম: https://boondhon-platform-qr9a.vercel.app/order\n📞 হটলাইন: 01863586302`;
-              const buttons = [
-                { id: 'btn_premium', title: '✨ Premium Card' },
-                { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
-              ];
-              await sendWhatsAppInteractive(phoneId, from, replyText, buttons, SAMPLE_IMAGES.affordable);
+            // Check for "আরও দেখুন" (More) batch clicks
+            if (btnId.startsWith('more_affordable_') || txt.includes('more_affordable')) {
+              const offset = parseInt(btnId.replace('more_affordable_', '')) || 8;
+              await send8CardGallery(phoneId, from, 'affordable', offset);
             }
-            // Handle Premium Button Click or Query
-            else if (txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('btn_premium')) {
-              const replyText = `✨ BOONDHON Premium Royal Collection:\n\n• ৫০ পিস: ৩,২৫০৳ (প্রতি পিস ৬৫৳)\n• ১০০ পিস: ৫,৫০০৳ (প্রতি পিস ৫৫৳)\n• ২০০ পিস: ৯,০০০৳ (প্রতি পিস ৪৫৳)\n\n🎁 ২০০+ পিসে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি!\n\n📝 অনলাইন অর্ডার ফর্ম: https://boondhon-platform-qr9a.vercel.app/order\n📞 হটলাইন: 01863586302`;
+            else if (btnId.startsWith('more_premium_') || txt.includes('more_premium')) {
+              const offset = parseInt(btnId.replace('more_premium_', '')) || 8;
+              await send8CardGallery(phoneId, from, 'premium', offset);
+            }
+            // Affordable initial click
+            else if (txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || btnId === 'btn_affordable') {
+              await send8CardGallery(phoneId, from, 'affordable', 0);
+            }
+            // Premium initial click
+            else if (txt.includes('premium') || txt.includes('প্রিমিয়াম') || btnId === 'btn_premium') {
+              await send8CardGallery(phoneId, from, 'premium', 0);
+            }
+            // Order Form click
+            else if (btnId === 'btn_order' || txt.includes('অর্ডার') || txt.includes('order')) {
+              const replyText = `📝 BOONDHON অনলাইন অর্ডার ফর্ম:\n\nঅর্ডার করতে আমাদের ওয়েবসাইটে গিয়ে আপনার পছন্দের কার্ড আইডি ও তথ্য দিয়ে অর্ডার বুক করুন:\n👉 https://boondhon-platform-qr9a.vercel.app/order\n\n💳 ৩০% অগ্রিম পেমেন্ট (bKash/Nagad/Rocket): 01682588856\n📞 হটলাইন: 01863586302`;
               const buttons = [
                 { id: 'btn_affordable', title: '💚 Affordable Card' },
-                { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
+                { id: 'btn_premium', title: '✨ Premium Card' }
               ];
-              await sendWhatsAppInteractive(phoneId, from, replyText, buttons, SAMPLE_IMAGES.premium);
+              await sendWhatsAppInteractive(phoneId, from, replyText, buttons);
             }
-            // Handle Policy & Address Button Click or Query
-            else if (txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ঠিকানা') || txt.includes('btn_policy') || txt.includes('অফিস') || txt.includes('পেমেন্ট')) {
+            // Policy click
+            else if (txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ঠিকানা') || btnId === 'btn_policy' || txt.includes('অফিস')) {
               const replyText = `🚚 পেমেন্ট, ডেলিভারি ও ঠিকানা পলিসি:\n\n📍 অফিস ঠিকানা: মানিকগঞ্জ\n💳 পেমেন্ট পদ্ধতি: বিকাশ/নগদ/রকেট (01682588856)\n📝 অর্ডার নিয়ম: ৩০% অগ্রিম বুকিং ফি প্রদান করে ডেমো দেখে Approve করতে হয়।\n🚚 ডেলিভারি সময়: ৫-৭ কর্মদিবস (সুন্দরবন/এসএ পরিবহন)\n\n📝 অনলাইন অর্ডার ফর্ম: https://boondhon-platform-qr9a.vercel.app/order`;
               const buttons = [
                 { id: 'btn_affordable', title: '💚 Affordable Card' },
@@ -154,15 +233,15 @@ export default async function handler(req, res) {
               ];
               await sendWhatsAppInteractive(phoneId, from, replyText, buttons);
             }
-            // Default Welcome Greeting with Buttons & Image Header
+            // Default Welcome Greeting
             else {
-              const replyText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—**২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি!** 🎁\n\nআপনি কোন ক্যাটাগরির কার্ডের তথ্য জানতে চান নিচে বাটনে সিলেক্ট করুন:`;
+              const replyText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—**২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি!** 🎁\n\nকার্ডের ডিজাইন দেখতে নিচের বাটনে ক্লিক করুন:`;
               const buttons = [
                 { id: 'btn_affordable', title: '💚 Affordable Card' },
                 { id: 'btn_premium', title: '✨ Premium Card' },
                 { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
               ];
-              await sendWhatsAppInteractive(phoneId, from, replyText, buttons, SAMPLE_IMAGES.affordable);
+              await sendWhatsAppInteractive(phoneId, from, replyText, buttons, driveUrl("1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD"));
             }
           }
         }
