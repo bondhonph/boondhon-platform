@@ -142,7 +142,6 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
 
-// Helper to send text to recipient AND duplicate exact text to owner personal WhatsApp 01701016826
 async function sendTextWithMirror(phoneId, to, text) {
   await sendWhatsAppMessage(phoneId, to, text);
   if (to !== OWNER_PHONE) {
@@ -151,7 +150,6 @@ async function sendTextWithMirror(phoneId, to, text) {
   }
 }
 
-// Helper to send buttons to recipient AND duplicate exact buttons to owner personal WhatsApp 01701016826
 async function sendButtonsWithMirror(phoneId, to, text, buttons) {
   await sendWhatsAppButtons(phoneId, to, text, buttons);
   if (to !== OWNER_PHONE) {
@@ -159,7 +157,6 @@ async function sendButtonsWithMirror(phoneId, to, text, buttons) {
   }
 }
 
-// Helper to send image to recipient AND duplicate exact image to owner personal WhatsApp 01701016826
 async function sendImageWithMirror(phoneId, to, imageUrl) {
   await sendWhatsAppImage(phoneId, to, imageUrl);
   if (to !== OWNER_PHONE) {
@@ -168,7 +165,6 @@ async function sendImageWithMirror(phoneId, to, imageUrl) {
 }
 
 export default async function handler(req, res) {
-  // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -184,7 +180,6 @@ export default async function handler(req, res) {
     return res.status(403).send('Verification Failed');
   }
 
-  // ── 2. HANDLE INCOMING EVENTS (POST REQUEST) ──
   if (req.method === 'POST') {
     try {
       const body = req.body;
@@ -196,8 +191,8 @@ export default async function handler(req, res) {
         const message = value?.messages?.[0];
 
         if (message) {
-          const from = message.from; // Sender's phone number
-          const phoneId = value?.metadata?.phone_number_id; // WhatsApp Phone ID
+          const from = message.from;
+          const phoneId = value?.metadata?.phone_number_id;
 
           if (phoneId && from) {
             let incomingText = '';
@@ -225,7 +220,7 @@ export default async function handler(req, res) {
               const text = incomingText.trim();
               const lower = text.toLowerCase();
 
-              // Handle list command
+              // 1. Handle list / status command
               if (lower === 'list' || lower === 'status' || lower === 'লিস্ট') {
                 const convs = conversationStore.getConversations();
                 if (convs.length === 0) {
@@ -236,33 +231,45 @@ export default async function handler(req, res) {
                     const statusStr = c.human_active ? '👤 Agent Active' : '🤖 Bot Active';
                     listTxt += `${idx + 1}. +${c.phone} [${statusStr}]\n   💬 ${c.lastMessage}\n\n`;
                   });
-                  listTxt += '👉 উত্তর দিতে লিখুন: r <মেসেজ> (অথবা r <নম্বর> <মেসেজ>)';
+                  listTxt += '👉 উত্তর দিতে লিখুন:\nr <মেসেজ>\nr 1 <মেসেজ> (তালিকার ১ম কাস্টমার)\nr <নম্বর> <মেসেজ>';
                   await sendWhatsAppMessage(phoneId, OWNER_PHONE, listTxt);
                 }
                 return res.status(200).send('EVENT_RECEIVED');
               }
 
-              // Handle remote reply command: "r <phone> <message>" or "reply <phone> <message>" or "r <message>"
+              // 2. Handle remote reply command: "r ...", "reply ..."
               if (lower.startsWith('r ') || lower.startsWith('reply ')) {
                 const parts = text.split(' ');
                 let targetPhone = null;
                 let replyContent = '';
 
-                if (parts.length >= 3 && /^\d{10,14}$/.test(parts[1])) {
+                // Option A: Check if 2nd part is index (e.g. r 1 hello)
+                if (parts.length >= 3 && /^[1-5]$/.test(parts[1])) {
+                  const idx = parseInt(parts[1]) - 1;
+                  const convs = conversationStore.getConversations();
+                  if (convs[idx]) {
+                    targetPhone = convs[idx].phone;
+                    replyContent = parts.slice(2).join(' ');
+                  }
+                }
+                // Option B: Check if 2nd part is phone number (e.g. r 8801682588856 hello)
+                else if (parts.length >= 3 && /^\d{10,14}$/.test(parts[1])) {
                   targetPhone = parts[1];
                   replyContent = parts.slice(2).join(' ');
-                } else {
+                }
+                // Option C: Quoted reply or fallback to last active customer
+                else {
                   targetPhone = conversationStore.getLastCustomerPhone();
                   replyContent = parts.slice(1).join(' ');
                 }
 
                 if (!targetPhone) {
-                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো কাস্টমার নম্বর পাওয়া যায়নি। সম্পূর্ণ নম্বর সহ লিখুন: r 88016... আপনার মেসেজ');
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো কাস্টমার নম্বর পাওয়া যায়নি। লিখুন: r 1 আপনার মেসেজ (অথবা r 88016... আপনার মেসেজ)');
                   return res.status(200).send('EVENT_RECEIVED');
                 }
 
                 if (!replyContent.trim()) {
-                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো মেসেজ লেখা হয়নি। উদাহরণ: r 88016... আপনার মেসেজ');
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো মেসেজ লেখা হয়নি। উদাহরণ: r 1 আপনার মেসেজ');
                   return res.status(200).send('EVENT_RECEIVED');
                 }
 
@@ -296,7 +303,7 @@ export default async function handler(req, res) {
 
             // ── FORWARD CUSTOMER MESSAGE TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
             if (from !== OWNER_PHONE) {
-              const alertMessage = `👤 [কাস্টমার +${from}]:\n"${incomingText}"\n\n👉 উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা সংক্ষেপে: r আপনার উত্তর)`;
+              const alertMessage = `👤 [কাস্টমার +${from}]:\n"${incomingText}"\n\n👉 উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা: r 1 আপনার উত্তর)`;
               await sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
             }
 
@@ -313,18 +320,15 @@ export default async function handler(req, res) {
             else if (message.type === 'text') {
               const lowerText = incomingText.toLowerCase().trim();
 
-              // Meta Ad Direct Trigger
               if (lowerText.includes('affordable কালেকশন') || lowerText.includes('affordable collection') || lowerText.includes('affordable নিয়ে')) {
                 await sendBatchImages(phoneId, from, 'affordable', 0);
               } 
               else if (lowerText.includes('premium কালেকশন') || lowerText.includes('premium collection') || lowerText.includes('premium নিয়ে')) {
                 await sendBatchImages(phoneId, from, 'premium', 0);
               }
-              // Photo request check
               else if (['pic', 'picture', 'photo', 'ছবি', 'কার্ডের ছবি', 'ডিজাইন', 'সব ছবি', 'image'].some(w => lowerText.includes(w))) {
                 await sendBatchImages(phoneId, from, 'affordable', 0);
               } 
-              // Order form / details check
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
                 await sendTextWithMirror(phoneId, from, ORDER_POLICY_TEXT);
                 conversationStore.addMessage(from, { sender: 'bot', text: ORDER_POLICY_TEXT });
@@ -340,7 +344,6 @@ export default async function handler(req, res) {
                 ]);
                 conversationStore.addMessage(from, { sender: 'bot', text: btnPrompt });
               }
-              // Normal query -> Route to Gemini AI
               else {
                 const aiReply = await getAIResponse(incomingText);
                 await sendButtonsWithMirror(phoneId, from, aiReply, DEFAULT_BUTTONS);
@@ -362,7 +365,6 @@ export default async function handler(req, res) {
   return res.status(405).send('Method Not Allowed');
 }
 
-// Helper to send a specific batch of images and generate sequential "Show More" buttons stateless
 async function sendBatchImages(phoneId, to, type, offset) {
   const ids = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const start = offset;
@@ -398,15 +400,12 @@ async function sendBatchImages(phoneId, to, type, offset) {
     conversationStore.addMessage(to, { sender: 'bot', text: nextMsg });
   }
 
-  // Send images concurrently to customer AND mirror to owner personal phone 01701016826
   const imagePromises = batch.map(id => sendImageWithMirror(phoneId, to, `https://lh3.googleusercontent.com/d/${id}`));
   await delay(3000);
   await Promise.allSettled(imagePromises);
 
-  // Log image batch in store
   conversationStore.addMessage(to, { sender: 'bot', text: `[Sent ${batch.length} ${label} Card Images]` });
 
-  // Check end of catalog
   const isWrapped = end >= ids.length;
   const nextOffset = isWrapped ? 0 : end;
 
@@ -428,7 +427,6 @@ async function sendBatchImages(phoneId, to, type, offset) {
   conversationStore.addMessage(to, { sender: 'bot', text: buttonText });
 }
 
-// Handler for Quick Reply button clicks
 async function handleButtonClick(phoneId, to, buttonId) {
   if (buttonId === 'btn_affordable') {
     await sendBatchImages(phoneId, to, 'affordable', 0);
@@ -473,7 +471,6 @@ async function handleButtonClick(phoneId, to, buttonId) {
   }
 }
 
-// Call Gemini AI for natural chat queries
 async function getAIResponse(userMsg) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
