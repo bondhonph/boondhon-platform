@@ -217,6 +217,73 @@ export default async function handler(req, res) {
               incomingText = `[Customer sent ${message.type}]`;
             }
 
+            // ── REMOTE CONTROL COMMANDS FROM OWNER'S PERSONAL WHATSAPP (01701016826) ──
+            if (from === OWNER_PHONE && message.type === 'text') {
+              const text = incomingText.trim();
+              const lower = text.toLowerCase();
+
+              // Handle list command
+              if (lower === 'list' || lower === 'status' || lower === 'লিস্ট') {
+                const convs = conversationStore.getConversations();
+                if (convs.length === 0) {
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '📋 কোনো কাস্টমার চ্যাট পাওয়া যায়নি।');
+                } else {
+                  let listTxt = '📋 সাম্প্রতিক কাস্টমার তালিকা:\n\n';
+                  convs.slice(0, 5).forEach((c, idx) => {
+                    const statusStr = c.human_active ? '👤 Agent Active' : '🤖 Bot Active';
+                    listTxt += `${idx + 1}. +${c.phone} [${statusStr}]\n   💬 ${c.lastMessage}\n\n`;
+                  });
+                  listTxt += '👉 উত্তর দিতে লিখুন: r <মেসেজ> (অথবা r <নম্বর> <মেসেজ>)';
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, listTxt);
+                }
+                return res.status(200).send('EVENT_RECEIVED');
+              }
+
+              // Handle remote reply command: "r <phone> <message>" or "reply <phone> <message>" or "r <message>"
+              if (lower.startsWith('r ') || lower.startsWith('reply ')) {
+                const parts = text.split(' ');
+                let targetPhone = null;
+                let replyContent = '';
+
+                // Check if 2nd part is phone number (e.g. r 8801682588856 hello)
+                if (parts.length >= 3 && /^\d{10,14}$/.test(parts[1])) {
+                  targetPhone = parts[1];
+                  replyContent = parts.slice(2).join(' ');
+                } else {
+                  // Fallback to last active customer phone
+                  targetPhone = conversationStore.getLastCustomerPhone();
+                  replyContent = parts.slice(1).join(' ');
+                }
+
+                if (!targetPhone) {
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো কাস্টমার নম্বর পাওয়া যায়নি। সম্পূর্ণ নম্বর সহ লিখুন: r 88016... আপনার মেসেজ');
+                  return res.status(200).send('EVENT_RECEIVED');
+                }
+
+                if (!replyContent.trim()) {
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো মেসেজ লেখা হয়নি। উদাহরণ: r 88016... আপনার মেসেজ');
+                  return res.status(200).send('EVENT_RECEIVED');
+                }
+
+                // Send reply to target customer directly!
+                const sendRes = await sendWhatsAppMessage(phoneId, targetPhone, replyContent.trim());
+                if (sendRes.success) {
+                  // Log in conversation store & activate 30-min takeover
+                  conversationStore.addMessage(targetPhone, {
+                    sender: 'agent',
+                    text: replyContent.trim(),
+                    timestamp: Date.now()
+                  });
+                  conversationStore.setHumanTakeover(targetPhone, true, 30);
+
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `✅ মেসেজ সফলভাবে পাঠানো হয়েছে!\n📱 কাস্টমার: +${targetPhone}\n💬 আপনার উত্তর: "${replyContent.trim()}"\n⏸️ (এই কাস্টমারের জন্য বট ৩০মিনিট পজ করা হলো)`);
+                } else {
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `❌ কাস্টমার +${targetPhone} এর কাছে মেসেজ পাঠাতে ব্যর্থ: ${sendRes.error}`);
+                }
+                return res.status(200).send('EVENT_RECEIVED');
+              }
+            }
+
             // Always store customer message in conversation store
             conversationStore.addMessage(from, {
               sender: 'customer',
@@ -227,12 +294,13 @@ export default async function handler(req, res) {
               messageId: message.id
             });
 
-            // ── ALWAYS FORWARD NOTIFICATION TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
-            const alertMessage = `🔔 নতুন মেসেজ এসেছে!\n📱 কাস্টমার: +${from}\n💬 মেসেজ: ${incomingText}\n👉 লাইভ চ্যাট: https://boondhon-platform-qr9a.vercel.app/chat`;
-            sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
+            // ── ALERT NOTIFICATION TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
+            if (from !== OWNER_PHONE) {
+              const alertMessage = `🔔 নতুন কাস্টমার মেসেজ!\n📱 কাস্টমার: +${from}\n💬 মেসেজ: ${incomingText}\n\n👉 সরাসরি হোয়াটসঅ্যাপে উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা সংক্ষেপে: r আপনার উত্তর)`;
+              sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
+            }
 
             // ── HUMAN TAKEOVER CHECK ──
-            // If human agent has taken over this conversation, skip auto-reply!
             if (conversationStore.isHumanActive(from)) {
               console.log(`Human takeover active for ${from}, skipping bot auto-reply.`);
               return res.status(200).send('EVENT_RECEIVED');
@@ -298,7 +366,7 @@ export default async function handler(req, res) {
 async function sendBatchImages(phoneId, to, type, offset) {
   const ids = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const start = offset;
-  const end = offset + 8; // Send 8 images to avoid Meta's 40 messages/minute pair rate limits
+  const end = offset + 8;
   const batch = ids.slice(start, end);
 
   if (batch.length === 0) {
