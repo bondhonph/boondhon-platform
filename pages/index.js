@@ -4,7 +4,8 @@ import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Chatbot from '../components/Chatbot';
-import { driveUrl, AFFORDABLE_IDS, PREMIUM_IDS } from '../lib/data';
+import Testimonials from '../components/Testimonials';
+import { driveUrl, AFFORDABLE_IDS, PREMIUM_IDS, getCardCode } from '../lib/data';
 import { Star, ChevronRight, Package, Clock, Shield, Sparkles } from 'lucide-react';
 
 const PETALS = ['🌸', '🌺', '💮', '🌹', '🏵️'];
@@ -33,8 +34,20 @@ export default function Home() {
     <>
       <Head>
         <title>BOONDHON Printing House – Design Your Dream</title>
-        <meta name="description" content="বাংলাদেশের সেরা ওয়েডিং কার্ড প্রিন্টিং হাউস। Affordable ও Premium বিয়ের কার্ড। মানিকগঞ্জ।" />
+        <meta name="description" content="বাংলাদেশের সেরা ওয়েডিং কার্ড প্রিন্টিং হাউস। সাশ্রয়ী (Affordable) ও রাজকীয় (Premium) বিয়ের কার্ড। মানিকগঞ্জ ও সারাদেশে ডেলিভারি।" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        {/* OpenGraph & Facebook Share Metadata (Priority 3) */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="BOONDHON Printing House – Design Your Dream" />
+        <meta property="og:description" content="১৬০+ বিয়ের কার্ড কালেকশন। ২০০+ পিসে FREE প্রিমিয়াম নিকাহনামা! মানিকগঞ্জ।" />
+        <meta property="og:image" content="https://lh3.googleusercontent.com/d/182kOjBhoaqOTq7nr4ryI6re6fRuLITbH" />
+        <meta property="og:url" content="https://boondhon-platform-qr9a.vercel.app" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="BOONDHON Printing House – Design Your Dream" />
+        <meta name="twitter:description" content="বাংলাদেশের সেরা ওয়েডিং কার্ড প্রিন্টিং হাউস।" />
       </Head>
 
       <div className="min-h-screen bg-brand-dark relative overflow-hidden">
@@ -121,14 +134,22 @@ export default function Home() {
             <p className="text-gray-400">৫০ পিস মাত্র ২,৭৫০৳ থেকে শুরু</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {featuredAffordable.map((id, i) => (
-              <div key={id} className="img-card">
-                <img src={driveUrl(id)} alt={`Affordable Card ${i+1}`} loading="lazy" onError={e => e.target.style.display='none'} />
-                <div className="overlay">
-                  <Link href="/order" className="w-full text-center bg-brand-blue text-white py-2 rounded-lg text-sm font-semibold">অর্ডার করুন</Link>
+            {featuredAffordable.map((id, i) => {
+              const code = getCardCode('affordable', i);
+              return (
+                <div key={id} className="img-card relative">
+                  <span className="absolute top-2 left-2 z-10 bg-slate-900/90 text-white text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/20">
+                    {code}
+                  </span>
+                  <img src={driveUrl(id)} alt={`Affordable Card ${code}`} loading="lazy" onError={e => e.target.style.display='none'} />
+                  <div className="overlay">
+                    <Link href={`/order?design=${code}&type=affordable`} className="w-full text-center bg-brand-blue text-white py-2 rounded-lg text-sm font-semibold">
+                      অর্ডার করুন ({code})
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="text-center mt-8">
             <Link href="/products?tab=affordable" className="border border-brand-blue/40 text-brand-blue px-8 py-3 rounded-full hover:bg-brand-blue/10 transition-all">
@@ -145,15 +166,23 @@ export default function Home() {
             <p className="text-gray-400">৫০ পিস মাত্র ৩,২৫০৳ থেকে শুরু</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {featuredPremium.map((id, i) => (
-              <div key={id} className="img-card">
-                <div className="absolute top-2 right-2 z-10 bg-brand-gold text-black text-xs px-2 py-1 rounded-full font-bold">Premium</div>
-                <img src={driveUrl(id)} alt={`Premium Card ${i+1}`} loading="lazy" onError={e => e.target.style.display='none'} />
-                <div className="overlay">
-                  <Link href="/order" className="w-full text-center bg-brand-gold text-black py-2 rounded-lg text-sm font-semibold">অর্ডার করুন</Link>
+            {featuredPremium.map((id, i) => {
+              const code = getCardCode('premium', i);
+              return (
+                <div key={id} className="img-card relative">
+                  <span className="absolute top-2 left-2 z-10 bg-slate-900/90 text-white text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/20">
+                    {code}
+                  </span>
+                  <div className="absolute top-2 right-2 z-10 bg-brand-gold text-black text-xs px-2 py-1 rounded-full font-bold">Premium</div>
+                  <img src={driveUrl(id)} alt={`Premium Card ${code}`} loading="lazy" onError={e => e.target.style.display='none'} />
+                  <div className="overlay">
+                    <Link href={`/order?design=${code}&type=premium`} className="w-full text-center bg-brand-gold text-black py-2 rounded-lg text-sm font-semibold">
+                      অর্ডার করুন ({code})
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="text-center mt-8">
             <Link href="/products?tab=premium" className="border border-brand-gold/40 text-brand-gold px-8 py-3 rounded-full hover:bg-brand-gold/10 transition-all">
@@ -188,6 +217,9 @@ export default function Home() {
             </Link>
           </div>
         </section>
+
+        {/* Priority 2: Testimonials & Social Proof Section */}
+        <Testimonials />
 
         {/* CTA */}
         <section className="py-20 px-4">

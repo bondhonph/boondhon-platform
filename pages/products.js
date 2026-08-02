@@ -5,8 +5,7 @@ import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Chatbot from '../components/Chatbot';
-import { driveUrl, AFFORDABLE_IDS, PREMIUM_IDS } from '../lib/data';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { driveUrl, AFFORDABLE_IDS, PREMIUM_IDS, getCardCode } from '../lib/data';
 
 const PAGE_SIZE = 24;
 
@@ -28,8 +27,23 @@ export default function Products() {
   return (
     <>
       <Head>
-        <title>কার্ড গ্যালারি – BOONDHON Printing House</title>
+        <title>কার্ড গ্যালারি | ১৬০+ বিয়ের কার্ড ডিজাইন – BOONDHON Printing House</title>
+        <meta name="description" content="BOONDHON Printing House-এর ১৬০+ সাশ্রয়ী ও প্রিমিয়াম বিয়ের কার্ড কালেকশন। সর্বনিম্ন ৫০ পিস থেকে অর্ডার। মানিকগঞ্জ ও সারাদেশে হোম ডেলিভারি।" />
+        <meta name="keywords" content="বিয়ের কার্ড, Wedding Invitation Card, BOONDHON Printing House, Manikganj, Affordable Card, Premium Wedding Card Bangladesh" />
+        
+        {/* Open Graph / Facebook / WhatsApp */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="কার্ড গ্যালারি | ১৬০+ বিয়ের কার্ড ডিজাইন – BOONDHON Printing House" />
+        <meta property="og:description" content="সাশ্রয়ী ও রাজকীয় বিয়ের কার্ড গ্যালারি। ২০০+ পিসে FREE নিকাহনামা! মানিকগঞ্জ।" />
+        <meta property="og:image" content="https://lh3.googleusercontent.com/d/182kOjBhoaqOTq7nr4ryI6re6fRuLITbH" />
+        <meta property="og:url" content="https://boondhon-platform-qr9a.vercel.app/products" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="কার্ড গ্যালারি | BOONDHON Printing House" />
+        <meta name="twitter:description" content="১৬০+ বিয়ের কার্ড কালেকশন থেকে পছন্দ করুন আপনার স্বপ্নের কার্ড।" />
       </Head>
+
       <div className="min-h-screen bg-brand-dark">
         <Navbar />
 
@@ -62,26 +76,41 @@ export default function Products() {
 
           {/* Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {visible.map((id, i) => (
-              <div key={id} className="img-card cursor-pointer" onClick={() => setSelected(id)}>
-                {tab === 'premium' && (
-                  <div className="absolute top-2 right-2 z-10 bg-brand-gold text-black text-xs px-2 py-0.5 rounded-full font-bold">P</div>
-                )}
-                <img
-                  src={driveUrl(id)}
-                  alt={`${tab} card ${(page-1)*PAGE_SIZE+i+1}`}
-                  loading="lazy"
-                  onError={e => { e.target.parentElement.style.display='none'; }}
-                />
-                <div className="overlay">
-                  <button
-                    onClick={e => { e.stopPropagation(); router.push('/order'); }}
-                    className={`w-full text-center py-2 rounded-lg text-xs font-semibold ${tab === 'premium' ? 'bg-brand-gold text-black' : 'bg-brand-blue text-white'}`}>
-                    অর্ডার করুন
-                  </button>
+            {visible.map((id, i) => {
+              const globalIdx = (page - 1) * PAGE_SIZE + i;
+              const cardCode = getCardCode(tab, globalIdx);
+
+              return (
+                <div key={id} className="img-card cursor-pointer relative group" onClick={() => setSelected({ id, code: cardCode })}>
+                  {/* Card Code Badge */}
+                  <div className="absolute top-2 left-2 z-10 bg-slate-900/90 border border-white/20 text-white text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-md">
+                    {cardCode}
+                  </div>
+
+                  {tab === 'premium' && (
+                    <div className="absolute top-2 right-2 z-10 bg-brand-gold text-black text-xs px-2 py-0.5 rounded-full font-bold">P</div>
+                  )}
+
+                  <img
+                    src={driveUrl(id)}
+                    alt={`${tab === 'premium' ? 'Premium' : 'Affordable'} wedding card design ${cardCode} - BOONDHON Manikganj`}
+                    loading="lazy"
+                    onError={e => { e.target.parentElement.style.display='none'; }}
+                  />
+
+                  <div className="overlay">
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        router.push(`/order?design=${cardCode}&type=${tab}`);
+                      }}
+                      className={`w-full text-center py-2 rounded-lg text-xs font-semibold ${tab === 'premium' ? 'bg-brand-gold text-black' : 'bg-brand-blue text-white'}`}>
+                      অর্ডার করুন ({cardCode})
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Pagination */}
@@ -118,14 +147,23 @@ export default function Products() {
           <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
             <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
               <button onClick={() => setSelected(null)} className="absolute -top-10 right-0 text-white text-2xl">✕</button>
-              <img src={driveUrl(selected)} alt="Card preview" className="w-full rounded-2xl shadow-2xl" />
+              
+              <div className="relative">
+                <img src={driveUrl(selected.id)} alt={`Wedding card ${selected.code}`} className="w-full rounded-2xl shadow-2xl" />
+                <span className="absolute top-3 left-3 bg-slate-900/90 text-white text-xs font-mono font-bold px-3 py-1 rounded-full border border-white/20">
+                  ডিজাইন কোড: {selected.code}
+                </span>
+              </div>
+
               <div className="mt-4 flex gap-3">
-                <Link href="/order" className="flex-1 text-center bg-brand-blue text-white py-3 rounded-xl font-semibold">
-                  এই ডিজাইনে অর্ডার করুন
+                <Link
+                  href={`/order?design=${selected.code}&type=${tab}`}
+                  className="flex-1 text-center bg-brand-blue text-white py-3 rounded-xl font-semibold shadow-lg hover:bg-blue-500 transition-all">
+                  এই ডিজাইনে অর্ডার করুন ({selected.code})
                 </Link>
-                <a href={`https://wa.me/8801863586302?text=এই ডিজাইনটি পছন্দ হয়েছে: ${driveUrl(selected)}`}
+                <a href={`https://wa.me/8801863586302?text=${encodeURIComponent(`আসসালামু আলাইকুম, আমি ${selected.code} ডিজাইনটি পছন্দ করেছি: ${driveUrl(selected.id)}`)}`}
                   target="_blank" rel="noreferrer"
-                  className="flex-1 text-center bg-green-600 text-white py-3 rounded-xl font-semibold">
+                  className="flex-1 text-center bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-500 transition-all">
                   WhatsApp করুন
                 </a>
               </div>

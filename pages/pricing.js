@@ -38,7 +38,23 @@ const features = [
 export default function Pricing() {
   return (
     <>
-      <Head><title>মূল্য তালিকা – BOONDHON Printing House</title></Head>
+      <Head>
+        <title>মূল্য তালিকা | সাশ্রয়ী বিয়ের কার্ডের দাম – BOONDHON Printing House</title>
+        <meta name="description" content="BOONDHON Printing House-এর বিয়ে ও নিকাহনামা কার্ডের সম্পূর্ণ দামের তালিকা। Affordable ও Premium বিয়ের কার্ড মাত্র ৫০ পিস থেকে। ২০০+ পিসে FREE নিকাহনামা!" />
+        <meta name="keywords" content="বিয়ের কার্ডের দাম, Wedding card price Bangladesh, BOONDHON Printing House price, Affordable card rate, Premium card price" />
+
+        {/* OpenGraph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="মূল্য তালিকা | সাশ্রয়ী বিয়ের কার্ডের দাম – BOONDHON Printing House" />
+        <meta property="og:description" content="সহজ ও স্বচ্ছ মূল্য — কোনো লুকানো চার্জ নেই। ২০০+ পিসে FREE নিকাহনামা!" />
+        <meta property="og:image" content="https://lh3.googleusercontent.com/d/1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD" />
+        <meta property="og:url" content="https://boondhon-platform-qr9a.vercel.app/pricing" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="মূল্য তালিকা | BOONDHON Printing House" />
+        <meta name="twitter:description" content="সাশ্রয়ী ও রাজকীয় বিয়ের কার্ডের প্যাকেজ ও দামের তালিকা।" />
+      </Head>
       <div className="min-h-screen bg-brand-dark">
         <Navbar />
         <div className="pt-24 pb-20 px-4 max-w-6xl mx-auto">
