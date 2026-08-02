@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
-import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, AlertTriangle, Smartphone, Tag, CheckCircle2, Truck, CreditCard, UserPlus } from 'lucide-react';
+import { 
+  Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, 
+  AlertTriangle, Smartphone, Tag, CheckCircle2, Truck, CreditCard, UserPlus, CheckCheck,
+  Search, MoreVertical, Paperclip, Smile
+} from 'lucide-react';
 
 const CRM_LABEL_COLORS = {
   'New Customer': 'bg-blue-500/20 text-blue-300 border-blue-500/40',
@@ -104,7 +108,7 @@ export default function ChatDashboard() {
       if (selectedPhone) {
         fetchActiveConversation(selectedPhone);
       }
-    }, 3000);
+    }, 2500);
     return () => clearInterval(interval);
   }, [selectedPhone]);
 
@@ -270,67 +274,81 @@ export default function ChatDashboard() {
   return (
     <>
       <Head>
-        <title>BOONDHON Chat – Android App & Live Messaging</title>
+        <title>BOONDHON Chat – WhatsApp Web Dashboard</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
-      <div className="min-h-screen bg-brand-dark font-sans text-gray-100">
+      <div className="min-h-screen bg-[#0b141a] font-sans text-gray-100 flex flex-col">
         <Navbar />
-        <div className="pt-20 min-h-screen">
-          <div className="border-b border-brand-blue/10 px-4 py-4 bg-brand-dark/80 backdrop-blur">
+        <div className="pt-16 flex-1 flex flex-col">
+          {/* Header Banner */}
+          <div className="border-b border-[#222d34] px-4 py-3 bg-[#111b21]">
             <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h1 className="text-xl md:text-2xl font-display font-bold text-white flex items-center gap-2">
-                  💬 BOONDHON Live Chat & Support
-                </h1>
-                <p className="text-gray-400 text-xs md:text-sm">WhatsApp Business Cloud API Live Messaging Center</p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#25d366]/20 border border-[#25d366]/40 flex items-center justify-center text-[#25d366] font-bold text-lg">
+                  💬
+                </div>
+                <div>
+                  <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                    BOONDHON WhatsApp Web Live Chat
+                  </h1>
+                  <p className="text-gray-400 text-xs">Official WhatsApp Business Cloud API & Google Drive CRM</p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleInstallApp}
-                  className="px-3.5 py-1.5 rounded-xl bg-brand-blue hover:bg-brand-blue/80 text-white font-semibold text-xs flex items-center gap-1.5 shadow-lg transition animate-pulse"
-                  title="মোবাইলে অ্যান্ড্রয়েড অ্যাপ হিসেবে ইন্সটল করুন"
+                  className="px-3.5 py-1.5 rounded-xl bg-[#00a884] hover:bg-[#008f70] text-white font-semibold text-xs flex items-center gap-1.5 shadow-lg transition"
                 >
                   <Smartphone size={15} />
                   <span>📲 অ্যান্ড্রয়েড অ্যাপ ইন্সটল করুন</span>
                 </button>
 
-                <button onClick={fetchConversations} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition" title="Refresh data">
+                <button onClick={fetchConversations} className="p-2 rounded-lg bg-[#202c33] hover:bg-[#2a3942] text-gray-300 transition" title="Refresh data">
                   <RefreshCw size={16} />
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 py-6">
+          {/* Main WhatsApp Web Container */}
+          <div className="flex-1 max-w-7xl w-full mx-auto p-2 md:p-4 flex flex-col">
             {errorMessage && (
-              <div className="mb-4 p-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 flex items-center justify-between text-sm">
+              <div className="mb-3 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle size={18} className="text-rose-400" />
-                  <span><strong>মেসেজ পাঠানো যায়নি:</strong> {errorMessage}</span>
+                  <AlertTriangle size={16} className="text-rose-400" />
+                  <span><strong>ত্রুটি:</strong> {errorMessage}</span>
                 </div>
-                <button onClick={() => setErrorMessage('')} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded-lg">
+                <button onClick={() => setErrorMessage('')} className="text-xs bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded">
                   Dismiss
                 </button>
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[680px] lg:h-[720px]">
-              <div className="lg:col-span-4 glass rounded-2xl flex flex-col overflow-hidden border border-white/10 bg-brand-dark/40">
-                <div className="p-4 border-b border-white/10 bg-white/3">
-                  <input 
-                    type="text" 
-                    placeholder="ফোন নম্বর দিয়ে সার্চ করুন..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-brand-dark/80 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-blue"
-                  />
+            {/* WhatsApp Web Split Panel */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 rounded-2xl overflow-hidden border border-[#222d34] bg-[#111b21] shadow-2xl min-h-[640px]">
+              
+              {/* ── LEFT SIDEBAR (Chats List) ── */}
+              <div className="lg:col-span-4 border-r border-[#222d34] flex flex-col bg-[#111b21]">
+                {/* Search Bar */}
+                <div className="p-3 border-b border-[#222d34] bg-[#111b21]">
+                  <div className="relative flex items-center">
+                    <Search size={16} className="absolute left-3 text-gray-400" />
+                    <input 
+                      type="text" 
+                      placeholder="ফোন নম্বর দিয়ে সার্চ করুন..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-[#202c33] border border-transparent focus:border-[#00a884] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-400 focus:outline-none"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+                {/* Conversation Items */}
+                <div className="flex-1 overflow-y-auto divide-y divide-[#222d34]">
                   {filteredConvs.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 text-sm">
-                      কোনো চ্যাট হিস্ট্রি পাওয়া যায়নি।<br/>হোয়াটসঅ্যাপে মেসেজ আসলে এখানে ভেসে উঠবে।
+                    <div className="p-8 text-center text-gray-500 text-xs">
+                      কোনো কাস্টমার চ্যাট পাওয়া যায়নি।<br/>হোয়াটসঅ্যাপে মেসেজ আসলে এখানে দেখা যাবে।
                     </div>
                   ) : (
                     filteredConvs.map((conv) => {
@@ -344,38 +362,46 @@ export default function ChatDashboard() {
                         <div 
                           key={conv.phone}
                           onClick={() => setSelectedPhone(conv.phone)}
-                          className={`p-4 cursor-pointer transition-all hover:bg-white/5 ${
-                            isSelected ? 'bg-brand-blue/15 border-l-4 border-brand-blue' : ''
+                          className={`p-3.5 cursor-pointer transition-all hover:bg-[#202c33] ${
+                            isSelected ? 'bg-[#2a3942] border-l-4 border-[#00a884]' : ''
                           }`}
                         >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="font-bold text-white text-sm flex items-center gap-1.5">
-                              {conv.name}
-                            </span>
-                            <span className="text-[11px] text-gray-500">{formatTime(conv.lastTimestamp)}</span>
-                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-[#2a3942] text-gray-300 font-bold flex items-center justify-center text-sm border border-[#3b4a54]">
+                              👤
+                            </div>
 
-                          <p className="text-gray-400 text-xs truncate mb-2">
-                            {conv.lastMessage || 'মেসেজ শুরু হয়েছে'}
-                          </p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-baseline mb-0.5">
+                                <span className="font-semibold text-white text-sm truncate">
+                                  {conv.name}
+                                </span>
+                                <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatTime(conv.lastTimestamp)}</span>
+                              </div>
 
-                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px]">
-                            <span className={`px-2 py-0.5 rounded-md border font-medium text-[10px] flex items-center gap-1 ${badgeClass}`}>
-                              {icon}
-                              {labelText}
-                            </span>
+                              <p className="text-gray-400 text-xs truncate mb-1.5">
+                                {conv.lastMessage || 'মেসেজ শুরু হয়েছে'}
+                              </p>
 
-                            {conv.human_active ? (
-                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1 text-[10px]">
-                                <UserCheck size={10} />
-                                Active ({remainingMins}m)
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-brand-blue font-medium border border-brand-blue/20 flex items-center gap-1 text-[10px]">
-                                <Bot size={10} />
-                                Bot Auto
-                              </span>
-                            )}
+                              <div className="flex flex-wrap items-center justify-between gap-1">
+                                <span className={`px-2 py-0.5 rounded border text-[10px] font-medium flex items-center gap-1 ${badgeClass}`}>
+                                  {icon}
+                                  {labelText}
+                                </span>
+
+                                {conv.human_active ? (
+                                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-medium flex items-center gap-1">
+                                    <UserCheck size={10} />
+                                    Active ({remainingMins}m)
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded bg-blue-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-medium flex items-center gap-1">
+                                    <Bot size={10} />
+                                    Bot Auto
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
@@ -384,66 +410,71 @@ export default function ChatDashboard() {
                 </div>
               </div>
 
-              <div className="lg:col-span-8 glass rounded-2xl flex flex-col overflow-hidden border border-white/10 bg-brand-dark/40">
+              {/* ── RIGHT CHAT WINDOW (WhatsApp Web Style) ── */}
+              <div className="lg:col-span-8 flex flex-col bg-[#0b141a] relative">
                 {activeConv ? (
                   <>
-                    <div className="p-4 border-b border-white/10 bg-white/5 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Phone size={18} className="text-brand-blue" />
-                            {activeConv.name}
-                          </h2>
-
-                          <div className="relative flex items-center gap-1">
-                            <Tag size={14} className="text-gray-400" />
-                            <select
-                              value={activeConv.label || 'New Customer'}
-                              onChange={(e) => handleUpdateLabel(e.target.value)}
-                              className="bg-brand-dark/90 text-white text-xs border border-white/20 rounded-lg px-2.5 py-1 focus:outline-none focus:border-brand-blue font-semibold cursor-pointer"
-                            >
-                              {crmLabels.map(l => (
-                                <option key={l} value={l} className="bg-brand-dark text-white">
-                                  {l}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                    {/* Active Chat Header */}
+                    <div className="p-3 border-b border-[#222d34] bg-[#202c33] flex flex-wrap items-center justify-between gap-3 z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#00a884]/20 border border-[#00a884]/40 text-[#00a884] font-bold flex items-center justify-center text-base">
+                          📱
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">WhatsApp Customer Session</p>
+
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-sm font-bold text-white">
+                              {activeConv.name}
+                            </h2>
+
+                            {/* Label Selector Dropdown */}
+                            <div className="flex items-center gap-1 bg-[#111b21] border border-[#3b4a54] rounded-lg px-2 py-0.5">
+                              <Tag size={12} className="text-[#00a884]" />
+                              <select
+                                value={activeConv.label || 'New Customer'}
+                                onChange={(e) => handleUpdateLabel(e.target.value)}
+                                className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                              >
+                                {crmLabels.map(l => (
+                                  <option key={l} value={l} className="bg-[#111b21] text-white">
+                                    {l}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-[#00a884]">
+                            {activeConv.human_active ? 'Human Takeover Mode' : 'AI Bot Ananya Active'}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         {activeConv.human_active ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-amber-300 font-medium flex items-center gap-1">
-                              <Clock size={14} />
-                              Auto-resume in {getRemainingMinutes(activeConv.paused_until)}m
-                            </span>
-                            <button 
-                              onClick={() => handleToggleBot(false)}
-                              className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold text-xs border border-emerald-500/30 flex items-center gap-1.5 transition"
-                            >
-                              <Bot size={14} />
-                              Resume Bot Now
-                            </button>
-                          </div>
+                          <button 
+                            onClick={() => handleToggleBot(false)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold text-xs border border-emerald-500/30 flex items-center gap-1 transition"
+                          >
+                            <Bot size={14} />
+                            Resume Bot Now
+                          </button>
                         ) : (
                           <button 
                             onClick={() => handleToggleBot(true)}
-                            className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold text-xs border border-amber-500/30 flex items-center gap-1.5 transition"
+                            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold text-xs border border-amber-500/30 flex items-center gap-1 transition"
                           >
                             <UserCheck size={14} />
-                            Take Over Chat (Pause Bot 30m)
+                            Pause Bot (30m)
                           </button>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-brand-dark/60">
+                    {/* Chat Messages Log with WhatsApp Wallpaper Background */}
+                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#0b141a] bg-opacity-95">
                       {(!activeConv.messages || activeConv.messages.length === 0) ? (
-                        <div className="text-center text-gray-500 text-sm py-12">
-                          এই কাস্টমারের সাথে কথোপকথন এখান থেকে দেখা যাবে।
+                        <div className="text-center text-gray-500 text-xs py-16">
+                          কাস্টমারের সাথে বার্তা বিনিময় শুরু হলে এখানে হোয়াটসঅ্যাপের মতো চ্যাট দেখা যাবে।
                         </div>
                       ) : (
                         activeConv.messages.map((msg, i) => {
@@ -453,29 +484,30 @@ export default function ChatDashboard() {
 
                           return (
                             <div key={i} className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}>
-                              <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-3.5 text-sm shadow-md ${
+                              <div className={`max-w-[85%] md:max-w-[70%] rounded-xl p-3 text-xs shadow-lg relative ${
                                 isCustomer 
-                                  ? 'bg-white/10 text-white rounded-tl-none border border-white/10' 
+                                  ? 'bg-[#202c33] text-gray-100 rounded-tl-none border border-[#2a3942]' 
                                   : isAgent 
-                                    ? 'bg-amber-500/20 border border-amber-500/30 text-amber-100 rounded-tr-none'
-                                    : 'bg-brand-blue/20 border border-brand-blue/30 text-blue-100 rounded-tr-none'
+                                    ? 'bg-[#005c4b] text-white rounded-tr-none border border-[#007a63]'
+                                    : 'bg-[#025144] text-emerald-100 rounded-tr-none border border-[#006857]'
                               }`}>
-                                <div className="text-[10px] font-bold opacity-75 mb-1 flex items-center gap-1">
-                                  {isCustomer && <span>👤 Customer</span>}
-                                  {isAgent && <span className="text-amber-400 flex items-center gap-1"><UserCheck size={10} /> You (Human Agent)</span>}
-                                  {isBot && <span className="text-brand-blue flex items-center gap-1"><Bot size={10} /> Ananya (AI Bot)</span>}
+                                <div className="text-[10px] font-bold opacity-80 mb-1 flex items-center justify-between gap-2">
+                                  {isCustomer && <span className="text-emerald-400">👤 Customer (+{activeConv.phone})</span>}
+                                  {isAgent && <span className="text-amber-300 flex items-center gap-1"><UserCheck size={10} /> You (Human Agent)</span>}
+                                  {isBot && <span className="text-blue-300 flex items-center gap-1"><Bot size={10} /> Ananya AI Bot</span>}
                                 </div>
 
-                                {msg.text && <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>}
+                                {msg.text && <p className="whitespace-pre-line leading-relaxed text-xs">{msg.text}</p>}
 
                                 {msg.image && (
-                                  <div className="mt-2 rounded-xl overflow-hidden border border-white/10">
-                                    <img src={msg.image} alt="WhatsApp Media" className="max-h-48 object-cover w-full" />
+                                  <div className="mt-2 rounded-lg overflow-hidden border border-black/20">
+                                    <img src={msg.image} alt="WhatsApp Image" className="max-h-56 object-cover w-full" />
                                   </div>
                                 )}
 
-                                <div className="text-[10px] text-gray-400 text-right mt-1 opacity-70">
-                                  {formatTime(msg.timestamp)}
+                                <div className="text-[9px] text-gray-300 flex items-center justify-end gap-1 mt-1 opacity-75">
+                                  <span>{formatTime(msg.timestamp)}</span>
+                                  {!isCustomer && <CheckCheck size={12} className="text-[#53bdeb]" />}
                                 </div>
                               </div>
                             </div>
@@ -485,32 +517,34 @@ export default function ChatDashboard() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="px-4 py-2 bg-white/5 border-t border-white/10 flex items-center gap-2 overflow-x-auto">
-                      <span className="text-xs text-gray-400 font-semibold flex items-center gap-1 whitespace-nowrap">
-                        <Zap size={14} className="text-brand-gold" />
-                        Quick Reply Shortcuts:
+                    {/* Quick Reply Shortcuts Bar */}
+                    <div className="px-3 py-2 bg-[#111b21] border-t border-[#222d34] flex items-center gap-2 overflow-x-auto">
+                      <span className="text-xs text-amber-400 font-semibold flex items-center gap-1 whitespace-nowrap">
+                        <Zap size={14} />
+                        Quick Reply:
                       </span>
                       {quickReplies.map((qr) => (
                         <button
                           key={qr.id}
                           disabled={sending}
                           onClick={() => handleSendQuickReply(qr.id)}
-                          className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white font-medium whitespace-nowrap transition flex items-center gap-1"
+                          className="px-3 py-1 rounded-lg bg-[#202c33] hover:bg-[#2a3942] border border-[#3b4a54] text-xs text-gray-200 whitespace-nowrap transition flex items-center gap-1"
                         >
                           {qr.title}
                         </button>
                       ))}
                     </div>
 
-                    <form onSubmit={handleSendMessage} className="p-3 border-t border-white/10 bg-brand-dark/80">
+                    {/* WhatsApp Style Message Input Bar */}
+                    <form onSubmit={handleSendMessage} className="p-3 border-t border-[#222d34] bg-[#202c33]">
                       {showImageInput && (
                         <div className="mb-2 flex items-center gap-2">
                           <input 
                             type="text" 
-                            placeholder="ছবির সরাসরি লিঙ্ক (Image URL) দিন..."
+                            placeholder="ছবির লিংক (Image URL) দিন..."
                             value={imageUrl}
                             onChange={(e) => setImageUrl(e.target.value)}
-                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-blue"
+                            className="flex-1 bg-[#111b21] border border-[#3b4a54] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#00a884]"
                           />
                           <button 
                             type="button" 
@@ -526,36 +560,41 @@ export default function ChatDashboard() {
                         <button
                           type="button"
                           onClick={() => setShowImageInput(!showImageInput)}
-                          className={`p-2.5 rounded-xl border transition ${
-                            imageUrl ? 'bg-brand-blue text-white border-brand-blue' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                          className={`p-2.5 rounded-full transition ${
+                            imageUrl ? 'bg-[#00a884] text-white' : 'text-gray-400 hover:text-white hover:bg-[#2a3942]'
                           }`}
-                          title="ছবি যোগ করুন"
+                          title="ছবি পাঠাতে লিংক যোগ করুন"
                         >
-                          <ImageIcon size={18} />
+                          <ImageIcon size={20} />
                         </button>
 
                         <input
                           type="text"
-                          placeholder="হোয়াটসঅ্যাপে ম্যানুয়াল উত্তর লিখুন..."
+                          placeholder="মেসেজ লিখুন..."
                           value={messageText}
                           onChange={(e) => setMessageText(e.target.value)}
-                          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-blue"
+                          className="flex-1 bg-[#2a3942] border border-transparent rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:border-[#00a884]"
                         />
 
                         <button
                           type="submit"
                           disabled={sending || (!messageText.trim() && !imageUrl.trim())}
-                          className="px-5 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-blue/80 text-white font-semibold text-sm flex items-center gap-2 disabled:opacity-50 transition"
+                          className="w-10 h-10 rounded-full bg-[#00a884] hover:bg-[#008f70] text-white flex items-center justify-center disabled:opacity-50 transition shadow-md"
                         >
                           <Send size={16} />
-                          {sending ? 'পাঠানো হচ্ছে...' : 'Send'}
                         </button>
                       </div>
                     </form>
                   </>
                 ) : (
-                  <div className="flex-1 flex items-center justify-center p-8 text-center text-gray-500">
-                    বাম পাশের তালিকা থেকে একটি হোয়াটসঅ্যাপ চ্যাট বেছে নিন।
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500">
+                    <div className="w-16 h-16 rounded-full bg-[#202c33] text-[#00a884] font-bold flex items-center justify-center text-2xl mb-3">
+                      💬
+                    </div>
+                    <h3 className="text-white text-base font-semibold mb-1">BOONDHON WhatsApp Web Dashboard</h3>
+                    <p className="text-xs text-gray-400 max-w-sm">
+                      বাম পাশের কাস্টমার চ্যাট তালিকা থেকে যেকোনো নম্বর নির্বাচন করে হোয়াটসঅ্যাপের মতো চ্যাট করুন।
+                    </p>
                   </div>
                 )}
               </div>
