@@ -4,24 +4,27 @@ import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import { 
   Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, 
-  AlertTriangle, Smartphone, Tag, CheckCircle2, Truck, CreditCard, UserPlus, CheckCheck,
-  Search, MoreVertical, Paperclip, Smile
+  AlertTriangle, Smartphone, Tag, CheckCheck, Search, MoreVertical, Plus, Filter, Users
 } from 'lucide-react';
 
-const CRM_LABEL_COLORS = {
-  'New Customer': 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-  'Follow-up': 'bg-purple-500/20 text-purple-300 border-purple-500/40',
-  'Advance Paid': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-  'Full Paid': 'bg-green-500/20 text-green-300 border-green-500/40',
-  'Delivered': 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+const CRM_LABEL_DOTS = {
+  'New customer': '#3b82f6',
+  'New order': '#eab308',
+  'Paid': '#a855f7',
+  'Lead': '#8b5cf6',
+  'Follow up': '#22c55e',
+  'Pending payment': '#ef4444',
+  'Delivered': '#6366f1'
 };
 
-const CRM_LABEL_ICONS = {
-  'New Customer': <UserPlus size={12} />,
-  'Follow-up': <RefreshCw size={12} />,
-  'Advance Paid': <CreditCard size={12} />,
-  'Full Paid': <CheckCircle2 size={12} />,
-  'Delivered': <Truck size={12} />
+const CRM_LABEL_BADGES = {
+  'New customer': 'bg-[#3b82f6]/20 text-[#3b82f6] border-[#3b82f6]/40',
+  'New order': 'bg-[#eab308]/20 text-[#eab308] border-[#eab308]/40',
+  'Paid': 'bg-[#a855f7]/20 text-[#a855f7] border-[#a855f7]/40',
+  'Lead': 'bg-[#8b5cf6]/20 text-[#8b5cf6] border-[#8b5cf6]/40',
+  'Follow up': 'bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]/40',
+  'Pending payment': 'bg-[#ef4444]/20 text-[#ef4444] border-[#ef4444]/40',
+  'Delivered': 'bg-[#6366f1]/20 text-[#6366f1] border-[#6366f1]/40'
 };
 
 export default function ChatDashboard() {
@@ -32,7 +35,11 @@ export default function ChatDashboard() {
   const [selectedPhone, setSelectedPhone] = useState(null);
   const [activeConv, setActiveConv] = useState(null);
   const [quickReplies, setQuickReplies] = useState([]);
-  const [crmLabels, setCrmLabels] = useState(['New Customer', 'Follow-up', 'Advance Paid', 'Full Paid', 'Delivered']);
+  const [crmLabels, setCrmLabels] = useState([
+    'New customer', 'New order', 'Paid', 'Lead', 'Follow up', 'Pending payment', 'Delivered'
+  ]);
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [showLabelMenu, setShowLabelMenu] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [showImageInput, setShowImageInput] = useState(false);
@@ -124,6 +131,7 @@ export default function ChatDashboard() {
 
   const handleUpdateLabel = async (newLabel) => {
     if (!selectedPhone) return;
+    setShowLabelMenu(false);
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
@@ -244,7 +252,12 @@ export default function ChatDashboard() {
   const formatTime = (ts) => {
     if (!ts) return '';
     const date = new Date(ts);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
   const getRemainingMinutes = (pausedUntil) => {
@@ -263,58 +276,35 @@ export default function ChatDashboard() {
       human_active: activeConv.human_active,
       paused_until: activeConv.paused_until,
       unreadCount: activeConv.unreadCount || 0,
-      label: activeConv.label || 'New Customer'
+      label: activeConv.label || 'New customer'
     });
   }
 
-  const filteredConvs = combinedConversations.filter(c => 
-    c.phone.includes(searchTerm) || (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredConvs = combinedConversations.filter(c => {
+    const matchesSearch = c.phone.includes(searchTerm) || (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (!matchesSearch) return false;
+
+    if (activeFilter === 'All') return true;
+    if (activeFilter === 'Unread') return (c.unreadCount || 0) > 0;
+    return (c.label || 'New customer') === activeFilter;
+  });
+
+  const unreadTotal = combinedConversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
 
   return (
     <>
       <Head>
-        <title>BOONDHON Chat – WhatsApp Web Dashboard</title>
+        <title>Chats – BOONDHON WhatsApp Web</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
       <div className="min-h-screen bg-[#0b141a] font-sans text-gray-100 flex flex-col">
         <Navbar />
         <div className="pt-16 flex-1 flex flex-col">
-          {/* Header Banner */}
-          <div className="border-b border-[#222d34] px-4 py-3 bg-[#111b21]">
-            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#25d366]/20 border border-[#25d366]/40 flex items-center justify-center text-[#25d366] font-bold text-lg">
-                  💬
-                </div>
-                <div>
-                  <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
-                    BOONDHON WhatsApp Web Live Chat
-                  </h1>
-                  <p className="text-gray-400 text-xs">Official WhatsApp Business Cloud API & Google Drive CRM</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleInstallApp}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#00a884] hover:bg-[#008f70] text-white font-semibold text-xs flex items-center gap-1.5 shadow-lg transition"
-                >
-                  <Smartphone size={15} />
-                  <span>📲 অ্যান্ড্রয়েড অ্যাপ ইন্সটল করুন</span>
-                </button>
-
-                <button onClick={fetchConversations} className="p-2 rounded-lg bg-[#202c33] hover:bg-[#2a3942] text-gray-300 transition" title="Refresh data">
-                  <RefreshCw size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Main WhatsApp Web Container */}
-          <div className="flex-1 max-w-7xl w-full mx-auto p-2 md:p-4 flex flex-col">
+          
+          {/* Main Container */}
+          <div className="flex-1 max-w-[1600px] w-full mx-auto p-0 md:p-3 flex flex-col">
             {errorMessage && (
-              <div className="mb-3 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 flex items-center justify-between text-xs">
+              <div className="m-2 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-rose-400" />
                   <span><strong>ত্রুটি:</strong> {errorMessage}</span>
@@ -325,26 +315,134 @@ export default function ChatDashboard() {
               </div>
             )}
 
-            {/* WhatsApp Web Split Panel */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 rounded-2xl overflow-hidden border border-[#222d34] bg-[#111b21] shadow-2xl min-h-[640px]">
+            {/* WhatsApp Web Outer Window */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden border-t md:border border-[#222d34] bg-[#111b21] shadow-2xl min-h-[680px]">
               
-              {/* ── LEFT SIDEBAR (Chats List) ── */}
-              <div className="lg:col-span-4 border-r border-[#222d34] flex flex-col bg-[#111b21]">
-                {/* Search Bar */}
-                <div className="p-3 border-b border-[#222d34] bg-[#111b21]">
+              {/* ── LEFT SIDEBAR (EXACT MATCH TO SCREENSHOT) ── */}
+              <div className="lg:col-span-4 border-r border-[#222d34] flex flex-col bg-[#111b21] relative">
+                
+                {/* 1. Header Bar: "Chats", [+], [:], Profile */}
+                <div className="p-3 bg-[#202c33] flex items-center justify-between border-b border-[#222d34]">
+                  <h1 className="text-lg font-bold text-white tracking-wide">Chats</h1>
+                  
+                  <div className="flex items-center gap-3 text-gray-300">
+                    <button onClick={handleInstallApp} title="Install App" className="p-1.5 hover:bg-[#2a3942] rounded-full text-[#00a884]">
+                      <Smartphone size={18} />
+                    </button>
+                    <button onClick={fetchConversations} title="New Chat" className="p-1.5 hover:bg-[#2a3942] rounded-full">
+                      <Plus size={18} />
+                    </button>
+                    
+                    {/* Menu Button (Toggles Label Popup) */}
+                    <div className="relative">
+                      <button 
+                        onClick={() => setShowLabelMenu(!showLabelMenu)} 
+                        className="p-1.5 hover:bg-[#2a3942] rounded-full text-gray-300"
+                        title="Labels Menu"
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+
+                      {/* POPUP MENU MATCHING SCREENSHOT EXACTLY */}
+                      {showLabelMenu && (
+                        <div className="absolute left-0 mt-2 w-56 rounded-xl bg-[#202c33] border border-[#3b4a54] shadow-2xl z-50 py-2 text-xs divide-y divide-[#2a3942]">
+                          <div className="px-3 py-2 text-gray-300 font-medium flex items-center gap-2 hover:bg-[#2a3942] cursor-pointer">
+                            <Users size={14} />
+                            <span>Groups</span>
+                          </div>
+
+                          <div className="py-1">
+                            {crmLabels.map(lbl => (
+                              <div
+                                key={lbl}
+                                onClick={() => {
+                                  if (selectedPhone) handleUpdateLabel(lbl);
+                                  else setActiveFilter(lbl);
+                                }}
+                                className="px-3 py-2 flex items-center gap-2.5 hover:bg-[#2a3942] cursor-pointer text-gray-200"
+                              >
+                                <span 
+                                  className="w-2.5 h-2.5 rounded-full inline-block"
+                                  style={{ backgroundColor: CRM_LABEL_DOTS[lbl] || '#3b82f6' }}
+                                />
+                                <span className="font-medium">{lbl}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="px-3 py-2 text-[#00a884] font-medium flex items-center gap-2 hover:bg-[#2a3942] cursor-pointer">
+                            <Plus size={14} />
+                            <span>New list</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-8 h-8 rounded-full bg-pink-700 text-white font-bold flex items-center justify-center text-xs">
+                      👤
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Search Bar: "Search or start a new chat" */}
+                <div className="p-2.5 bg-[#111b21] border-b border-[#222d34]">
                   <div className="relative flex items-center">
-                    <Search size={16} className="absolute left-3 text-gray-400" />
+                    <Search size={15} className="absolute left-3 text-gray-400" />
                     <input 
                       type="text" 
-                      placeholder="ফোন নম্বর দিয়ে সার্চ করুন..."
+                      placeholder="Search or start a new chat"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full bg-[#202c33] border border-transparent focus:border-[#00a884] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-400 focus:outline-none"
+                      className="w-full bg-[#202c33] border border-transparent focus:border-[#00a884] rounded-lg pl-9 pr-4 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Conversation Items */}
+                {/* 3. Filter Pills Bar: "All", "Unread 12", "Favourites", etc. */}
+                <div className="px-2.5 py-2 bg-[#111b21] border-b border-[#222d34] flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                  <button
+                    onClick={() => setActiveFilter('All')}
+                    className={`px-3 py-1 rounded-full font-medium transition ${
+                      activeFilter === 'All' 
+                        ? 'bg-[#00a884] text-black font-bold' 
+                        : 'bg-[#202c33] text-gray-300 hover:bg-[#2a3942]'
+                    }`}
+                  >
+                    All
+                  </button>
+
+                  <button
+                    onClick={() => setActiveFilter('Unread')}
+                    className={`px-3 py-1 rounded-full font-medium transition flex items-center gap-1 ${
+                      activeFilter === 'Unread' 
+                        ? 'bg-[#00a884] text-black font-bold' 
+                        : 'bg-[#202c33] text-gray-300 hover:bg-[#2a3942]'
+                    }`}
+                  >
+                    <span>Unread</span>
+                    {unreadTotal > 0 && <span className="text-[10px] bg-[#25d366] text-black font-bold px-1.5 rounded-full">{unreadTotal}</span>}
+                  </button>
+
+                  {crmLabels.map(lbl => (
+                    <button
+                      key={lbl}
+                      onClick={() => setActiveFilter(lbl)}
+                      className={`px-3 py-1 rounded-full font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
+                        activeFilter === lbl 
+                          ? 'bg-[#00a884] text-black font-bold' 
+                          : 'bg-[#202c33] text-gray-300 hover:bg-[#2a3942]'
+                      }`}
+                    >
+                      <span 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: CRM_LABEL_DOTS[lbl] || '#3b82f6' }}
+                      />
+                      <span>{lbl}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* 4. Chat List Items */}
                 <div className="flex-1 overflow-y-auto divide-y divide-[#222d34]">
                   {filteredConvs.length === 0 ? (
                     <div className="p-8 text-center text-gray-500 text-xs">
@@ -354,49 +452,57 @@ export default function ChatDashboard() {
                     filteredConvs.map((conv) => {
                       const isSelected = selectedPhone === conv.phone;
                       const remainingMins = getRemainingMinutes(conv.paused_until);
-                      const labelText = conv.label || 'New Customer';
-                      const badgeClass = CRM_LABEL_COLORS[labelText] || CRM_LABEL_COLORS['New Customer'];
-                      const icon = CRM_LABEL_ICONS[labelText] || CRM_LABEL_ICONS['New Customer'];
+                      const labelText = conv.label || 'New customer';
+                      const dotColor = CRM_LABEL_DOTS[labelText] || '#3b82f6';
+                      const badgeClass = CRM_LABEL_BADGES[labelText] || CRM_LABEL_BADGES['New customer'];
 
                       return (
                         <div 
                           key={conv.phone}
                           onClick={() => setSelectedPhone(conv.phone)}
-                          className={`p-3.5 cursor-pointer transition-all hover:bg-[#202c33] ${
+                          className={`p-3 cursor-pointer transition-all hover:bg-[#202c33] ${
                             isSelected ? 'bg-[#2a3942] border-l-4 border-[#00a884]' : ''
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[#2a3942] text-gray-300 font-bold flex items-center justify-center text-sm border border-[#3b4a54]">
-                              👤
+                            <div className="relative">
+                              <div className="w-11 h-11 rounded-full bg-[#2a3942] text-gray-300 font-bold flex items-center justify-center text-sm border border-[#3b4a54]">
+                                👤
+                              </div>
+                              <span 
+                                className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#111b21]"
+                                style={{ backgroundColor: dotColor }}
+                                title={labelText}
+                              />
                             </div>
 
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-baseline mb-0.5">
-                                <span className="font-semibold text-white text-sm truncate">
+                                <span className="font-semibold text-white text-xs truncate flex items-center gap-1">
                                   {conv.name}
                                 </span>
                                 <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatTime(conv.lastTimestamp)}</span>
                               </div>
 
-                              <p className="text-gray-400 text-xs truncate mb-1.5">
-                                {conv.lastMessage || 'মেসেজ শুরু হয়েছে'}
+                              <p className="text-gray-400 text-xs truncate mb-1.5 flex items-center gap-1">
+                                <CheckCheck size={14} className="text-[#53bdeb] flex-shrink-0" />
+                                <span className="truncate">{conv.lastMessage || 'মেসেজ শুরু হয়েছে'}</span>
                               </p>
 
                               <div className="flex flex-wrap items-center justify-between gap-1">
-                                <span className={`px-2 py-0.5 rounded border text-[10px] font-medium flex items-center gap-1 ${badgeClass}`}>
-                                  {icon}
+                                <span className={`px-2 py-0.5 rounded border text-[9px] font-medium flex items-center gap-1 ${badgeClass}`}>
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
                                   {labelText}
                                 </span>
 
                                 {conv.human_active ? (
-                                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-medium flex items-center gap-1">
-                                    <UserCheck size={10} />
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-medium flex items-center gap-1">
+                                    <UserCheck size={9} />
                                     Active ({remainingMins}m)
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded bg-blue-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-medium flex items-center gap-1">
-                                    <Bot size={10} />
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-medium flex items-center gap-1">
+                                    <Bot size={9} />
                                     Bot Auto
                                   </span>
                                 )}
@@ -410,15 +516,15 @@ export default function ChatDashboard() {
                 </div>
               </div>
 
-              {/* ── RIGHT CHAT WINDOW (WhatsApp Web Style) ── */}
+              {/* ── RIGHT CHAT WINDOW (WhatsApp Web Wallpaper & Design) ── */}
               <div className="lg:col-span-8 flex flex-col bg-[#0b141a] relative">
                 {activeConv ? (
                   <>
-                    {/* Active Chat Header */}
+                    {/* Active Chat Header Bar */}
                     <div className="p-3 border-b border-[#222d34] bg-[#202c33] flex flex-wrap items-center justify-between gap-3 z-10">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#00a884]/20 border border-[#00a884]/40 text-[#00a884] font-bold flex items-center justify-center text-base">
-                          📱
+                        <div className="w-10 h-10 rounded-full bg-[#2a3942] text-gray-200 font-bold flex items-center justify-center text-base border border-[#3b4a54]">
+                          👤
                         </div>
 
                         <div>
@@ -427,11 +533,14 @@ export default function ChatDashboard() {
                               {activeConv.name}
                             </h2>
 
-                            {/* Label Selector Dropdown */}
-                            <div className="flex items-center gap-1 bg-[#111b21] border border-[#3b4a54] rounded-lg px-2 py-0.5">
-                              <Tag size={12} className="text-[#00a884]" />
+                            {/* Label Selector Dropdown with Colored Dot */}
+                            <div className="flex items-center gap-1.5 bg-[#111b21] border border-[#3b4a54] rounded-lg px-2.5 py-0.5">
+                              <span 
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: CRM_LABEL_DOTS[activeConv.label || 'New customer'] || '#3b82f6' }}
+                              />
                               <select
-                                value={activeConv.label || 'New Customer'}
+                                value={activeConv.label || 'New customer'}
                                 onChange={(e) => handleUpdateLabel(e.target.value)}
                                 className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
                               >
@@ -443,7 +552,7 @@ export default function ChatDashboard() {
                               </select>
                             </div>
                           </div>
-                          <p className="text-[11px] text-[#00a884]">
+                          <p className="text-[11px] text-[#00a884] font-medium">
                             {activeConv.human_active ? 'Human Takeover Mode' : 'AI Bot Ananya Active'}
                           </p>
                         </div>
@@ -453,7 +562,7 @@ export default function ChatDashboard() {
                         {activeConv.human_active ? (
                           <button 
                             onClick={() => handleToggleBot(false)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold text-xs border border-emerald-500/30 flex items-center gap-1 transition"
+                            className="px-3.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold text-xs border border-emerald-500/30 flex items-center gap-1.5 transition"
                           >
                             <Bot size={14} />
                             Resume Bot Now
@@ -461,7 +570,7 @@ export default function ChatDashboard() {
                         ) : (
                           <button 
                             onClick={() => handleToggleBot(true)}
-                            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold text-xs border border-amber-500/30 flex items-center gap-1 transition"
+                            className="px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold text-xs border border-amber-500/30 flex items-center gap-1.5 transition"
                           >
                             <UserCheck size={14} />
                             Pause Bot (30m)
@@ -470,8 +579,8 @@ export default function ChatDashboard() {
                       </div>
                     </div>
 
-                    {/* Chat Messages Log with WhatsApp Wallpaper Background */}
-                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#0b141a] bg-opacity-95">
+                    {/* Chat Messages Panel */}
+                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#0b141a]">
                       {(!activeConv.messages || activeConv.messages.length === 0) ? (
                         <div className="text-center text-gray-500 text-xs py-16">
                           কাস্টমারের সাথে বার্তা বিনিময় শুরু হলে এখানে হোয়াটসঅ্যাপের মতো চ্যাট দেখা যাবে।
@@ -484,7 +593,7 @@ export default function ChatDashboard() {
 
                           return (
                             <div key={i} className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}>
-                              <div className={`max-w-[85%] md:max-w-[70%] rounded-xl p-3 text-xs shadow-lg relative ${
+                              <div className={`max-w-[85%] md:max-w-[70%] rounded-xl p-3 text-xs shadow-md relative ${
                                 isCustomer 
                                   ? 'bg-[#202c33] text-gray-100 rounded-tl-none border border-[#2a3942]' 
                                   : isAgent 
@@ -517,7 +626,7 @@ export default function ChatDashboard() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Quick Reply Shortcuts Bar */}
+                    {/* Quick Reply Bar */}
                     <div className="px-3 py-2 bg-[#111b21] border-t border-[#222d34] flex items-center gap-2 overflow-x-auto">
                       <span className="text-xs text-amber-400 font-semibold flex items-center gap-1 whitespace-nowrap">
                         <Zap size={14} />
@@ -535,7 +644,7 @@ export default function ChatDashboard() {
                       ))}
                     </div>
 
-                    {/* WhatsApp Style Message Input Bar */}
+                    {/* WhatsApp Input Bar */}
                     <form onSubmit={handleSendMessage} className="p-3 border-t border-[#222d34] bg-[#202c33]">
                       {showImageInput && (
                         <div className="mb-2 flex items-center gap-2">
@@ -570,7 +679,7 @@ export default function ChatDashboard() {
 
                         <input
                           type="text"
-                          placeholder="মেসেজ লিখুন..."
+                          placeholder="Type a message"
                           value={messageText}
                           onChange={(e) => setMessageText(e.target.value)}
                           className="flex-1 bg-[#2a3942] border border-transparent rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:border-[#00a884]"

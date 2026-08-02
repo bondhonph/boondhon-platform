@@ -3,10 +3,12 @@ import { QUICK_REPLIES } from '../../lib/quick-replies';
 import { sendWhatsAppMessage, sendWhatsAppImage, delay } from '../../lib/whatsapp-api';
 
 const CRM_LABELS = [
-  'New Customer',
-  'Follow-up',
-  'Advance Paid',
-  'Full Paid',
+  'New customer',
+  'New order',
+  'Paid',
+  'Lead',
+  'Follow up',
+  'Pending payment',
   'Delivered'
 ];
 
