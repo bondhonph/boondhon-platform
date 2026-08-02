@@ -123,7 +123,7 @@ export default function Products() {
                 <Link href="/order" className="flex-1 text-center bg-brand-blue text-white py-3 rounded-xl font-semibold">
                   এই ডিজাইনে অর্ডার করুন
                 </Link>
-                <a href={`https://wa.me/8801701016826?text=এই ডিজাইনটি পছন্দ হয়েছে: ${driveUrl(selected)}`}
+                <a href={`https://wa.me/8801863586302?text=এই ডিজাইনটি পছন্দ হয়েছে: ${driveUrl(selected)}`}
                   target="_blank" rel="noreferrer"
                   className="flex-1 text-center bg-green-600 text-white py-3 rounded-xl font-semibold">
                   WhatsApp করুন

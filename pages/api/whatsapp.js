@@ -99,11 +99,7 @@ PRICE GUIDE:
 
 // Helper to send text reply using WhatsApp Cloud API
 async function sendWhatsAppMessage(phoneId, to, text) {
-  const whatsappToken = process.env.WHATSAPP_TOKEN;
-  if (!whatsappToken) {
-    console.warn('WHATSAPP_TOKEN is not configured in Vercel environment variables.');
-    return;
-  }
+  const whatsappToken = process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
   const url = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
   try {

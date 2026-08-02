@@ -395,8 +395,8 @@ export default function Dashboard() {
             {activeTab === 'contact' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[
-                  { icon: <Phone size={24} className="text-brand-blue" />, title: 'হটলাইন', value: '01701016826', sub: 'কল করুন', href: 'tel:01701016826' },
-                  { icon: <MessageCircle size={24} className="text-green-400" />, title: 'WhatsApp', value: '01701016826', sub: 'Message করুন', href: 'https://wa.me/8801701016826' },
+                  { icon: <Phone size={24} className="text-brand-blue" />, title: 'হটলাইন', value: '01863586302', sub: 'কল করুন', href: 'tel:01863586302' },
+                  { icon: <MessageCircle size={24} className="text-green-400" />, title: 'WhatsApp', value: '01863586302', sub: 'Message করুন', href: 'https://wa.me/8801863586302' },
                   { icon: <Facebook size={24} className="text-blue-400" />, title: 'Facebook', value: 'BOONDHON Printing House', sub: 'Page দেখুন', href: 'https://www.facebook.com/bondhonbph' },
                   { icon: <Package size={24} className="text-brand-gold" />, title: 'অফিস', value: 'মানিকগঞ্জ', sub: 'Map দেখুন', href: 'https://maps.app.goo.gl/CnyRST5KxHjWDAtd9' },
                 ].map((c, i) => (

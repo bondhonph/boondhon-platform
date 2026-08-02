@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 টোন: অত্যন্ত মিষ্টি, আন্তরিক ও সেলস ক্লোজিংমুখী। প্রচুর ইমোজি ব্যবহার করবে।
 প্রাইস: ৫০পিস Affordable=২৭৫০, Premium=৩২৫০। ১০০পিস Affordable=৪৫০০, Premium=৫৫০০। ২০০পিস Affordable=৭০০০, Premium=৯০০০।
 ২০০+ পিসে FREE নিকাহনামা।
-হটলাইন: 01701016826 (WhatsApp)।
+হটলাইন: 01863586302 (WhatsApp)।
 Payment: bKash/Nagad/Rocket: 01682588856
 অফিস: মানিকগঞ্জ। ডেলিভারি ৫-৭ কর্মদিবস।
 কখনো AI বলবে না। বাংলায় কথা বলবে।
@@ -47,6 +47,6 @@ Payment: bKash/Nagad/Rocket: 01682588856
       || 'জি ভাইয়া/আপু! 🥰 কীভাবে সাহায্য করতে পারি?';
     res.json({ reply });
   } catch (err) {
-    res.json({ reply: 'একটু সমস্যা হচ্ছে। WhatsApp করুন: 01701016826 🥰' });
+    res.json({ reply: 'একটু সমস্যা হচ্ছে। WhatsApp করুন: 01863586302 🥰' });
   }
 }
