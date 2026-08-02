@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, AlertTriangle } from 'lucide-react';
 
 export default function ChatDashboard() {
+  const router = useRouter();
+  const { phone: queryPhone } = router.query;
+
   const [conversations, setConversations] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState(null);
   const [activeConv, setActiveConv] = useState(null);
@@ -16,6 +20,13 @@ export default function ChatDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const messagesEndRef = useRef(null);
 
+  // Auto-select phone from URL query param if present
+  useEffect(() => {
+    if (queryPhone) {
+      setSelectedPhone(queryPhone);
+    }
+  }, [queryPhone]);
+
   // Fetch all conversations list
   const fetchConversations = async () => {
     try {
@@ -25,7 +36,7 @@ export default function ChatDashboard() {
         setConversations(data.conversations || []);
         setQuickReplies(data.quickReplies || []);
         
-        if (!selectedPhone && data.conversations && data.conversations.length > 0) {
+        if (!selectedPhone && !queryPhone && data.conversations && data.conversations.length > 0) {
           setSelectedPhone(data.conversations[0].phone);
         }
       }
@@ -181,7 +192,6 @@ export default function ChatDashboard() {
     return Math.max(0, Math.ceil(diff / (1000 * 60)));
   };
 
-  // Ensure active conversation is ALWAYS included in left list
   const combinedConversations = [...conversations];
   if (activeConv && activeConv.phone && !combinedConversations.some(c => c.phone === activeConv.phone)) {
     combinedConversations.unshift({
@@ -205,7 +215,6 @@ export default function ChatDashboard() {
       <div className="min-h-screen bg-brand-dark font-sans text-gray-100">
         <Navbar />
         <div className="pt-20 min-h-screen">
-          {/* Header */}
           <div className="border-b border-brand-blue/10 px-4 py-4 bg-brand-dark/80 backdrop-blur">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div>
@@ -227,8 +236,6 @@ export default function ChatDashboard() {
           </div>
 
           <div className="max-w-7xl mx-auto px-4 py-6">
-            
-            {/* ERROR BANNER IF META TOKEN OR API FAILS */}
             {errorMessage && (
               <div className="mb-4 p-4 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
@@ -242,8 +249,6 @@ export default function ChatDashboard() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[720px]">
-              
-              {/* LEFT SIDEBAR: Conversations List */}
               <div className="lg:col-span-4 glass rounded-2xl flex flex-col overflow-hidden border border-white/10 bg-brand-dark/40">
                 <div className="p-4 border-b border-white/10 bg-white/3">
                   <input 
@@ -310,7 +315,6 @@ export default function ChatDashboard() {
                 </div>
               </div>
 
-              {/* RIGHT SIDE: Active Chat & Control Window */}
               <div className="lg:col-span-8 glass rounded-2xl flex flex-col overflow-hidden border border-white/10 bg-brand-dark/40">
                 {activeConv ? (
                   <>

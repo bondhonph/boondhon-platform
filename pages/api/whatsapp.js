@@ -243,7 +243,6 @@ export default async function handler(req, res) {
                 let targetPhone = null;
                 let replyContent = '';
 
-                // Option A: Check if 2nd part is index (e.g. r 1 hello)
                 if (parts.length >= 3 && /^[1-5]$/.test(parts[1])) {
                   const idx = parseInt(parts[1]) - 1;
                   const convs = conversationStore.getConversations();
@@ -252,12 +251,10 @@ export default async function handler(req, res) {
                     replyContent = parts.slice(2).join(' ');
                   }
                 }
-                // Option B: Check if 2nd part is phone number (e.g. r 8801682588856 hello)
                 else if (parts.length >= 3 && /^\d{10,14}$/.test(parts[1])) {
                   targetPhone = parts[1];
                   replyContent = parts.slice(2).join(' ');
                 }
-                // Option C: Quoted reply or fallback to last active customer
                 else {
                   targetPhone = conversationStore.getLastCustomerPhone();
                   replyContent = parts.slice(1).join(' ');
@@ -273,7 +270,6 @@ export default async function handler(req, res) {
                   return res.status(200).send('EVENT_RECEIVED');
                 }
 
-                // Send reply to target customer directly!
                 const sendRes = await sendWhatsAppMessage(phoneId, targetPhone, replyContent.trim());
                 if (sendRes.success) {
                   conversationStore.addMessage(targetPhone, {
@@ -301,9 +297,10 @@ export default async function handler(req, res) {
               messageId: message.id
             });
 
-            // ── FORWARD CUSTOMER MESSAGE TO OWNER'S PERSONAL WHATSAPP (01701016826) ──
+            // ── FORWARD CUSTOMER MESSAGE TO OWNER'S PERSONAL WHATSAPP WITH DIRECT 1-CLICK DASHBOARD LINK ──
             if (from !== OWNER_PHONE) {
-              const alertMessage = `👤 [কাস্টমার +${from}]:\n"${incomingText}"\n\n👉 উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা: r 1 আপনার উত্তর)`;
+              const directLink = `https://boondhon-platform-qr9a.vercel.app/chat?phone=${from}`;
+              const alertMessage = `👤 [কাস্টমার +${from}]:\n"${incomingText}"\n\n🔗 ড্যাশবোর্ডে পুরো চ্যাট দেখতে ১-ক্লিক করুন:\n${directLink}\n\n👉 হোয়াটসঅ্যাপ থেকে উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা: r 1 আপনার উত্তর)`;
               await sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
             }
 
