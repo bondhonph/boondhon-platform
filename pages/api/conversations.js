@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     try {
       const { phone } = req.query;
       if (phone) {
-        const conv = conversationStore.getConversation(phone);
+        const conv = await conversationStore.getConversation(phone);
         if (!conv) {
           return res.status(404).json({ error: 'Conversation not found' });
         }
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const list = conversationStore.getConversations();
+      const list = await conversationStore.getConversations();
       return res.status(200).json({
         conversations: list,
         quickReplies: QUICK_REPLIES
@@ -36,18 +36,17 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Phone number is required' });
       }
 
-      const conv = conversationStore.getConversation(phone);
+      const conv = await conversationStore.getConversation(phone);
       const phoneId = conv?.phoneId || process.env.WHATSAPP_PHONE_ID;
 
-      // 1. Manual Reply (Text / Image) from Dashboard
+      // 1. Manual Reply (Text / Image) from Dashboard App
       if (action === 'send_message') {
         let lastError = null;
 
-        // Send Text if provided
         if (text && text.trim()) {
           const resText = await sendWhatsAppMessage(phoneId, phone, text.trim());
           if (resText.success) {
-            conversationStore.addMessage(phone, {
+            await conversationStore.addMessage(phone, {
               sender: 'agent',
               text: text.trim(),
               timestamp: Date.now()
@@ -57,12 +56,11 @@ export default async function handler(req, res) {
           }
         }
 
-        // Send Image if provided
         if (imageUrl && imageUrl.trim()) {
           if (!lastError) await delay(1000);
           const resImg = await sendWhatsAppImage(phoneId, phone, imageUrl.trim());
           if (resImg.success) {
-            conversationStore.addMessage(phone, {
+            await conversationStore.addMessage(phone, {
               sender: 'agent',
               image: imageUrl.trim(),
               text: '',
@@ -77,19 +75,18 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: `Meta WhatsApp API error: ${lastError}` });
         }
 
-        // Automatically activate Human Takeover for 30 minutes on manual reply!
-        conversationStore.setHumanTakeover(phone, true, pauseDuration || 30);
+        await conversationStore.setHumanTakeover(phone, true, pauseDuration || 30);
 
-        const updatedConv = conversationStore.getConversation(phone);
+        const updatedConv = await conversationStore.getConversation(phone);
         return res.status(200).json({ success: true, conversation: updatedConv });
       }
 
       // 2. Toggle Human Takeover / Resume Bot
       if (action === 'toggle_bot') {
         const isCurrentlyActive = active !== undefined ? active : !conversationStore.isHumanActive(phone);
-        conversationStore.setHumanTakeover(phone, isCurrentlyActive, pauseDuration || 30);
+        await conversationStore.setHumanTakeover(phone, isCurrentlyActive, pauseDuration || 30);
 
-        const updatedConv = conversationStore.getConversation(phone);
+        const updatedConv = await conversationStore.getConversation(phone);
         return res.status(200).json({ success: true, conversation: updatedConv });
       }
 
@@ -105,7 +102,7 @@ export default async function handler(req, res) {
         if (qr.text) {
           const resText = await sendWhatsAppMessage(phoneId, phone, qr.text);
           if (resText.success) {
-            conversationStore.addMessage(phone, {
+            await conversationStore.addMessage(phone, {
               sender: 'agent',
               text: qr.text,
               timestamp: Date.now()
@@ -120,7 +117,7 @@ export default async function handler(req, res) {
             await delay(1200);
             const resImg = await sendWhatsAppImage(phoneId, phone, imgUrl);
             if (resImg.success) {
-              conversationStore.addMessage(phone, {
+              await conversationStore.addMessage(phone, {
                 sender: 'agent',
                 image: imgUrl,
                 text: '',
@@ -136,9 +133,9 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: `Meta WhatsApp API error: ${lastError}` });
         }
 
-        conversationStore.setHumanTakeover(phone, true, pauseDuration || 30);
+        await conversationStore.setHumanTakeover(phone, true, pauseDuration || 30);
 
-        const updatedConv = conversationStore.getConversation(phone);
+        const updatedConv = await conversationStore.getConversation(phone);
         return res.status(200).json({ success: true, conversation: updatedConv });
       }
 

@@ -142,28 +142,6 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
 
-async function sendTextWithMirror(phoneId, to, text) {
-  await sendWhatsAppMessage(phoneId, to, text);
-  if (to !== OWNER_PHONE) {
-    const mirrorHeader = `🤖 [বট ➔ +${to}]:\n${text}`;
-    await sendWhatsAppMessage(phoneId, OWNER_PHONE, mirrorHeader);
-  }
-}
-
-async function sendButtonsWithMirror(phoneId, to, text, buttons) {
-  await sendWhatsAppButtons(phoneId, to, text, buttons);
-  if (to !== OWNER_PHONE) {
-    await sendWhatsAppButtons(phoneId, OWNER_PHONE, `🤖 [বট ➔ +${to}]: ${text}`, buttons);
-  }
-}
-
-async function sendImageWithMirror(phoneId, to, imageUrl) {
-  await sendWhatsAppImage(phoneId, to, imageUrl);
-  if (to !== OWNER_PHONE) {
-    await sendWhatsAppImage(phoneId, OWNER_PHONE, imageUrl);
-  }
-}
-
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
@@ -220,9 +198,8 @@ export default async function handler(req, res) {
               const text = incomingText.trim();
               const lower = text.toLowerCase();
 
-              // 1. Handle list / status command
               if (lower === 'list' || lower === 'status' || lower === 'লিস্ট') {
-                const convs = conversationStore.getConversations();
+                const convs = await conversationStore.getConversations();
                 if (convs.length === 0) {
                   await sendWhatsAppMessage(phoneId, OWNER_PHONE, '📋 কোনো কাস্টমার চ্যাট পাওয়া যায়নি।');
                 } else {
@@ -231,13 +208,12 @@ export default async function handler(req, res) {
                     const statusStr = c.human_active ? '👤 Agent Active' : '🤖 Bot Active';
                     listTxt += `${idx + 1}. +${c.phone} [${statusStr}]\n   💬 ${c.lastMessage}\n\n`;
                   });
-                  listTxt += '👉 উত্তর দিতে লিখুন:\nr <মেসেজ>\nr 1 <মেসেজ> (তালিকার ১ম কাস্টমার)\nr <নম্বর> <মেসেজ>';
+                  listTxt += '👉 উত্তর দিতে লিখুন: r <মেসেজ> (অথবা r 1 <মেসেজ>)';
                   await sendWhatsAppMessage(phoneId, OWNER_PHONE, listTxt);
                 }
                 return res.status(200).send('EVENT_RECEIVED');
               }
 
-              // 2. Handle remote reply command: "r ...", "reply ..."
               if (lower.startsWith('r ') || lower.startsWith('reply ')) {
                 const parts = text.split(' ');
                 let targetPhone = null;
@@ -245,7 +221,7 @@ export default async function handler(req, res) {
 
                 if (parts.length >= 3 && /^[1-5]$/.test(parts[1])) {
                   const idx = parseInt(parts[1]) - 1;
-                  const convs = conversationStore.getConversations();
+                  const convs = await conversationStore.getConversations();
                   if (convs[idx]) {
                     targetPhone = convs[idx].phone;
                     replyContent = parts.slice(2).join(' ');
@@ -261,23 +237,23 @@ export default async function handler(req, res) {
                 }
 
                 if (!targetPhone) {
-                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো কাস্টমার নম্বর পাওয়া যায়নি। লিখুন: r 1 আপনার মেসেজ (অথবা r 88016... আপনার মেসেজ)');
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো কাস্টমার নম্বর পাওয়া যায়নি।');
                   return res.status(200).send('EVENT_RECEIVED');
                 }
 
                 if (!replyContent.trim()) {
-                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো মেসেজ লেখা হয়নি। উদাহরণ: r 1 আপনার মেসেজ');
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, '⚠️ কোনো মেসেজ লেখা হয়নি।');
                   return res.status(200).send('EVENT_RECEIVED');
                 }
 
                 const sendRes = await sendWhatsAppMessage(phoneId, targetPhone, replyContent.trim());
                 if (sendRes.success) {
-                  conversationStore.addMessage(targetPhone, {
+                  await conversationStore.addMessage(targetPhone, {
                     sender: 'agent',
                     text: replyContent.trim(),
                     timestamp: Date.now()
                   });
-                  conversationStore.setHumanTakeover(targetPhone, true, 30);
+                  await conversationStore.setHumanTakeover(targetPhone, true, 30);
 
                   await sendWhatsAppMessage(phoneId, OWNER_PHONE, `✅ কাস্টমার +${targetPhone} এর ইনবক্সে মেসেজ পাঠানো হয়েছে!`);
                 } else {
@@ -288,7 +264,7 @@ export default async function handler(req, res) {
             }
 
             // Always store customer message in conversation store
-            conversationStore.addMessage(from, {
+            await conversationStore.addMessage(from, {
               sender: 'customer',
               text: incomingText,
               image: mediaImageUrl,
@@ -297,10 +273,10 @@ export default async function handler(req, res) {
               messageId: message.id
             });
 
-            // ── FORWARD CUSTOMER MESSAGE TO OWNER'S PERSONAL WHATSAPP WITH DIRECT 1-CLICK DASHBOARD LINK ──
+            // ── ONLY NOTIFY OWNER'S PERSONAL WHATSAPP WHEN A CUSTOMER MESSAGES ──
             if (from !== OWNER_PHONE) {
               const directLink = `https://boondhon-platform-qr9a.vercel.app/chat?phone=${from}`;
-              const alertMessage = `👤 [কাস্টমার +${from}]:\n"${incomingText}"\n\n🔗 ড্যাশবোর্ডে পুরো চ্যাট দেখতে ১-ক্লিক করুন:\n${directLink}\n\n👉 হোয়াটসঅ্যাপ থেকে উত্তর দিতে লিখুন:\nr ${from} আপনার উত্তর\n(অথবা: r 1 আপনার উত্তর)`;
+              const alertMessage = `🔔 নতুন কাস্টমার মেসেজ!\n📱 কাস্টমার: +${from}\n💬 মেসেজ: "${incomingText}"\n\n🔗 অ্যাপে ডাইরেক্ট চ্যাট দেখতে ১-ক্লিক করুন:\n${directLink}`;
               await sendWhatsAppMessage(phoneId, OWNER_PHONE, alertMessage);
             }
 
@@ -327,24 +303,24 @@ export default async function handler(req, res) {
                 await sendBatchImages(phoneId, from, 'affordable', 0);
               } 
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
-                await sendTextWithMirror(phoneId, from, ORDER_POLICY_TEXT);
-                conversationStore.addMessage(from, { sender: 'bot', text: ORDER_POLICY_TEXT });
+                await sendWhatsAppMessage(phoneId, from, ORDER_POLICY_TEXT);
+                await conversationStore.addMessage(from, { sender: 'bot', text: ORDER_POLICY_TEXT });
 
-                await sendTextWithMirror(phoneId, from, BANGLA_FORM_TEXT);
-                conversationStore.addMessage(from, { sender: 'bot', text: BANGLA_FORM_TEXT });
+                await sendWhatsAppMessage(phoneId, from, BANGLA_FORM_TEXT);
+                await conversationStore.addMessage(from, { sender: 'bot', text: BANGLA_FORM_TEXT });
 
                 const btnPrompt = 'অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। তথ্য জানতে নিচের বাটনে ক্লিক করুন:';
-                await sendButtonsWithMirror(phoneId, from, btnPrompt, [
+                await sendWhatsAppButtons(phoneId, from, btnPrompt, [
                   { id: 'btn_affordable', title: '💚 Affordable Card' },
                   { id: 'btn_premium', title: '✨ Premium Card' },
                   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
                 ]);
-                conversationStore.addMessage(from, { sender: 'bot', text: btnPrompt });
+                await conversationStore.addMessage(from, { sender: 'bot', text: btnPrompt });
               }
               else {
                 const aiReply = await getAIResponse(incomingText);
-                await sendButtonsWithMirror(phoneId, from, aiReply, DEFAULT_BUTTONS);
-                conversationStore.addMessage(from, { sender: 'bot', text: aiReply });
+                await sendWhatsAppButtons(phoneId, from, aiReply, DEFAULT_BUTTONS);
+                await conversationStore.addMessage(from, { sender: 'bot', text: aiReply });
               }
             }
           }
@@ -389,19 +365,19 @@ async function sendBatchImages(phoneId, to, type, offset) {
 
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ৮টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     
-    await sendTextWithMirror(phoneId, to, introText);
-    conversationStore.addMessage(to, { sender: 'bot', text: introText });
+    await sendWhatsAppMessage(phoneId, to, introText);
+    await conversationStore.addMessage(to, { sender: 'bot', text: introText });
   } else {
     const nextMsg = `আমাদের ${label} কালেকশন থেকে আরও ৮টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
-    await sendTextWithMirror(phoneId, to, nextMsg);
-    conversationStore.addMessage(to, { sender: 'bot', text: nextMsg });
+    await sendWhatsAppMessage(phoneId, to, nextMsg);
+    await conversationStore.addMessage(to, { sender: 'bot', text: nextMsg });
   }
 
-  const imagePromises = batch.map(id => sendImageWithMirror(phoneId, to, `https://lh3.googleusercontent.com/d/${id}`));
+  const imagePromises = batch.map(id => sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${id}`));
   await delay(3000);
   await Promise.allSettled(imagePromises);
 
-  conversationStore.addMessage(to, { sender: 'bot', text: `[Sent ${batch.length} ${label} Card Images]` });
+  await conversationStore.addMessage(to, { sender: 'bot', text: `[Sent ${batch.length} ${label} Card Images]` });
 
   const isWrapped = end >= ids.length;
   const nextOffset = isWrapped ? 0 : end;
@@ -416,12 +392,12 @@ async function sendBatchImages(phoneId, to, type, offset) {
     buttonText = `আমাদের সব ${label} ডিজাইনের ছবি দেখানো শেষ হয়েছে! আবার প্রথম থেকে দেখতে বা অর্ডার করতে চাপুন:`;
   }
 
-  await sendButtonsWithMirror(phoneId, to, buttonText, [
+  await sendWhatsAppButtons(phoneId, to, buttonText, [
     { id: nextButtonId, title: '📸 আরও ছবি দেখুন' },
     { id: otherButtonId, title: otherLabel },
     { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
   ]);
-  conversationStore.addMessage(to, { sender: 'bot', text: buttonText });
+  await conversationStore.addMessage(to, { sender: 'bot', text: buttonText });
 }
 
 async function handleButtonClick(phoneId, to, buttonId) {
@@ -440,31 +416,31 @@ async function handleButtonClick(phoneId, to, buttonId) {
     await sendBatchImages(phoneId, to, 'premium', offset);
   }
   else if (buttonId === 'btn_policy') {
-    await sendTextWithMirror(phoneId, to, DELIVERY_POLICY_TEXT);
-    conversationStore.addMessage(to, { sender: 'bot', text: DELIVERY_POLICY_TEXT });
+    await sendWhatsAppMessage(phoneId, to, DELIVERY_POLICY_TEXT);
+    await conversationStore.addMessage(to, { sender: 'bot', text: DELIVERY_POLICY_TEXT });
 
     const btnPrompt = 'অন্যান্য মেনু:';
-    await sendButtonsWithMirror(phoneId, to, btnPrompt, [
+    await sendWhatsAppButtons(phoneId, to, btnPrompt, [
       { id: 'btn_affordable', title: '💚 Affordable Card' },
       { id: 'btn_premium', title: '✨ Premium Card' },
       { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
     ]);
-    conversationStore.addMessage(to, { sender: 'bot', text: btnPrompt });
+    await conversationStore.addMessage(to, { sender: 'bot', text: btnPrompt });
   } 
   else if (buttonId === 'btn_order_form') {
-    await sendTextWithMirror(phoneId, to, ORDER_POLICY_TEXT);
-    conversationStore.addMessage(to, { sender: 'bot', text: ORDER_POLICY_TEXT });
+    await sendWhatsAppMessage(phoneId, to, ORDER_POLICY_TEXT);
+    await conversationStore.addMessage(to, { sender: 'bot', text: ORDER_POLICY_TEXT });
 
-    await sendTextWithMirror(phoneId, to, BANGLA_FORM_TEXT);
-    conversationStore.addMessage(to, { sender: 'bot', text: BANGLA_FORM_TEXT });
+    await sendWhatsAppMessage(phoneId, to, BANGLA_FORM_TEXT);
+    await conversationStore.addMessage(to, { sender: 'bot', text: BANGLA_FORM_TEXT });
 
     const btnPrompt = 'ফর্মটি পূরণ করতে বা ক্যাটালগ দেখতে নিচে চাপুন:';
-    await sendButtonsWithMirror(phoneId, to, btnPrompt, [
+    await sendWhatsAppButtons(phoneId, to, btnPrompt, [
       { id: 'btn_affordable', title: '💚 Affordable Card' },
       { id: 'btn_premium', title: '✨ Premium Card' },
       { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
     ]);
-    conversationStore.addMessage(to, { sender: 'bot', text: btnPrompt });
+    await conversationStore.addMessage(to, { sender: 'bot', text: btnPrompt });
   }
 }
 
