@@ -2,7 +2,23 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
-import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, AlertTriangle, Smartphone } from 'lucide-react';
+import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, AlertTriangle, Smartphone, Tag, CheckCircle2, Truck, CreditCard, UserPlus } from 'lucide-react';
+
+const CRM_LABEL_COLORS = {
+  'New Customer': 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+  'Follow-up': 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  'Advance Paid': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  'Full Paid': 'bg-green-500/20 text-green-300 border-green-500/40',
+  'Delivered': 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+};
+
+const CRM_LABEL_ICONS = {
+  'New Customer': <UserPlus size={12} />,
+  'Follow-up': <RefreshCw size={12} />,
+  'Advance Paid': <CreditCard size={12} />,
+  'Full Paid': <CheckCircle2 size={12} />,
+  'Delivered': <Truck size={12} />
+};
 
 export default function ChatDashboard() {
   const router = useRouter();
@@ -12,6 +28,7 @@ export default function ChatDashboard() {
   const [selectedPhone, setSelectedPhone] = useState(null);
   const [activeConv, setActiveConv] = useState(null);
   const [quickReplies, setQuickReplies] = useState([]);
+  const [crmLabels, setCrmLabels] = useState(['New Customer', 'Follow-up', 'Advance Paid', 'Full Paid', 'Delivered']);
   const [messageText, setMessageText] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [showImageInput, setShowImageInput] = useState(false);
@@ -19,15 +36,12 @@ export default function ChatDashboard() {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [isInstallable, setIsInstallable] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Listen for PWA install prompt event
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setIsInstallable(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -42,19 +56,16 @@ export default function ChatDashboard() {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
-      setIsInstallable(false);
       setDeferredPrompt(null);
     }
   };
 
-  // Auto-select phone from URL query param if present
   useEffect(() => {
     if (queryPhone) {
       setSelectedPhone(queryPhone);
     }
   }, [queryPhone]);
 
-  // Fetch all conversations list
   const fetchConversations = async () => {
     try {
       const res = await fetch('/api/conversations');
@@ -62,6 +73,7 @@ export default function ChatDashboard() {
         const data = await res.json();
         setConversations(data.conversations || []);
         setQuickReplies(data.quickReplies || []);
+        if (data.crmLabels) setCrmLabels(data.crmLabels);
         
         if (!selectedPhone && !queryPhone && data.conversations && data.conversations.length > 0) {
           setSelectedPhone(data.conversations[0].phone);
@@ -72,7 +84,6 @@ export default function ChatDashboard() {
     }
   };
 
-  // Fetch active conversation detail
   const fetchActiveConversation = async (phone) => {
     if (!phone) return;
     try {
@@ -86,7 +97,6 @@ export default function ChatDashboard() {
     }
   };
 
-  // Polling for live chat updates every 3 seconds
   useEffect(() => {
     fetchConversations();
     const interval = setInterval(() => {
@@ -108,7 +118,29 @@ export default function ChatDashboard() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeConv?.messages]);
 
-  // Handle Manual Message Send
+  const handleUpdateLabel = async (newLabel) => {
+    if (!selectedPhone) return;
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_label',
+          phone: selectedPhone,
+          label: newLabel
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setActiveConv(data.conversation);
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error('Error updating CRM label:', err);
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     if ((!messageText.trim() && !imageUrl.trim()) || !selectedPhone || sending) return;
@@ -147,7 +179,6 @@ export default function ChatDashboard() {
     }
   };
 
-  // Handle Toggle Human Takeover / Resume Bot
   const handleToggleBot = async (newActiveState) => {
     if (!selectedPhone) return;
     setErrorMessage('');
@@ -173,7 +204,6 @@ export default function ChatDashboard() {
     }
   };
 
-  // Handle Quick Reply Shortcut Send
   const handleSendQuickReply = async (qrId) => {
     if (!selectedPhone || sending) return;
     setSending(true);
@@ -228,7 +258,8 @@ export default function ChatDashboard() {
       lastTimestamp: activeConv.lastTimestamp || Date.now(),
       human_active: activeConv.human_active,
       paused_until: activeConv.paused_until,
-      unreadCount: activeConv.unreadCount || 0
+      unreadCount: activeConv.unreadCount || 0,
+      label: activeConv.label || 'New Customer'
     });
   }
 
@@ -305,6 +336,9 @@ export default function ChatDashboard() {
                     filteredConvs.map((conv) => {
                       const isSelected = selectedPhone === conv.phone;
                       const remainingMins = getRemainingMinutes(conv.paused_until);
+                      const labelText = conv.label || 'New Customer';
+                      const badgeClass = CRM_LABEL_COLORS[labelText] || CRM_LABEL_COLORS['New Customer'];
+                      const icon = CRM_LABEL_ICONS[labelText] || CRM_LABEL_ICONS['New Customer'];
 
                       return (
                         <div 
@@ -325,22 +359,21 @@ export default function ChatDashboard() {
                             {conv.lastMessage || 'মেসেজ শুরু হয়েছে'}
                           </p>
 
-                          <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                            <span className={`px-2 py-0.5 rounded-md border font-medium text-[10px] flex items-center gap-1 ${badgeClass}`}>
+                              {icon}
+                              {labelText}
+                            </span>
+
                             {conv.human_active ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1">
-                                <UserCheck size={12} />
-                                Agent Active ({remainingMins}m)
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1 text-[10px]">
+                                <UserCheck size={10} />
+                                Active ({remainingMins}m)
                               </span>
                             ) : (
-                              <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-brand-blue font-medium border border-brand-blue/20 flex items-center gap-1">
-                                <Bot size={12} />
-                                Bot Auto-Reply
-                              </span>
-                            )}
-
-                            {conv.unreadCount > 0 && (
-                              <span className="px-2 py-0.5 rounded-full bg-pink-500 text-white font-bold text-[10px]">
-                                {conv.unreadCount} New
+                              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-brand-blue font-medium border border-brand-blue/20 flex items-center gap-1 text-[10px]">
+                                <Bot size={10} />
+                                Bot Auto
                               </span>
                             )}
                           </div>
@@ -356,11 +389,28 @@ export default function ChatDashboard() {
                   <>
                     <div className="p-4 border-b border-white/10 bg-white/5 flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                          <Phone size={18} className="text-brand-blue" />
-                          {activeConv.name}
-                        </h2>
-                        <p className="text-xs text-gray-400">WhatsApp Customer Session</p>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                            <Phone size={18} className="text-brand-blue" />
+                            {activeConv.name}
+                          </h2>
+
+                          <div className="relative flex items-center gap-1">
+                            <Tag size={14} className="text-gray-400" />
+                            <select
+                              value={activeConv.label || 'New Customer'}
+                              onChange={(e) => handleUpdateLabel(e.target.value)}
+                              className="bg-brand-dark/90 text-white text-xs border border-white/20 rounded-lg px-2.5 py-1 focus:outline-none focus:border-brand-blue font-semibold cursor-pointer"
+                            >
+                              {crmLabels.map(l => (
+                                <option key={l} value={l} className="bg-brand-dark text-white">
+                                  {l}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">WhatsApp Customer Session</p>
                       </div>
 
                       <div className="flex items-center gap-3">

@@ -2,6 +2,14 @@ import { conversationStore } from '../../lib/store';
 import { QUICK_REPLIES } from '../../lib/quick-replies';
 import { sendWhatsAppMessage, sendWhatsAppImage, delay } from '../../lib/whatsapp-api';
 
+const CRM_LABELS = [
+  'New Customer',
+  'Follow-up',
+  'Advance Paid',
+  'Full Paid',
+  'Delivered'
+];
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
@@ -13,14 +21,16 @@ export default async function handler(req, res) {
         }
         return res.status(200).json({
           conversation: conv,
-          quickReplies: QUICK_REPLIES
+          quickReplies: QUICK_REPLIES,
+          crmLabels: CRM_LABELS
         });
       }
 
       const list = await conversationStore.getConversations();
       return res.status(200).json({
         conversations: list,
-        quickReplies: QUICK_REPLIES
+        quickReplies: QUICK_REPLIES,
+        crmLabels: CRM_LABELS
       });
     } catch (err) {
       console.error('Error fetching conversations:', err);
@@ -30,7 +40,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { action, phone, text, imageUrl, quickReplyId, active, pauseDuration } = req.body;
+      const { action, phone, text, imageUrl, quickReplyId, active, pauseDuration, label } = req.body;
 
       if (!phone) {
         return res.status(400).json({ error: 'Phone number is required' });
@@ -39,7 +49,16 @@ export default async function handler(req, res) {
       const conv = await conversationStore.getConversation(phone);
       const phoneId = conv?.phoneId || process.env.WHATSAPP_PHONE_ID;
 
-      // 1. Manual Reply (Text / Image) from Dashboard App
+      // 1. Update Customer CRM Label
+      if (action === 'update_label') {
+        if (!label || !CRM_LABELS.includes(label)) {
+          return res.status(400).json({ error: 'Invalid CRM label' });
+        }
+        const updated = await conversationStore.updateLabel(phone, label);
+        return res.status(200).json({ success: true, conversation: updated });
+      }
+
+      // 2. Manual Reply (Text / Image) from Dashboard App
       if (action === 'send_message') {
         let lastError = null;
 
@@ -81,7 +100,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, conversation: updatedConv });
       }
 
-      // 2. Toggle Human Takeover / Resume Bot
+      // 3. Toggle Human Takeover / Resume Bot
       if (action === 'toggle_bot') {
         const isCurrentlyActive = active !== undefined ? active : !conversationStore.isHumanActive(phone);
         await conversationStore.setHumanTakeover(phone, isCurrentlyActive, pauseDuration || 30);
@@ -90,7 +109,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, conversation: updatedConv });
       }
 
-      // 3. Quick Reply Shortcut Response
+      // 4. Quick Reply Shortcut Response
       if (action === 'send_quick_reply') {
         const qr = QUICK_REPLIES.find(q => q.id === quickReplyId);
         if (!qr) {
