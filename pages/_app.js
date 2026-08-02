@@ -1,4 +1,5 @@
 import '../styles/globals.css'
+import Head from 'next/head'
 import Script from 'next/script'
 import { useRouter } from 'next/router'
 import { useEffect } from 'react'
@@ -26,6 +27,11 @@ export default function App({ Component, pageProps }) {
 
   return (
     <>
+      <Head>
+        {/* Meta Facebook Domain Verification Tag */}
+        <meta name="facebook-domain-verification" content="f27lencl7fhskbbhq7mesokid4nohg" />
+      </Head>
+
       {pixelId && (
         <Script
           id="fb-pixel"
