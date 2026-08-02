@@ -142,11 +142,29 @@ const DEFAULT_BUTTONS = [
   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
 ];
 
-// Helper to notify owner's personal WhatsApp about bot replies
-async function notifyOwnerBotActivity(phoneId, targetCustomer, text) {
-  if (targetCustomer === OWNER_PHONE) return;
-  const alertTxt = `🤖 [বট ➔ +${targetCustomer}]:\n"${text}"`;
-  await sendWhatsAppMessage(phoneId, OWNER_PHONE, alertTxt);
+// Helper to send text to recipient AND duplicate exact text to owner personal WhatsApp 01701016826
+async function sendTextWithMirror(phoneId, to, text) {
+  await sendWhatsAppMessage(phoneId, to, text);
+  if (to !== OWNER_PHONE) {
+    const mirrorHeader = `🤖 [বট ➔ +${to}]:\n${text}`;
+    await sendWhatsAppMessage(phoneId, OWNER_PHONE, mirrorHeader);
+  }
+}
+
+// Helper to send buttons to recipient AND duplicate exact buttons to owner personal WhatsApp 01701016826
+async function sendButtonsWithMirror(phoneId, to, text, buttons) {
+  await sendWhatsAppButtons(phoneId, to, text, buttons);
+  if (to !== OWNER_PHONE) {
+    await sendWhatsAppButtons(phoneId, OWNER_PHONE, `🤖 [বট ➔ +${to}]: ${text}`, buttons);
+  }
+}
+
+// Helper to send image to recipient AND duplicate exact image to owner personal WhatsApp 01701016826
+async function sendImageWithMirror(phoneId, to, imageUrl) {
+  await sendWhatsAppImage(phoneId, to, imageUrl);
+  if (to !== OWNER_PHONE) {
+    await sendWhatsAppImage(phoneId, OWNER_PHONE, imageUrl);
+  }
 }
 
 export default async function handler(req, res) {
@@ -258,9 +276,9 @@ export default async function handler(req, res) {
                   });
                   conversationStore.setHumanTakeover(targetPhone, true, 30);
 
-                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `✅ কাস্টমার +${targetPhone} এর ইনবক্সে মেসেজ সফলভাবে পাঠানো হয়েছে!`);
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `✅ কাস্টমার +${targetPhone} এর ইনবক্সে মেসেজ পাঠানো হয়েছে!`);
                 } else {
-                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `❌ কাস্টমার +${targetPhone} এর কাছে মেসেজ পাঠাতে ব্যর্থ: ${sendRes.error}`);
+                  await sendWhatsAppMessage(phoneId, OWNER_PHONE, `❌ মেসেজ পাঠাতে ব্যর্থ: ${sendRes.error}`);
                 }
                 return res.status(200).send('EVENT_RECEIVED');
               }
@@ -308,16 +326,14 @@ export default async function handler(req, res) {
               } 
               // Order form / details check
               else if (['order', 'অর্ডার', 'ফরম', 'ফর্ম', 'কি লাগবে'].some(w => lowerText.includes(w))) {
-                await sendWhatsAppMessage(phoneId, from, ORDER_POLICY_TEXT);
+                await sendTextWithMirror(phoneId, from, ORDER_POLICY_TEXT);
                 conversationStore.addMessage(from, { sender: 'bot', text: ORDER_POLICY_TEXT });
-                await notifyOwnerBotActivity(phoneId, from, ORDER_POLICY_TEXT);
 
-                await sendWhatsAppMessage(phoneId, from, BANGLA_FORM_TEXT);
+                await sendTextWithMirror(phoneId, from, BANGLA_FORM_TEXT);
                 conversationStore.addMessage(from, { sender: 'bot', text: BANGLA_FORM_TEXT });
-                await notifyOwnerBotActivity(phoneId, from, BANGLA_FORM_TEXT);
 
                 const btnPrompt = 'অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। তথ্য জানতে নিচের বাটনে ক্লিক করুন:';
-                await sendWhatsAppButtons(phoneId, from, btnPrompt, [
+                await sendButtonsWithMirror(phoneId, from, btnPrompt, [
                   { id: 'btn_affordable', title: '💚 Affordable Card' },
                   { id: 'btn_premium', title: '✨ Premium Card' },
                   { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
@@ -327,9 +343,8 @@ export default async function handler(req, res) {
               // Normal query -> Route to Gemini AI
               else {
                 const aiReply = await getAIResponse(incomingText);
-                await sendWhatsAppButtons(phoneId, from, aiReply, DEFAULT_BUTTONS);
+                await sendButtonsWithMirror(phoneId, from, aiReply, DEFAULT_BUTTONS);
                 conversationStore.addMessage(from, { sender: 'bot', text: aiReply });
-                await notifyOwnerBotActivity(phoneId, from, aiReply);
               }
             }
           }
@@ -375,24 +390,21 @@ async function sendBatchImages(phoneId, to, type, offset) {
 
 অর্ডার বুকিং করতে ৩০% অ্যাডভান্স পেমেন্ট প্রযোজ্য। আমাদের সেরা ৮টি সাশ্রয়ী ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
     
-    await sendWhatsAppMessage(phoneId, to, introText);
+    await sendTextWithMirror(phoneId, to, introText);
     conversationStore.addMessage(to, { sender: 'bot', text: introText });
-    await notifyOwnerBotActivity(phoneId, to, introText);
   } else {
     const nextMsg = `আমাদের ${label} কালেকশন থেকে আরও ৮টি নতুন ডিজাইনের ছবি নিচে পাঠানো হলো: 👇`;
-    await sendWhatsAppMessage(phoneId, to, nextMsg);
+    await sendTextWithMirror(phoneId, to, nextMsg);
     conversationStore.addMessage(to, { sender: 'bot', text: nextMsg });
-    await notifyOwnerBotActivity(phoneId, to, nextMsg);
   }
 
-  // Send images concurrently
-  const imagePromises = batch.map(id => sendWhatsAppImage(phoneId, to, `https://lh3.googleusercontent.com/d/${id}`));
+  // Send images concurrently to customer AND mirror to owner personal phone 01701016826
+  const imagePromises = batch.map(id => sendImageWithMirror(phoneId, to, `https://lh3.googleusercontent.com/d/${id}`));
   await delay(3000);
   await Promise.allSettled(imagePromises);
 
   // Log image batch in store
   conversationStore.addMessage(to, { sender: 'bot', text: `[Sent ${batch.length} ${label} Card Images]` });
-  await notifyOwnerBotActivity(phoneId, to, `[Sent ${batch.length} ${label} Card Images]`);
 
   // Check end of catalog
   const isWrapped = end >= ids.length;
@@ -408,7 +420,7 @@ async function sendBatchImages(phoneId, to, type, offset) {
     buttonText = `আমাদের সব ${label} ডিজাইনের ছবি দেখানো শেষ হয়েছে! আবার প্রথম থেকে দেখতে বা অর্ডার করতে চাপুন:`;
   }
 
-  await sendWhatsAppButtons(phoneId, to, buttonText, [
+  await sendButtonsWithMirror(phoneId, to, buttonText, [
     { id: nextButtonId, title: '📸 আরও ছবি দেখুন' },
     { id: otherButtonId, title: otherLabel },
     { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
@@ -433,12 +445,11 @@ async function handleButtonClick(phoneId, to, buttonId) {
     await sendBatchImages(phoneId, to, 'premium', offset);
   }
   else if (buttonId === 'btn_policy') {
-    await sendWhatsAppMessage(phoneId, to, DELIVERY_POLICY_TEXT);
+    await sendTextWithMirror(phoneId, to, DELIVERY_POLICY_TEXT);
     conversationStore.addMessage(to, { sender: 'bot', text: DELIVERY_POLICY_TEXT });
-    await notifyOwnerBotActivity(phoneId, to, DELIVERY_POLICY_TEXT);
 
     const btnPrompt = 'অন্যান্য মেনু:';
-    await sendWhatsAppButtons(phoneId, to, btnPrompt, [
+    await sendButtonsWithMirror(phoneId, to, btnPrompt, [
       { id: 'btn_affordable', title: '💚 Affordable Card' },
       { id: 'btn_premium', title: '✨ Premium Card' },
       { id: 'btn_order_form', title: '📝 অর্ডার ফর্ম' }
@@ -446,16 +457,14 @@ async function handleButtonClick(phoneId, to, buttonId) {
     conversationStore.addMessage(to, { sender: 'bot', text: btnPrompt });
   } 
   else if (buttonId === 'btn_order_form') {
-    await sendWhatsAppMessage(phoneId, to, ORDER_POLICY_TEXT);
+    await sendTextWithMirror(phoneId, to, ORDER_POLICY_TEXT);
     conversationStore.addMessage(to, { sender: 'bot', text: ORDER_POLICY_TEXT });
-    await notifyOwnerBotActivity(phoneId, to, ORDER_POLICY_TEXT);
 
-    await sendWhatsAppMessage(phoneId, to, BANGLA_FORM_TEXT);
+    await sendTextWithMirror(phoneId, to, BANGLA_FORM_TEXT);
     conversationStore.addMessage(to, { sender: 'bot', text: BANGLA_FORM_TEXT });
-    await notifyOwnerBotActivity(phoneId, to, BANGLA_FORM_TEXT);
 
     const btnPrompt = 'ফর্মটি পূরণ করতে বা ক্যাটালগ দেখতে নিচে চাপুন:';
-    await sendWhatsAppButtons(phoneId, to, btnPrompt, [
+    await sendButtonsWithMirror(phoneId, to, btnPrompt, [
       { id: 'btn_affordable', title: '💚 Affordable Card' },
       { id: 'btn_premium', title: '✨ Premium Card' },
       { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
