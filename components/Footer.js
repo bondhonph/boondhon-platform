@@ -33,8 +33,8 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4 font-display">যোগাযোগ</h4>
             <ul className="space-y-3 text-sm">
-              <li><a href="tel:01863586302" className="flex items-center gap-2 text-gray-400 hover:text-brand-blue transition-colors"><Phone size={14} className="text-brand-blue" />01863586302</a></li>
-              <li><a href="https://wa.me/8801863586302" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-400 hover:text-green-400 transition-colors"><MessageCircle size={14} className="text-green-400" />WhatsApp</a></li>
+              <li><a href="tel:01701016826" className="flex items-center gap-2 text-gray-400 hover:text-brand-blue transition-colors"><Phone size={14} className="text-brand-blue" />01701016826 (হটলাইন)</a></li>
+              <li><a href="https://wa.me/8801863586302" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-400 hover:text-green-400 transition-colors"><MessageCircle size={14} className="text-green-400" />WhatsApp (বট)</a></li>
               <li><a href="https://maps.app.goo.gl/CnyRST5KxHjWDAtd9" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-400 hover:text-brand-blue transition-colors"><MapPin size={14} className="text-brand-blue" />মানিকগঞ্জ</a></li>
               <li><a href="https://www.facebook.com/bondhonbph" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors"><Facebook size={14} className="text-blue-400" />Facebook Page</a></li>
             </ul>
