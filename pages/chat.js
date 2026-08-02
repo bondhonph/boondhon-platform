@@ -55,6 +55,8 @@ export default function ChatDashboard() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const isUserScrolledUpRef = useRef(false);
   const prevMsgCountRef = useRef(0);
   const prevPhoneRef = useRef(null);
 
@@ -162,14 +164,26 @@ export default function ChatDashboard() {
     }
   }, [selectedPhone, isAuthenticated]);
 
-  // SMART AUTO-SCROLL LOGIC: Only scroll when phone changes OR when message count actually increases
+  // Track User Scroll Position in Chat Window
+  const handleChatScroll = () => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    isUserScrolledUpRef.current = !isAtBottom;
+  };
+
+  // SMART SCROLL LOGIC: NEVER scroll down if user is currently scrolled up reading history!
   useEffect(() => {
     const currentMsgs = activeConv?.messages || [];
     const currentCount = currentMsgs.length;
     const phoneChanged = prevPhoneRef.current !== selectedPhone;
-    const newMsgArrived = currentCount > prevMsgCountRef.current;
 
-    if (phoneChanged || newMsgArrived) {
+    if (phoneChanged) {
+      // Switching to a new customer chat -> Always scroll to bottom
+      isUserScrolledUpRef.current = false;
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    } else if (!isUserScrolledUpRef.current && currentCount > prevMsgCountRef.current && prevMsgCountRef.current > 0) {
+      // User is already at the bottom AND a new message arrived -> Smooth scroll to bottom
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -227,7 +241,9 @@ export default function ChatDashboard() {
         setMessageText('');
         setImageUrl('');
         setShowImageInput(false);
+        isUserScrolledUpRef.current = false;
         fetchConversations();
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       } else {
         setErrorMessage(data.error || 'Failed to send message via WhatsApp API');
       }
@@ -285,7 +301,9 @@ export default function ChatDashboard() {
 
       if (res.ok) {
         setActiveConv(data.conversation);
+        isUserScrolledUpRef.current = false;
         fetchConversations();
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       } else {
         setErrorMessage(data.error || 'Failed to send quick reply via WhatsApp API');
       }
@@ -689,8 +707,12 @@ export default function ChatDashboard() {
                       </div>
                     </div>
 
-                    {/* Chat Messages Panel */}
-                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#0b141a]">
+                    {/* Chat Messages Panel with User Scroll Listener */}
+                    <div 
+                      ref={chatContainerRef}
+                      onScroll={handleChatScroll}
+                      className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#0b141a]"
+                    >
                       {(!activeConv.messages || activeConv.messages.length === 0) ? (
                         <div className="text-center text-gray-500 text-xs py-16">
                           কাস্টমারের সাথে বার্তা বিনিময় শুরু হলে এখানে হোয়াটসঅ্যাপের মতো চ্যাট দেখা যাবে।
