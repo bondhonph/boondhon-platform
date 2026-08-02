@@ -4,8 +4,10 @@ import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
 import { 
   Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, 
-  AlertTriangle, Smartphone, Tag, CheckCheck, Search, MoreVertical, Plus, Filter, Users
+  AlertTriangle, Smartphone, Tag, CheckCheck, Search, MoreVertical, Plus, Filter, Users, Lock, LogOut, ShieldCheck
 } from 'lucide-react';
+
+const DEFAULT_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || '1234';
 
 const CRM_LABEL_DOTS = {
   'New customer': '#3b82f6',
@@ -31,6 +33,10 @@ export default function ChatDashboard() {
   const router = useRouter();
   const { phone: queryPhone } = router.query;
 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
   const [conversations, setConversations] = useState([]);
   const [selectedPhone, setSelectedPhone] = useState(null);
   const [activeConv, setActiveConv] = useState(null);
@@ -48,6 +54,32 @@ export default function ChatDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const messagesEndRef = useRef(null);
+
+  // Check saved PIN authentication
+  useEffect(() => {
+    const authSaved = localStorage.getItem('boondhon_admin_auth');
+    if (authSaved === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handlePinSubmit = (e) => {
+    e?.preventDefault();
+    if (pinInput === DEFAULT_PIN || pinInput === '1234') {
+      localStorage.setItem('boondhon_admin_auth', 'true');
+      setIsAuthenticated(true);
+      setPinError(false);
+      setPinInput('');
+    } else {
+      setPinError(true);
+      setPinInput('');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('boondhon_admin_auth');
+    setIsAuthenticated(false);
+  };
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -78,6 +110,7 @@ export default function ChatDashboard() {
   }, [queryPhone]);
 
   const fetchConversations = async () => {
+    if (!isAuthenticated) return;
     try {
       const res = await fetch('/api/conversations');
       if (res.ok) {
@@ -96,7 +129,7 @@ export default function ChatDashboard() {
   };
 
   const fetchActiveConversation = async (phone) => {
-    if (!phone) return;
+    if (!phone || !isAuthenticated) return;
     try {
       const res = await fetch(`/api/conversations?phone=${phone}`);
       if (res.ok) {
@@ -109,21 +142,23 @@ export default function ChatDashboard() {
   };
 
   useEffect(() => {
-    fetchConversations();
-    const interval = setInterval(() => {
+    if (isAuthenticated) {
       fetchConversations();
-      if (selectedPhone) {
-        fetchActiveConversation(selectedPhone);
-      }
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [selectedPhone]);
+      const interval = setInterval(() => {
+        fetchConversations();
+        if (selectedPhone) {
+          fetchActiveConversation(selectedPhone);
+        }
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [selectedPhone, isAuthenticated]);
 
   useEffect(() => {
-    if (selectedPhone) {
+    if (selectedPhone && isAuthenticated) {
       fetchActiveConversation(selectedPhone);
     }
-  }, [selectedPhone]);
+  }, [selectedPhone, isAuthenticated]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -291,6 +326,62 @@ export default function ChatDashboard() {
 
   const unreadTotal = combinedConversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
 
+  // ── PIN AUTHENTICATION MODAL SCREEN ──
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Head>
+          <title>🔒 PIN Security – BOONDHON Chat</title>
+        </Head>
+        <div className="min-h-screen bg-[#0b141a] font-sans flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#111b21] border border-[#222d34] rounded-2xl p-6 md:p-8 shadow-2xl text-center space-y-6">
+            <div className="w-16 h-16 rounded-full bg-[#00a884]/20 border border-[#00a884]/40 text-[#00a884] flex items-center justify-center mx-auto text-2xl animate-bounce">
+              🔒
+            </div>
+
+            <div>
+              <h2 className="text-xl font-bold text-white mb-1">BOONDHON Chat Admin Security</h2>
+              <p className="text-gray-400 text-xs">চ্যাট ড্যাশবোর্ডে প্রবেশ করতে সিকিউরিটি পিন (PIN) দিন</p>
+            </div>
+
+            {pinError && (
+              <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs flex items-center justify-center gap-1.5">
+                <AlertTriangle size={14} />
+                <span>ভুল PIN দিয়েছেন! সঠিক অ্যাডমিন পিন দিন।</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePinSubmit} className="space-y-4">
+              <div>
+                <input 
+                  type="password"
+                  maxLength={6}
+                  placeholder="সিক্রেট PIN (ডিফল্ট: 1234)"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  className="w-full bg-[#202c33] border border-[#3b4a54] focus:border-[#00a884] rounded-xl px-4 py-3 text-center text-lg text-white font-mono tracking-widest focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-[#00a884] hover:bg-[#008f70] text-black font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition"
+              >
+                <ShieldCheck size={18} />
+                <span>প্রবেশ করুন</span>
+              </button>
+            </form>
+
+            <p className="text-[11px] text-gray-500">
+              ডিফল্ট পিন কোড: <strong className="text-gray-300">1234</strong>
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -325,10 +416,11 @@ export default function ChatDashboard() {
                 <div className="p-3 bg-[#202c33] flex items-center justify-between border-b border-[#222d34]">
                   <h1 className="text-lg font-bold text-white tracking-wide">Chats</h1>
                   
-                  <div className="flex items-center gap-3 text-gray-300">
+                  <div className="flex items-center gap-2.5 text-gray-300">
                     <button onClick={handleInstallApp} title="Install App" className="p-1.5 hover:bg-[#2a3942] rounded-full text-[#00a884]">
                       <Smartphone size={18} />
                     </button>
+
                     <button onClick={fetchConversations} title="New Chat" className="p-1.5 hover:bg-[#2a3942] rounded-full">
                       <Plus size={18} />
                     </button>
@@ -378,9 +470,14 @@ export default function ChatDashboard() {
                       )}
                     </div>
 
-                    <div className="w-8 h-8 rounded-full bg-pink-700 text-white font-bold flex items-center justify-center text-xs">
-                      👤
-                    </div>
+                    {/* Lock / Logout Button */}
+                    <button 
+                      onClick={handleLogout}
+                      title="Lock Dashboard"
+                      className="p-1.5 hover:bg-rose-500/20 rounded-full text-rose-400 transition"
+                    >
+                      <LogOut size={16} />
+                    </button>
                   </div>
                 </div>
 
