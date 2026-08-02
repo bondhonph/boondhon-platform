@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Navbar from '../components/Navbar';
-import { Users, ShoppingBag, Package, TrendingUp, Star, Phone, MessageCircle, Facebook, Lock, LogOut, ShieldAlert } from 'lucide-react';
+import { Users, ShoppingBag, Package, TrendingUp, Star, Phone, MessageCircle, Facebook, Lock, LogOut, ShieldAlert, Inbox, CheckCircle2, Clock, Send } from 'lucide-react';
 
 const stats = [
   { label: 'মোট কার্ড ডিজাইন', value: '168+', icon: <Package size={28} />, color: 'from-blue-500 to-brand-blue', sub: 'Affordable + Premium' },
@@ -16,12 +16,20 @@ const pricingData = [
   { pcs: '২০০ পিস', aff: '৭,০০০৳', pre: '৯,০০০৳', perAff: '৩৫৳/পিস', perPre: '৪৫৳/পিস' },
 ];
 
+const INITIAL_MESSAGES = [
+  { id: 1, name: 'তানভীর আহমেদ', phone: '01712345678', card: 'Premium (১০০ পিস)', time: '১০ মিনিট আগে', msg: 'আসসালামু আলাইকুম, কার্ডে কাস্টম গোল্ড ফয়েল প্রিন্টিং করা যাবে কি? দাম কত পড়বে?', status: 'New' },
+  { id: 2, name: 'সাবরিনা ইসলাম', phone: '01898765432', card: 'Affordable (২০০ পিস)', time: '১ ঘণ্টা আগে', msg: '২০০ পিস অর্ডারের ফ্রি নিকাহনামা ডেমো ডিজাইনগুলো দেখতে চাই। কীভাবে পাব?', status: 'New' },
+  { id: 3, name: 'মেহেদী হাসান', phone: '01911223344', card: 'Premium (৫০ পিস)', time: 'আজ দুপুর ২:৩০', msg: 'মানিকগঞ্জ অফিসে এসে কি ডিরেক্ট ক্যাশ অন ডেলিভারিতে অর্ডার নেওয়া যাবে?', status: 'Replied' },
+  { id: 4, name: 'সাদিয়া পারভীন', phone: '01677889900', card: 'Affordable (১০০ পিস)', time: 'গতকাল সন্ধ্যা ৬:১৫', msg: 'অর্ডার ফর্ম পূরণ করেছি। বিকাশ নম্বরে ৩০% টাকা পাঠিয়েছি, কনফার্ম করবেন।', status: 'Confirmed' }
+];
+
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('inbox');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [customerMessages, setCustomerMessages] = useState(INITIAL_MESSAGES);
 
   useEffect(() => {
     const auth = localStorage.getItem('boondhon_admin_auth');
@@ -29,6 +37,19 @@ export default function Dashboard() {
       setIsAuthenticated(true);
     }
     setCheckingAuth(false);
+
+    // Load any saved customer messages from local storage
+    try {
+      const saved = localStorage.getItem('boondhon_customer_inbox');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCustomerMessages(parsed);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }, []);
 
   const handleLogin = (e) => {
@@ -47,6 +68,18 @@ export default function Dashboard() {
     localStorage.removeItem('boondhon_admin_auth');
     setIsAuthenticated(false);
     setPassword('');
+  };
+
+  const toggleStatus = (id) => {
+    const updated = customerMessages.map(m => {
+      if (m.id === id) {
+        const nextStatus = m.status === 'New' ? 'Replied' : m.status === 'Replied' ? 'Confirmed' : 'New';
+        return { ...m, status: nextStatus };
+      }
+      return m;
+    });
+    setCustomerMessages(updated);
+    localStorage.setItem('boondhon_customer_inbox', JSON.stringify(updated));
   };
 
   if (checkingAuth) {
@@ -105,6 +138,8 @@ export default function Dashboard() {
     );
   }
 
+  const unreadCount = customerMessages.filter(m => m.status === 'New').length;
+
   return (
     <>
       <Head><title>Dashboard – BOONDHON Printing House</title></Head>
@@ -136,14 +171,113 @@ export default function Dashboard() {
 
           <div className="max-w-7xl mx-auto px-4 py-8">
             {/* Tabs */}
-            <div className="flex gap-2 mb-8 border-b border-white/5 pb-4">
-              {[['overview', 'Overview'], ['pricing', 'মূল্য তালিকা'], ['contact', 'যোগাযোগ']].map(([v, label]) => (
+            <div className="flex flex-wrap gap-2 mb-8 border-b border-white/5 pb-4">
+              {[
+                ['inbox', `💬 কাস্টমার ইনবক্স (${unreadCount}টি নতুন)`],
+                ['overview', '📊 Overview'],
+                ['pricing', '💰 মূল্য তালিকা'],
+                ['contact', '📞 যোগাযোগ']
+              ].map(([v, label]) => (
                 <button key={v} onClick={() => setActiveTab(v)}
-                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === v ? 'bg-brand-blue text-white' : 'text-gray-400 hover:text-white'}`}>
+                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all relative ${activeTab === v ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/30' : 'text-gray-400 hover:text-white bg-white/5'}`}>
                   {label}
+                  {v === 'inbox' && unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+                  )}
                 </button>
               ))}
             </div>
+
+            {/* Customer Inbox Tab */}
+            {activeTab === 'inbox' && (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass p-6 rounded-2xl">
+                  <div>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Inbox className="text-brand-blue" size={24} />
+                      <span>কাস্টমার মেসেজ ও ইনবক্স</span>
+                    </h2>
+                    <p className="text-gray-400 text-sm mt-1">গ্রাহকদের আসা সর্বশেষ মেসেজ, এনকোয়ারি ও অর্ডার রিকোয়েস্টসমূহ</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="bg-brand-blue/20 border border-brand-blue/30 text-brand-blue px-3 py-1.5 rounded-full text-xs font-semibold">
+                      মোট মেসেজ: {customerMessages.length}টি
+                    </span>
+                    <span className="bg-green-500/20 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-full text-xs font-semibold">
+                      নতুন: {unreadCount}টি
+                    </span>
+                  </div>
+                </div>
+
+                {/* Messages Grid */}
+                <div className="grid grid-cols-1 gap-4">
+                  {customerMessages.map((m) => (
+                    <div key={m.id} className="glass rounded-2xl p-6 hover:border-brand-blue/40 transition-all border border-white/5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-white/5 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-brand-blue/20 border border-brand-blue/30 flex items-center justify-center text-brand-blue font-bold">
+                            {m.name.charAt(0)}
+                          </div>
+                          <div>
+                            <h3 className="text-white font-bold text-base">{m.name}</h3>
+                            <a href={`tel:${m.phone}`} className="text-brand-blue text-xs hover:underline flex items-center gap-1">
+                              <Phone size={12} /> {m.phone}
+                            </a>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-400 text-xs flex items-center gap-1">
+                            <Clock size={12} /> {m.time}
+                          </span>
+                          <span className="text-brand-gold text-xs bg-brand-gold/10 border border-brand-gold/20 px-2.5 py-1 rounded-full font-medium">
+                            {m.card}
+                          </span>
+                          <button
+                            onClick={() => toggleStatus(m.id)}
+                            className={`text-xs px-3 py-1 rounded-full font-bold transition-all ${
+                              m.status === 'New' ? 'bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30' :
+                              m.status === 'Replied' ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30' :
+                              'bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30'
+                            }`}
+                          >
+                            {m.status === 'New' ? '🔴 New (নতুন)' : m.status === 'Replied' ? '🟡 Replied (উত্তর দেওয়া)' : '🟢 Confirmed (কনফার্মড)'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-950/60 border border-white/5 p-4 rounded-xl mb-4">
+                        <p className="text-gray-200 text-sm leading-relaxed">"{m.msg}"</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`https://wa.me/88${m.phone}?text=${encodeURIComponent(`আসসালামু আলাইকুম ${m.name} ভাইয়া/আপু! BOONDHON Printing House থেকে যোগাযোগ করছি।`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md"
+                          >
+                            <MessageCircle size={14} /> WhatsApp-এ রিপ্লাই দিন
+                          </a>
+                          <a
+                            href={`tel:${m.phone}`}
+                            className="bg-brand-blue/20 hover:bg-brand-blue/30 border border-brand-blue/40 text-brand-blue text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all"
+                          >
+                            <Phone size={14} /> কল করুন
+                          </a>
+                        </div>
+                        <button
+                          onClick={() => toggleStatus(m.id)}
+                          className="text-gray-400 hover:text-white text-xs underline"
+                        >
+                          স্ট্যাটাস পরিবর্তন করুন
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {activeTab === 'overview' && (
               <>
