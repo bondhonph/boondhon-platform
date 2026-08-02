@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
-import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, AlertTriangle } from 'lucide-react';
+import { Phone, UserCheck, Bot, RefreshCw, Image as ImageIcon, Send, Clock, Zap, AlertTriangle, Smartphone } from 'lucide-react';
 
 export default function ChatDashboard() {
   const router = useRouter();
@@ -18,7 +18,34 @@ export default function ChatDashboard() {
   const [sending, setSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstallable, setIsInstallable] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Listen for PWA install prompt event
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) {
+      alert('অ্যাপটি ইন্সটল করতে ক্রোম ব্রাউজারের উপরে থাকা ৩টি ডটে (...) ক্লিক করে "Add to Home screen" বা "Install app" অপশনে চাপুন।');
+      return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+    }
+  };
 
   // Auto-select phone from URL query param if present
   useEffect(() => {
@@ -211,26 +238,35 @@ export default function ChatDashboard() {
 
   return (
     <>
-      <Head><title>Live Chat & Human Takeover – BOONDHON</title></Head>
+      <Head>
+        <title>BOONDHON Chat – Android App & Live Messaging</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+      </Head>
       <div className="min-h-screen bg-brand-dark font-sans text-gray-100">
         <Navbar />
         <div className="pt-20 min-h-screen">
           <div className="border-b border-brand-blue/10 px-4 py-4 bg-brand-dark/80 backdrop-blur">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-display font-bold text-white flex items-center gap-2">
-                  💬 Live Chat & Human Takeover Control
+                <h1 className="text-xl md:text-2xl font-display font-bold text-white flex items-center gap-2">
+                  💬 BOONDHON Live Chat & Support
                 </h1>
-                <p className="text-gray-400 text-sm">WhatsApp Business Cloud API Live Messaging Center</p>
+                <p className="text-gray-400 text-xs md:text-sm">WhatsApp Business Cloud API Live Messaging Center</p>
               </div>
-              <div className="flex items-center gap-3">
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleInstallApp}
+                  className="px-3.5 py-1.5 rounded-xl bg-brand-blue hover:bg-brand-blue/80 text-white font-semibold text-xs flex items-center gap-1.5 shadow-lg transition animate-pulse"
+                  title="মোবাইলে অ্যান্ড্রয়েড অ্যাপ হিসেবে ইন্সটল করুন"
+                >
+                  <Smartphone size={15} />
+                  <span>📲 অ্যান্ড্রয়েড অ্যাপ ইন্সটল করুন</span>
+                </button>
+
                 <button onClick={fetchConversations} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition" title="Refresh data">
                   <RefreshCw size={16} />
                 </button>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                  <span className="text-emerald-400 text-xs font-semibold">WhatsApp Cloud API Live</span>
-                </div>
               </div>
             </div>
           </div>
@@ -248,7 +284,7 @@ export default function ChatDashboard() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[720px]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[680px] lg:h-[720px]">
               <div className="lg:col-span-4 glass rounded-2xl flex flex-col overflow-hidden border border-white/10 bg-brand-dark/40">
                 <div className="p-4 border-b border-white/10 bg-white/3">
                   <input 
@@ -367,7 +403,7 @@ export default function ChatDashboard() {
 
                           return (
                             <div key={i} className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}>
-                              <div className={`max-w-[75%] rounded-2xl p-3.5 text-sm shadow-md ${
+                              <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-3.5 text-sm shadow-md ${
                                 isCustomer 
                                   ? 'bg-white/10 text-white rounded-tl-none border border-white/10' 
                                   : isAgent 
@@ -450,7 +486,7 @@ export default function ChatDashboard() {
 
                         <input
                           type="text"
-                          placeholder="হোয়াটসঅ্যাপে ম্যানুয়াল উত্তর লিখুন (উত্তর দিলে অটোমেটিক ৩০মিনিট বট পজ হবে)..."
+                          placeholder="হোয়াটসঅ্যাপে ম্যানুয়াল উত্তর লিখুন..."
                           value={messageText}
                           onChange={(e) => setMessageText(e.target.value)}
                           className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-blue"
