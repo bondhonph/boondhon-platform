@@ -53,9 +53,11 @@ export default function ChatDashboard() {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  
   const messagesEndRef = useRef(null);
+  const prevMsgCountRef = useRef(0);
+  const prevPhoneRef = useRef(null);
 
-  // Check saved PIN authentication
   useEffect(() => {
     const authSaved = localStorage.getItem('boondhon_admin_auth');
     if (authSaved === 'true') {
@@ -149,7 +151,7 @@ export default function ChatDashboard() {
         if (selectedPhone) {
           fetchActiveConversation(selectedPhone);
         }
-      }, 2500);
+      }, 3000);
       return () => clearInterval(interval);
     }
   }, [selectedPhone, isAuthenticated]);
@@ -160,9 +162,20 @@ export default function ChatDashboard() {
     }
   }, [selectedPhone, isAuthenticated]);
 
+  // SMART AUTO-SCROLL LOGIC: Only scroll when phone changes OR when message count actually increases
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeConv?.messages]);
+    const currentMsgs = activeConv?.messages || [];
+    const currentCount = currentMsgs.length;
+    const phoneChanged = prevPhoneRef.current !== selectedPhone;
+    const newMsgArrived = currentCount > prevMsgCountRef.current;
+
+    if (phoneChanged || newMsgArrived) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    prevMsgCountRef.current = currentCount;
+    prevPhoneRef.current = selectedPhone;
+  }, [activeConv?.messages, selectedPhone]);
 
   const handleUpdateLabel = async (newLabel) => {
     if (!selectedPhone) return;
@@ -767,7 +780,7 @@ export default function ChatDashboard() {
                           type="button"
                           onClick={() => setShowImageInput(!showImageInput)}
                           className={`p-2.5 rounded-full transition ${
-                            imageUrl ? 'bg-[#00a884] text-white' : 'text-gray-400 hover:text-white hover:bg-[#2a3942]'
+                            imageUrl ? 'bg-[#00a884] text-white' : 'text-gray-400 hover:text-[#00a884] hover:bg-[#2a3942]'
                           }`}
                           title="ছবি পাঠাতে লিংক যোগ করুন"
                         >
