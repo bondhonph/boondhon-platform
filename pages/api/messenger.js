@@ -22,6 +22,9 @@ const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাব
 ৩. আমাদের ডিজাইনার কার্ডের ডেমো ডিজাইন তৈরি করে আপনাকে পাঠাবে।
 ৪. জেলা শহরে ক্যাশ অন ডেলিভারি দেওয়া হবে (৫-৭ কর্মদিবস)।`;
 
+// Deduplication map in memory
+const processedEvents = new Set();
+
 // Helper to send text message via Facebook Messenger API
 async function sendMessengerText(recipientId, text, quickReplies = []) {
   const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
@@ -50,33 +53,18 @@ async function sendMessengerText(recipientId, text, quickReplies = []) {
   }
 }
 
-// Helper to send Messenger Image Carousel (Generic Template)
-async function sendMessengerCarousel(recipientId, type = 'affordable') {
-  const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
+// Helper to send image message via Facebook Messenger API
+async function sendMessengerImage(recipientId, imageUrl) {
   const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
-
-  const elements = idsList.slice(0, 8).map((id, index) => ({
-    title: `🌸 ${typeLabel} Card #${index + 1}`,
-    subtitle: type === 'premium' ? '৫০পিস = ৩,২৫০৳ | ১০০পিস = ৫,৫০০৳' : '৫০পিস = ২,৭৫০৳ | ১০০পিস = ৪,৫০০৳',
-    image_url: driveUrl(id),
-    buttons: [
-      {
-        type: "web_url",
-        url: `https://boondhon-platform-qr9a.vercel.app/order?design=${type === 'premium' ? 'PREM' : 'AFF'}-${String(index + 1).padStart(3, '0')}&type=${type}`,
-        title: "📝 অনলাইন অর্ডার"
-      }
-    ]
-  }));
 
   const payload = {
     recipient: { id: recipientId },
     message: {
       attachment: {
-        type: "template",
+        type: "image",
         payload: {
-          template_type: "generic",
-          elements: elements
+          url: imageUrl,
+          is_reusable: true
         }
       }
     }
@@ -88,24 +76,38 @@ async function sendMessengerCarousel(recipientId, type = 'affordable') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
-    const priceText = type === 'premium'
-      ? '💰 Premium মূল্য তালিকা:\n• ৫০পিস: ৩,২৫০৳ | ১০০পিস: ৫,৫০০৳ | ২০০পিস: ৯,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!'
-      : '💰 Affordable মূল্য তালিকা:\n• ৫০পিস: ২,৭৫০৳ | ১০০পিস: ৪,৫০০৳ | ২০০পিস: ৭,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!';
-
-    const quickReplies = [
-      { title: "📝 অনলাইন অর্ডার", payload: "BTN_ORDER" },
-      { title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" }
-    ];
-
-    await sendMessengerText(recipientId, priceText, quickReplies);
   } catch (err) {
-    console.error('Error sending Messenger carousel:', err);
+    console.error('Error sending Messenger image:', err);
   }
 }
 
+// Send 8 card images sequentially (Same to Same like WhatsApp!)
+async function sendMessenger8CardGallery(recipientId, type = 'affordable') {
+  const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
+  const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
+
+  // Send 8 images sequentially with delay (Same to Same like WhatsApp!)
+  for (let i = 0; i < idsList.length; i++) {
+    const id = idsList[i];
+    await sendMessengerImage(recipientId, driveUrl(id));
+    await new Promise(r => setTimeout(r, 450));
+  }
+
+  await new Promise(r => setTimeout(r, 1000));
+
+  const priceText = type === 'premium'
+    ? '🌸 BOONDHON Premium গ্যালারি (1 - 8 নম্বর ডিজাইন)\n\n💰 Premium মূল্য তালিকা:\n• ৫০পিস: ৩,২৫০৳ | ১০০পিস: ৫,৫০০৳ | ২০০পিস: ৯,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!'
+    : '🌸 BOONDHON Affordable গ্যালারি (1 - 8 নম্বর ডিজাইন)\n\n💰 Affordable মূল্য তালিকা:\n• ৫০পিস: ২,৭৫০৳ | ১০০পিস: ৪,৫০০৳ | ২০০পিস: ৭,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!';
+
+  const quickReplies = [
+    { title: "📝 অনলাইন অর্ডার", payload: "BTN_ORDER" },
+    { title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" }
+  ];
+
+  await sendMessengerText(recipientId, priceText, quickReplies);
+}
+
 export default async function handler(req, res) {
-  // ── 1. WEBHOOK VERIFICATION (GET) ──
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -119,15 +121,25 @@ export default async function handler(req, res) {
     return res.status(403).send('Verification Failed');
   }
 
-  // ── 2. MESSAGE EVENT HANDLER (POST) ──
   if (req.method === 'POST') {
     try {
       const body = req.body;
 
       if (body.object === 'page') {
+        // Return 200 immediately to prevent Meta webhook retries & duplicate messages
+        res.status(200).send('EVENT_RECEIVED');
+
         body.entry?.forEach(entry => {
           const webhookEvent = entry.messaging?.[0];
           if (webhookEvent) {
+            // Ignore page echo messages sent by the page/admin itself
+            if (webhookEvent.message?.is_echo) return;
+
+            const messageId = webhookEvent.message?.mid || `${webhookEvent.sender?.id}_${webhookEvent.timestamp}`;
+            if (processedEvents.has(messageId)) return; // Skip duplicate retries
+            processedEvents.add(messageId);
+            if (processedEvents.size > 200) processedEvents.clear();
+
             const senderId = webhookEvent.sender?.id;
             const message = webhookEvent.message;
             const postback = webhookEvent.postback;
@@ -140,9 +152,9 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'customer', text);
 
               if (payload === 'BTN_AFFORDABLE' || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল')) {
-                sendMessengerCarousel(senderId, 'affordable');
+                sendMessenger8CardGallery(senderId, 'affordable');
               } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
-                sendMessengerCarousel(senderId, 'premium');
+                sendMessenger8CardGallery(senderId, 'premium');
               } else if (payload === 'BTN_ORDER' || txt.includes('order') || txt.includes('অর্ডার')) {
                 const orderText = `📝 অনলাইন অর্ডার লিংক:\n👉 https://boondhon-platform-qr9a.vercel.app/order\n\n${ORDER_RULES_MSG}`;
                 sendMessengerText(senderId, orderText);
@@ -158,8 +170,7 @@ export default async function handler(req, res) {
             }
           }
         });
-
-        return res.status(200).send('EVENT_RECEIVED');
+        return;
       }
 
       return res.status(404).send('Not a Messenger Event');
