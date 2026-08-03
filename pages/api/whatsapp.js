@@ -304,7 +304,7 @@ export default async function handler(req, res) {
                 { id: 'btn_premium', title: '✨ Premium Card' },
                 { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
               ];
-              await sendWhatsAppInteractive(phoneId, from, replyText, buttons, driveUrl("1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD"));
+              await sendWhatsAppInteractive(phoneId, from, replyText, buttons);
             }
           }
         }
