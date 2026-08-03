@@ -53,50 +53,55 @@ async function sendMessengerText(recipientId, text, quickReplies = []) {
   }
 }
 
-// Helper to send image message via Facebook Messenger API
-async function sendMessengerImage(recipientId, imageUrl) {
+// Send Messenger Native Generic Template Carousel (8 Cards Side-by-Side Slider)
+async function sendMessenger8CardGallery(recipientId, type = 'affordable') {
+  const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
+  const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
   const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
+
+  const elements = idsList.slice(0, 8).map((id, index) => ({
+    title: `🌸 ${typeLabel} Card #${index + 1}`,
+    subtitle: type === 'premium' ? '💰 ৫০পিস: ৩,২৫০৳ | ১০০পিস: ৫,৫০০৳' : '💰 ৫০পিস: ২,৭৫০৳ | ১০০পিস: ৪,৫০০৳',
+    image_url: driveUrl(id),
+    buttons: [
+      {
+        type: "web_url",
+        url: `https://boondhon-platform-qr9a.vercel.app/order?design=${type === 'premium' ? 'PREM' : 'AFF'}-${String(index + 1).padStart(3, '0')}&type=${type}`,
+        title: "📝 অনলাইন অর্ডার"
+      }
+    ]
+  }));
 
   const payload = {
     recipient: { id: recipientId },
     message: {
       attachment: {
-        type: "image",
+        type: "template",
         payload: {
-          url: imageUrl,
-          is_reusable: true
+          template_type: "generic",
+          elements: elements
         }
       }
     }
   };
 
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    const resData = await res.json();
+    if (!res.ok) {
+      console.error('Messenger Carousel API Error:', resData);
+    }
   } catch (err) {
-    console.error('Error sending Messenger image:', err);
+    console.error('Error sending Messenger carousel:', err);
   }
-}
-
-// Send 8 card images sequentially
-async function sendMessenger8CardGallery(recipientId, type = 'affordable') {
-  const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
-
-  for (let i = 0; i < idsList.length; i++) {
-    const id = idsList[i];
-    await sendMessengerImage(recipientId, driveUrl(id));
-    await new Promise(r => setTimeout(r, 450));
-  }
-
-  await new Promise(r => setTimeout(r, 1000));
 
   const priceText = type === 'premium'
-    ? '🌸 BOONDHON Premium গ্যালারি (1 - 8 নম্বর ডিজাইন)\n\n💰 Premium মূল্য তালিকা:\n• ৫০পিস: ৩,২৫০৳ | ১০০পিস: ৫,৫০০৳ | ২০০পিস: ৯,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!'
-    : '🌸 BOONDHON Affordable গ্যালারি (1 - 8 নম্বর ডিজাইন)\n\n💰 Affordable মূল্য তালিকা:\n• ৫০পিস: ২,৭৫০৳ | ১০০পিস: ৪,৫০০৳ | ২০০পিস: ৭,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!';
+    ? '💰 Premium মূল্য তালিকা:\n• ৫০পিস: ৩,২৫০৳ | ১০০পিস: ৫,৫০০৳ | ২০০পিস: ৯,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!'
+    : '💰 Affordable মূল্য তালিকা:\n• ৫০পিস: ২,৭৫০৳ | ১০০পিস: ৪,৫০০৳ | ২০০পিস: ৭,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!';
 
   const quickReplies = [
     { title: "📝 অনলাইন অর্ডার", payload: "BTN_ORDER" },
@@ -131,7 +136,7 @@ export default async function handler(req, res) {
         body.entry?.forEach(entry => {
           const webhookEvent = entry.messaging?.[0];
           if (webhookEvent) {
-            // 1. Ignore delivery, read receipts & page echo messages sent by the page itself
+            // Ignore delivery, read receipts & page echo messages sent by the page itself
             if (webhookEvent.delivery || webhookEvent.read || webhookEvent.message?.is_echo) return;
 
             const senderId = webhookEvent.sender?.id;
