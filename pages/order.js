@@ -94,14 +94,15 @@ export default function Order() {
   const finalQty = (customQty && !isNaN(parseInt(customQty))) ? Math.max(1, parseInt(customQty)) : qty;
 
   const calculatePrice = (q, t) => {
-    if (q === 50) return t === 'premium' ? 3250 : 2750;
-    if (q === 100) return t === 'premium' ? 5500 : 4500;
-    if (q === 200) return t === 'premium' ? 9000 : 7000;
+    const num = parseInt(q) || 50;
+    if (num === 50) return t === 'premium' ? 3250 : 2750;
+    if (num === 100) return t === 'premium' ? 5500 : 4500;
+    if (num === 200) return t === 'premium' ? 9000 : 7000;
     
     const rate = t === 'premium' 
-      ? (q < 100 ? 65 : q < 200 ? 55 : 45)
-      : (q < 100 ? 55 : q < 200 ? 45 : 35);
-    return q * rate;
+      ? (num < 100 ? 65 : num < 200 ? 55 : 45)
+      : (num < 100 ? 55 : num < 200 ? 45 : 35);
+    return num * rate;
   };
 
   const price = calculatePrice(finalQty, tier);
@@ -136,7 +137,8 @@ export default function Order() {
       ? `📝 *BOONDHON বিয়ের কার্ড অর্ডার* 🌸\n\n`
         + cardDesignInfo
         + `📦 পরিমাণ: ${selectedQty} পিস\n`
-        + `💎 ধরন: ${tier === 'premium' ? 'Premium' : 'Affordable'}\n\n`
+        + `💎 ধরন: ${tier === 'premium' ? 'Premium' : 'Affordable'}\n`
+        + `💰 সর্বমোট বিল: ${price}৳ (৩০% বুকিং: ${advance}৳)\n\n`
         + `👰‍♂️ *বর-*\nনাম: ${form.groomName}\nপিতা: ${form.groomFather}\nমাতা: ${form.groomMother}\nঠিকানা: ${form.groomAddress}\n\n`
         + `👰 *কনে-*\nনাম: ${form.brideName}\nপিতা: ${form.brideFather}\nমাতা: ${form.brideMother}\nঠিকানা: ${form.brideAddress}\n\n`
         + `💛 *গায়ে হলুদ-*\nতারিখ (ইং): ${form.holudDateEn}\nতারিখ (বাং): ${form.holudDateBn}\nরোজ: ${form.holudDay}\nসময়: ${form.holudTime}\nস্থান: ${form.holudVenue}\n\n`
@@ -144,50 +146,15 @@ export default function Order() {
         + `🎉 *বৌ-ভাত-*\nতারিখ (ইং): ${form.receptionDateEn}\nতারিখ (বাং): ${form.receptionDateBn}\nরোজ: ${form.receptionDay}\nসময়: ${form.receptionTime}\nস্থান: ${form.receptionVenue}\n\n`
         + `শিশু: ${form.childrenNames}\nযোগাযোগ: ${form.contactPhone}\nশুভেচ্ছান্তে: ${form.regardsName}\n\n`
         + `বর কততম সন্তান: ${form.groomChildNo}\nকনে কততম সন্তান: ${form.brideChildNo}\nকার্ড: ${form.cardSide} পক্ষ\n\n`
-        + `🚚 *কুরিয়ার:*\nনাম: ${form.courierName || form.groomName || form.brideName}\nমোবাইল: ${form.courierPhone || form.contactPhone}\nঠিকানা: ${form.courierAddress}`
+        + `🚚 *কুরিয়ার ইনফো-*\nনাম: ${form.courierName || form.groomName || form.brideName}\nমোবাইল: ${form.courierPhone || form.contactPhone}\nঠিকানা: ${form.courierAddress}`
       : `📝 *BOONDHON Wedding Card Order* 🌸\n\n`
         + cardDesignInfo
-        + `📦 Quantity: ${selectedQty} pcs\n💎 Type: ${tier === 'premium' ? 'Premium' : 'Affordable'}\n\n`
-        + `👰‍♂️ *Groom:*\nName: ${form.groomName}\nFather: ${form.groomFather}\nMother: ${form.groomMother}\n\n`
-        + `👰 *Bride:*\nName: ${form.brideName}\nFather: ${form.brideFather}\nMother: ${form.brideMother}\n\n`
-        + `💛 *Holud:*\nDay: ${form.holudDay}, Date: ${form.holudDateEn}\nTime: ${form.holudTime}, Venue: ${form.holudVenue}\n\n`
-        + `💍 *Wedding:*\nDay: ${form.weddingDay}, Date: ${form.weddingDateEn}\nTime: ${form.weddingTime}, Venue: ${form.weddingVenue}\n\n`
-        + `🎉 *Reception:*\nDay: ${form.receptionDay}, Date: ${form.receptionDateEn}\nTime: ${form.receptionTime}, Venue: ${form.receptionVenue}\n\n`
-        + `RSVP: ${form.contactPhone}, Regards: ${form.regardsName}\n\n`
-        + `🚚 *Courier:*\nName: ${form.courierName || form.groomName}, Phone: ${form.courierPhone || form.contactPhone}\nAddress: ${form.courierAddress}`;
+        + `Quantity: ${selectedQty} Pcs | Tier: ${tier}\n`
+        + `Total Price: ${price} BDT (30% Advance: ${advance} BDT)\n`
+        + `Groom: ${form.groomName} | Bride: ${form.brideName}\n`
+        + `Phone: ${form.contactPhone}\nAddress: ${form.courierAddress}`;
 
-    // Save order details to local inbox for Admin Dashboard
-    try {
-      const inboxMessage = {
-        id: Date.now(),
-        name: form.groomName || form.brideName || 'নতুন অর্ডার',
-        phone: form.contactPhone || form.courierPhone || '01700000000',
-        card: `${tier === 'premium' ? 'Premium' : 'Affordable'} (${selectedCard ? selectedCard.code + ' - ' : ''}${selectedQty} পিস)`,
-        time: 'এখনই',
-        msg: `অনলাইন অর্ডার ফরম জমা পড়েছে। মোট বিল: ${price}৳ (৩০% বুকিং: ${advance}৳)`,
-        status: 'New'
-      };
-      const existing = JSON.parse(localStorage.getItem('boondhon_customer_inbox') || '[]');
-      localStorage.setItem('boondhon_customer_inbox', JSON.stringify([inboxMessage, ...existing]));
-    } catch (e) {}
-
-    // Clear saved draft on successful submit
-    try { localStorage.removeItem('boondhon_order_draft'); } catch (e) {}
-
-    // Generate unique Event ID for Deduplication
-    const eventId = 'order_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-
-    // Track Meta Pixel Conversion (Browser-side Lead Event)
-    if (typeof window !== 'undefined' && window.fbq) {
-      window.fbq('track', 'Lead', {
-        value: price,
-        currency: 'BDT',
-        content_name: `${tier === 'premium' ? 'Premium' : 'Affordable'} Card Order`,
-        num_items: Number(selectedQty)
-      }, { eventID: eventId });
-    }
-
-    // Send Meta Conversions API (Server-side Event)
+    // Trigger Meta Conversions API (CAPI) Lead Event
     fetch('/api/capi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -195,7 +162,7 @@ export default function Order() {
         eventName: 'Lead',
         value: price,
         currency: 'BDT',
-        orderId: eventId,
+        orderId: `ORD_${Date.now()}`,
         phone: form.contactPhone || form.courierPhone,
         url: window.location.href
       })
@@ -245,7 +212,7 @@ export default function Order() {
             </div>
           )}
 
-          {/* Progress Indicator (Priority 4) */}
+          {/* Progress Indicator */}
           <div className="mb-8 glass p-4 rounded-2xl border border-white/10">
             <div className="flex items-center justify-between text-xs font-semibold text-gray-300 mb-2">
               <span>ধাপ {activeStep} / ৪: {
@@ -274,7 +241,7 @@ export default function Order() {
 
               {activeStep === 1 && (
                 <div className="mt-6 space-y-6 pt-4 border-t border-white/5">
-                  {/* Selected Design Preview Handoff (Priority 1) */}
+                  {/* Selected Design Preview */}
                   {selectedCard ? (
                     <div className="bg-brand-blue/10 border border-brand-blue/30 rounded-2xl p-4 flex items-center gap-4">
                       <img src={selectedCard.driveUrl} alt={selectedCard.code} className="w-16 h-16 object-cover rounded-xl border border-white/20" />
@@ -328,16 +295,44 @@ export default function Order() {
                     </div>
                   </div>
 
-                  {/* Quantity */}
+                  {/* Quantity Selector with Instant Live Price Calculation */}
                   <div>
                     <label className="block text-gray-400 text-sm mb-2">পরিমাণ (সর্বনিম্ন ৫০ পিস)</label>
                     <div className="grid grid-cols-3 gap-3 mb-3">
                       {QUANTITIES.map(q => (
                         <button key={q} type="button" onClick={() => { setQty(q); setCustomQty(''); }}
-                          className={`py-3 rounded-xl border font-bold text-sm transition-all ${qty === q && !customQty ? 'bg-brand-blue border-brand-blue text-white shadow-lg' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
-                          {q} পিস
+                          className={`py-3.5 rounded-xl border font-bold text-sm transition-all flex flex-col items-center justify-center gap-1 ${qty === q && !customQty ? 'bg-brand-blue border-brand-blue text-white shadow-lg shadow-brand-blue/30' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+                          <span>{q} পিস</span>
+                          <span className={`text-[11px] font-normal ${qty === q && !customQty ? 'text-white/90' : 'text-brand-blue'}`}>
+                            {calculatePrice(q, tier)}৳
+                          </span>
                         </button>
                       ))}
+                    </div>
+
+                    {/* Custom Quantity Input Box */}
+                    <div className="mt-3">
+                      <label className="block text-gray-400 text-xs mb-1">অথবা কাস্টম পরিমাণ টাইপ করুন (যেমন: 150, 250, 300 পিস):</label>
+                      <input
+                        type="number"
+                        min="50"
+                        value={customQty}
+                        onChange={(e) => setCustomQty(e.target.value)}
+                        placeholder="পিস লিখুন (যেমন: 150)"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:border-brand-blue focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Live Price Preview Badge Right Inside Step 1 */}
+                    <div className="mt-4 bg-gradient-to-r from-brand-blue/15 to-brand-gold/15 border border-brand-blue/30 p-4 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-gray-400 text-xs">নির্বাচিত পরিমাণ: <strong className="text-white">{finalQty} পিস</strong> ({tier === 'premium' ? 'Premium' : 'Affordable'})</span>
+                        <h4 className="text-brand-blue font-bold text-lg mt-0.5">মোট মূল্য: {price} ৳</h4>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-gray-400 text-[10px] block">৩০% বুকিং পেমেন্ট:</span>
+                        <span className="text-brand-gold font-bold text-sm">{advance} ৳</span>
+                      </div>
                     </div>
                   </div>
 
@@ -360,26 +355,26 @@ export default function Order() {
 
               {activeStep === 2 && (
                 <div className="mt-6 space-y-6 pt-4 border-t border-white/5">
-                  {/* Groom */}
-                  <div className="bg-white/3 p-4 rounded-2xl border border-white/5 space-y-3">
-                    <h4 className="text-brand-blue font-bold text-sm">👰‍♂️ বরের তথ্য</h4>
-                    <F label="বরের নাম" k="groomName" placeholder="যেমন: তানভীর আহমেদ" required />
+                  <div className="bg-white/3 p-4 rounded-2xl border border-white/5 space-y-4">
+                    <h4 className="text-brand-blue font-bold text-sm">🤵‍♂️ বরের তথ্য</h4>
+                    <F label="বরের পূর্ণ নাম" k="groomName" placeholder="যেমন: তানভীর আহমেদ" required />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <F label="বরের পিতার নাম" k="groomFather" />
-                      <F label="বরের মাতার নাম" k="groomMother" />
+                      <F label="বরের পিতার নাম" k="groomFather" placeholder="যেমন: রফিকুল ইসলাম" />
+                      <F label="বরের মাতার নাম" k="groomMother" placeholder="যেমন: ফাতেমা বেগম" />
                     </div>
-                    <F label="বরের ঠিকানা" k="groomAddress" placeholder="যেমন: গ্রাম, ডাকঘর, উপজেলা, জেলা" />
+                    <F label="বরের ঠিকানা" k="groomAddress" placeholder="যেমন: মানিকগঞ্জ সদরে" />
+                    <F label="বর কততম সন্তান" k="groomChildNo" placeholder="যেমন: জ্যেষ্ঠ / কনিষ্ঠ / ২য় পুত্র" />
                   </div>
 
-                  {/* Bride */}
-                  <div className="bg-white/3 p-4 rounded-2xl border border-white/5 space-y-3">
-                    <h4 className="text-brand-gold font-bold text-sm">👰 কনের তথ্য</h4>
-                    <F label="কনের নাম" k="brideName" placeholder="যেমন: সাবরিনা ইসলাম" required />
+                  <div className="bg-white/3 p-4 rounded-2xl border border-white/5 space-y-4">
+                    <h4 className="text-pink-400 font-bold text-sm">👰 কনের তথ্য</h4>
+                    <F label="কনের পূর্ণ নাম" k="brideName" placeholder="যেমন: সাবরিনা ইসলাম" required />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <F label="কনের পিতার নাম" k="brideFather" />
-                      <F label="কনের মাতার নাম" k="brideMother" />
+                      <F label="কনের পিতার নাম" k="brideFather" placeholder="যেমন: আনোয়ার হোসেন" />
+                      <F label="কনের মাতার নাম" k="brideMother" placeholder="যেমন: খাদিজা পারভীন" />
                     </div>
-                    <F label="কনের ঠিকানা" k="brideAddress" placeholder="যেমন: গ্রাম, ডাকঘর, উপজেলা, জেলা" />
+                    <F label="কনের ঠিকানা" k="brideAddress" placeholder="যেমন: ঢাকা ডেমরা" />
+                    <F label="কনে কততম সন্তান" k="brideChildNo" placeholder="<ctrl42>যেমন: জ্যেষ্ঠা / ২য় কন্যা" />
                   </div>
 
                   <div className="flex gap-3">
@@ -387,14 +382,14 @@ export default function Order() {
                       ← পূর্ববর্তী
                     </button>
                     <button type="button" onClick={() => setActiveStep(3)} className="w-2/3 bg-brand-blue text-white font-bold py-3 rounded-xl hover:bg-blue-500 transition-all text-sm">
-                      পরবর্তী ধাপ: অনুষ্ঠানের সময়সূচী →
+                      পরবর্তী ধাপ: সময়সূচী →
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* STEP 3: EVENT DETAILS (Collapsible Holud/Wedding/Reception) */}
+            {/* STEP 3: EVENT SCHEDULE */}
             <div className={`border rounded-2xl p-5 transition-all ${activeStep === 3 ? 'border-brand-blue/50 bg-white/3' : 'border-white/10 bg-white/1'}`}>
               <div className="flex justify-between items-center cursor-pointer" onClick={() => setActiveStep(3)}>
                 <div className="flex items-center gap-3">
@@ -406,26 +401,26 @@ export default function Order() {
 
               {activeStep === 3 && (
                 <div className="mt-6 space-y-4 pt-4 border-t border-white/5">
-
-                  {/* Wedding Event (Open by default) */}
-                  <div className="border border-brand-blue/30 rounded-2xl overflow-hidden bg-slate-900/50">
+                  
+                  {/* Wedding Event */}
+                  <div className="border border-brand-blue/30 rounded-2xl overflow-hidden bg-brand-blue/5">
                     <button type="button" onClick={() => setOpenWedding(!openWedding)}
-                      className="w-full p-4 flex justify-between items-center bg-brand-blue/10 text-white font-bold text-sm">
-                      <span>💍 শুভ বিবাহ সময়সূচী (প্রধান অনুষ্ঠান)</span>
+                      className="w-full p-4 flex justify-between items-center text-white font-bold text-sm hover:bg-white/5">
+                      <span>💍 শুভ বিবাহ সময়সূচী</span>
                       {openWedding ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
                     {openWedding && (
-                      <div className="p-4 space-y-3">
+                      <div className="p-4 space-y-3 border-t border-white/10">
                         <div className="grid grid-cols-2 gap-3">
-                          <F label="তারিখ (ইংরেজি)" k="weddingDateEn" placeholder="যেমন: ২৫ ডিসেম্বর ২০২৬" />
-                          <F label="তারিখ (বাংলা)" k="weddingDateBn" placeholder="যেমন: ১০ পৌষ ১৪৩৩" />
+                          <F label="তারিখ (ইংরেজি)" k="weddingDateEn" placeholder="যেমন: ১২ অক্টোবর ২০২৬" />
+                          <F label="তারিখ (বাংলা)" k="weddingDateBn" placeholder="যেমন: ২৭ আশ্বিন ১৪৩৩" />
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                           <F label="রোজ / বার" k="weddingDay" placeholder="যেমন: শুক্রবার" />
-                          <F label="সময়" k="weddingTime" placeholder="যেমন: বেলা ২:০০ ঘটিকায়" />
-                          <F label="লগ্ন" k="weddingLagna" placeholder="যেমন: শুভলগ্নে" />
+                          <F label="লগ্ন" k="weddingLagna" placeholder="যেমন: দিবা শুভলগ্নে" />
+                          <F label="সময়" k="weddingTime" placeholder="যেমন: দুপুর ১:৩০ মি." />
                         </div>
-                        <F label="স্থান / ভেন্যু" k="weddingVenue" placeholder="যেমন: রাজকীয় কমিউনিটি সেন্টার, মানিকগঞ্জ" />
+                        <F label="স্থান / ভেন্যু" k="weddingVenue" placeholder="যেমন: কমিউনিটি সেন্টার, মানিকগঞ্জ" />
                       </div>
                     )}
                   </div>
