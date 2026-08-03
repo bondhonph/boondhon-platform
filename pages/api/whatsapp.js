@@ -1,3 +1,5 @@
+import { getConversation, appendMessage } from '../../lib/chat-store';
+
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
   "1HJTtR-zhhg6v2ph7MikdMDWI-LWJgG0z","1PRlMp4F1xnQJPURON535pl7t08_thXVA","1UEAeYYB3Bt5vMYEL-a7AcV1aV21Z04si",
@@ -201,6 +203,7 @@ async function send8CardGallery(phoneId, to, type, offset = 0) {
   buttons.push({ id: type === 'premium' ? 'btn_affordable' : 'btn_premium', title: type === 'premium' ? '💚 Affordable' : '✨ Premium' });
 
   await sendWhatsAppInteractive(phoneId, to, text, buttons);
+  appendMessage(to, 'bot', text);
 }
 
 // Send the exact text order form template from user's screenshot
@@ -210,10 +213,13 @@ async function sendTextOrderForm(phoneId, to) {
 
   const buttonText = `অথবা সরাসরি ডিজিটাল ফর্মে তথ্য পূরণ করতে আমাদের ওয়েবসাইটে ভিসিট করুন:\n👉 https://boondhon-platform-qr9a.vercel.app/order`;
   const buttons = [
-    { id: 'btn_affordable', title: '💚 Affordable Card' },
-    { id: 'btn_premium', title: '✨ Premium Card' }
+    { id: 'btn_affordable', title: '💚 Affordable' },
+    { id: 'btn_premium', title: '✨ Premium' }
   ];
   await sendWhatsAppInteractive(phoneId, to, buttonText, buttons);
+
+  appendMessage(to, 'bot', ORDER_RULES_MSG);
+  appendMessage(to, 'bot', BANGLA_ORDER_FORM_TEXT);
 }
 
 export default async function handler(req, res) {
@@ -266,7 +272,18 @@ export default async function handler(req, res) {
           const txt = rawMsg.toLowerCase();
 
           if (from && phoneId) {
-            // Check for "আরও দেখুন" (More) batch clicks
+            // 1. ALWAYS Record Customer Message in Persistent Chat Store
+            const senderName = value?.contacts?.[0]?.profile?.name || '';
+            appendMessage(from, 'customer', rawMsg, null, senderName);
+
+            // 2. Check if Human Takeover is active for this customer
+            const existingConv = getConversation(from);
+            if (existingConv && existingConv.humanTakeover === true) {
+              console.log(`Human Takeover ACTIVE for ${from}. Skipping AI Bot reply.`);
+              return res.status(200).send('EVENT_RECEIVED_HUMAN_TAKEOVER');
+            }
+
+            // 3. AI Bot Auto-reply execution (when Human Takeover is OFF)
             if (btnId.startsWith('more_affordable_') || txt.includes('more_affordable')) {
               const offset = parseInt(btnId.replace('more_affordable_', '')) || 8;
               await send8CardGallery(phoneId, from, 'affordable', offset);
@@ -275,36 +292,33 @@ export default async function handler(req, res) {
               const offset = parseInt(btnId.replace('more_premium_', '')) || 8;
               await send8CardGallery(phoneId, from, 'premium', offset);
             }
-            // Affordable initial click
             else if (txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || btnId === 'btn_affordable') {
               await send8CardGallery(phoneId, from, 'affordable', 0);
             }
-            // Premium initial click
             else if (txt.includes('premium') || txt.includes('প্রিমিয়াম') || btnId === 'btn_premium') {
               await send8CardGallery(phoneId, from, 'premium', 0);
             }
-            // Order Form click or request -> Send exact Text Order Form from user screenshot
             else if (btnId === 'btn_order' || txt.includes('অর্ডার') || txt.includes('order') || txt.includes('ফর্ম') || txt.includes('form')) {
               await sendTextOrderForm(phoneId, from);
             }
-            // Policy click
             else if (txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ঠিকানা') || btnId === 'btn_policy' || txt.includes('অফিস')) {
               const replyText = `🚚 পেমেন্ট, ডেলিভারি ও ঠিকানা পলিসি:\n\n📍 অফিস ঠিকানা: মানিকগঞ্জ\n💳 পেমেন্ট পদ্ধতি: বিকাশ/নগদ/রকেট (01682588856)\n📝 অর্ডার নিয়ম: ৩০% অগ্রিম বুকিং ফি প্রদান করে ডেমো দেখে Approve করতে হয়।\n🚚 ডেলিভারি সময়: ৫-৭ কর্মদিবস (সুন্দরবন/এসএ পরিবহন)\n\n📝 অনলাইন অর্ডার ফর্ম: https://boondhon-platform-qr9a.vercel.app/order`;
               const buttons = [
-                { id: 'btn_affordable', title: '💚 Affordable Card' },
-                { id: 'btn_premium', title: '✨ Premium Card' }
+                { id: 'btn_affordable', title: '💚 Affordable' },
+                { id: 'btn_premium', title: '✨ Premium' }
               ];
               await sendWhatsAppInteractive(phoneId, from, replyText, buttons);
+              appendMessage(from, 'bot', replyText);
             }
-            // Default Welcome Greeting
             else {
               const replyText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—**২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি!** 🎁\n\nকার্ডের ডিজাইন দেখতে নিচের বাটনে ক্লিক করুন:`;
               const buttons = [
-                { id: 'btn_affordable', title: '💚 Affordable Card' },
-                { id: 'btn_premium', title: '✨ Premium Card' },
+                { id: 'btn_affordable', title: '💚 Affordable' },
+                { id: 'btn_premium', title: '✨ Premium' },
                 { id: 'btn_policy', title: '🚚 পলিসি ও ঠিকানা' }
               ];
               await sendWhatsAppInteractive(phoneId, from, replyText, buttons);
+              appendMessage(from, 'bot', replyText);
             }
           }
         }

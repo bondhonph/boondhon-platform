@@ -1,7 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Navbar from '../components/Navbar';
-import { Users, ShoppingBag, Package, TrendingUp, Star, Phone, MessageCircle, Facebook, Lock, LogOut, ShieldAlert, Inbox, CheckCircle2, Clock, Send } from 'lucide-react';
+import { Users, ShoppingBag, Package, TrendingUp, Star, Phone, MessageCircle, Lock, LogOut, ShieldAlert, CheckCircle2, Clock, Send, ToggleLeft, ToggleRight, Bot, User, RefreshCw, Search, Sparkles } from 'lucide-react';
+
+const PRESET_TEMPLATES = [
+  "আসসালামু আলাইকুম, আমরা আপনার অর্ডারের তথ্য পেয়েছি। ৩০% বুকিং পেমেন্ট পেয়েছি 💳",
+  "আপনার অর্ডারের কার্ডের ডেমো ডিজাইন তৈরি হচ্ছে, খুব দ্রুত পাঠিয়ে দিচ্ছি ✨",
+  "আপনার প্রিন্টকৃত কার্ড কুরিয়ারে জমা দেওয়া হয়েছে! কুরিয়ার ট্র্যাকিং নম্বর নিচে দেওয়া হলো 🚚",
+  "ধন্যবাদ আমাদের সাথে থাকার জন্য! আপনার দিনটি শুভ হোক 🌸"
+];
 
 const stats = [
   { label: 'মোট কার্ড ডিজাইন', value: '168+', icon: <Package size={28} />, color: 'from-blue-500 to-brand-blue', sub: 'Affordable + Premium' },
@@ -10,47 +17,61 @@ const stats = [
   { label: 'সন্তুষ্ট গ্রাহক', value: '৫০০+', icon: <Users size={28} />, color: 'from-green-500 to-emerald-400', sub: 'মানিকগঞ্জ ও সারাদেশে' },
 ];
 
-const pricingData = [
-  { pcs: '৫০ পিস', aff: '২,৭৫০৳', pre: '৩,২৫০৳', perAff: '৫৫৳/পিস', perPre: '৬৫৳/পিস' },
-  { pcs: '১০০ পিস', aff: '৪,৫০০৳', pre: '৫,৫০০৳', perAff: '৪৫৳/পিস', perPre: '৫৫৳/পিস' },
-  { pcs: '২০০ পিস', aff: '৭,০০০৳', pre: '৯,০০০৳', perAff: '৩৫৳/পিস', perPre: '৪৫৳/পিস' },
-];
-
-const INITIAL_MESSAGES = [
-  { id: 1, name: 'তানভীর আহমেদ', phone: '01712345678', card: 'Premium (১০০ পিস)', time: '১০ মিনিট আগে', msg: 'আসসালামু আলাইকুম, কার্ডে কাস্টম গোল্ড ফয়েল প্রিন্টিং করা যাবে কি? দাম কত পড়বে?', status: 'New' },
-  { id: 2, name: 'সাবরিনা ইসলাম', phone: '01898765432', card: 'Affordable (২০০ পিস)', time: '১ ঘণ্টা আগে', msg: '২০০ পিস অর্ডারের ফ্রি নিকাহনামা ডেমো ডিজাইনগুলো দেখতে চাই। কীভাবে পাব?', status: 'New' },
-  { id: 3, name: 'মেহেদী হাসান', phone: '01911223344', card: 'Premium (৫০ পিস)', time: 'আজ দুপুর ২:৩০', msg: 'মানিকগঞ্জ অফিসে এসে কি ডিরেক্ট ক্যাশ অন ডেলিভারিতে অর্ডার নেওয়া যাবে?', status: 'Replied' },
-  { id: 4, name: 'সাদিয়া পারভীন', phone: '01677889900', card: 'Affordable (১০০ পিস)', time: 'গতকাল সন্ধ্যা ৬:১৫', msg: 'অর্ডার ফর্ম পূরণ করেছি। বিকাশ নম্বরে ৩০% টাকা পাঠিয়েছি, কনফার্ম করবেন।', status: 'Confirmed' }
-];
-
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('inbox');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [customerMessages, setCustomerMessages] = useState(INITIAL_MESSAGES);
 
+  // Live Conversations & Active Chat State
+  const [conversations, setConversations] = useState([]);
+  const [selectedPhone, setSelectedPhone] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [replyInput, setReplyInput] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [loadingConv, setLoadingConv] = useState(false);
+  const chatScrollRef = useRef(null);
+
+  // Check auth
   useEffect(() => {
     const auth = localStorage.getItem('boondhon_admin_auth');
     if (auth === 'true') {
       setIsAuthenticated(true);
     }
     setCheckingAuth(false);
+  }, []);
 
-    // Load any saved customer messages from local storage
+  // Fetch live conversations from API
+  const fetchConversations = async () => {
     try {
-      const saved = localStorage.getItem('boondhon_customer_inbox');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCustomerMessages(parsed);
+      const res = await fetch('/api/conversations');
+      const data = await res.json();
+      if (data.conversations) {
+        setConversations(data.conversations);
+        if (!selectedPhone && data.conversations.length > 0) {
+          setSelectedPhone(data.conversations[0].phone);
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
     }
-  }, []);
+  };
+
+  // Poll conversations every 5 seconds for real-time updates
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchConversations();
+    const interval = setInterval(fetchConversations, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  // Scroll chat window to bottom on new messages
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [selectedPhone, conversations]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -70,16 +91,63 @@ export default function Dashboard() {
     setPassword('');
   };
 
-  const toggleStatus = (id) => {
-    const updated = customerMessages.map(m => {
-      if (m.id === id) {
-        const nextStatus = m.status === 'New' ? 'Replied' : m.status === 'Replied' ? 'Confirmed' : 'New';
-        return { ...m, status: nextStatus };
+  // Toggle Bot ON/OFF (Human Takeover) for selected customer
+  const handleToggleBot = async (phone, currentStatus) => {
+    try {
+      const nextStatus = !currentStatus;
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle_bot', phone, humanTakeover: nextStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchConversations();
       }
-      return m;
-    });
-    setCustomerMessages(updated);
-    localStorage.setItem('boondhon_customer_inbox', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Error toggling bot takeover:', err);
+    }
+  };
+
+  // Update order status (New, Replied, Confirmed)
+  const handleStatusChange = async (phone, newStatus) => {
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_status', phone, orderStatus: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error('Error updating order status:', err);
+    }
+  };
+
+  // Send manual admin WhatsApp message
+  const handleSendAdminReply = async (presetText = null) => {
+    const textToSend = presetText || replyInput.trim();
+    if (!textToSend || !selectedPhone || sendingReply) return;
+
+    setSendingReply(true);
+    setReplyInput('');
+
+    try {
+      const res = await fetch('/api/whatsapp-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: selectedPhone, text: textToSend })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error('Error sending admin WhatsApp reply:', err);
+    }
+    setSendingReply(false);
   };
 
   if (checkingAuth) {
@@ -98,38 +166,35 @@ export default function Dashboard() {
           <Navbar />
           <div className="w-full max-w-md bg-slate-900/90 border border-brand-blue/30 rounded-3xl p-8 backdrop-blur-xl shadow-2xl z-10 mt-16">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-brand-blue/10 border border-brand-blue/30 rounded-2xl flex items-center justify-center mx-auto mb-4 text-brand-blue">
+              <div className="w-16 h-16 bg-brand-blue/10 border border-brand-blue/30 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-blue">
                 <Lock size={32} />
               </div>
-              <h2 className="text-2xl font-bold font-display text-white">BOONDHON Admin Access</h2>
-              <p className="text-gray-400 text-sm mt-1">প্যানেলে প্রবেশ করতে এডমিন পাসওয়ার্ড দিন</p>
+              <h2 className="text-2xl font-bold text-white font-display">এডমিন ড্যাশবোর্ড লগইন</h2>
+              <p className="text-gray-400 text-xs mt-1">গোপনীয় তথ্য দেখতে পাসওয়ার্ড প্রদান করুন</p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-5">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">এডমিন পাসওয়ার্ড</label>
+                <label className="block text-gray-300 text-xs font-semibold mb-2">এডমিন পাসওয়ার্ড</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="পাসওয়ার্ড লিখুন..."
-                  required
-                  className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-blue focus:outline-none transition-all text-sm"
+                  placeholder="পাসওয়ার্ড দিন..."
+                  className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-blue focus:outline-none transition-all"
                 />
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 text-red-400 bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-xs">
-                  <ShieldAlert size={16} />
-                  <span>{error}</span>
+                <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs p-3 rounded-xl flex items-center gap-2">
+                  <ShieldAlert size={16} /> {error}
                 </div>
               )}
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-brand-blue to-blue-600 text-white font-bold py-3.5 rounded-xl hover:shadow-lg hover:shadow-brand-blue/30 transition-all text-sm"
-              >
-                লগইন করুন (Login)
+                className="w-full bg-gradient-to-r from-brand-blue to-blue-600 text-white font-bold py-3.5 rounded-xl hover:shadow-lg hover:shadow-brand-blue/30 transition-all text-sm">
+                প্রবেশ করুন 🔓
               </button>
             </form>
           </div>
@@ -138,282 +203,277 @@ export default function Dashboard() {
     );
   }
 
-  const unreadCount = customerMessages.filter(m => m.status === 'New').length;
+  const activeConv = conversations.find(c => c.phone === selectedPhone) || conversations[0];
+  const filteredConvs = conversations.filter(c => 
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    c.phone.includes(searchQuery)
+  );
 
   return (
     <>
-      <Head><title>Dashboard – BOONDHON Printing House</title></Head>
+      <Head>
+        <title>WhatsApp Live Suite & Admin Dashboard – BOONDHON</title>
+      </Head>
       <div className="min-h-screen bg-brand-dark">
         <Navbar />
-        <div className="pt-20 min-h-screen">
+
+        <div className="pt-24 pb-16 px-4 max-w-7xl mx-auto">
           {/* Header */}
-          <div className="border-b border-brand-blue/10 px-4 py-4">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-display font-bold text-white">BOONDHON Dashboard</h1>
-                <p className="text-gray-500 text-sm">Printing House — মানিকগঞ্জ (Admin Mode)</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-green-400 text-sm">Admin Active</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-all font-medium"
-                >
-                  <LogOut size={14} />
-                  লগ আউট
-                </button>
-              </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <span className="text-brand-blue text-xs font-semibold uppercase tracking-wider">Meta Business Suite Mode</span>
+              <h1 className="text-3xl font-display font-bold text-white mt-1">WhatsApp Live Chat & Admin Control</h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchConversations}
+                className="flex items-center gap-1.5 text-xs text-gray-300 bg-white/5 border border-white/10 px-3.5 py-2 rounded-full hover:bg-white/10 transition-all">
+                <RefreshCw size={14} className={loadingConv ? 'animate-spin' : ''} /> রিফ্রেশ করুন
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-full hover:bg-red-500/20 transition-all font-semibold">
+                <LogOut size={14} /> লগআউট
+              </button>
             </div>
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 py-8">
-            {/* Tabs */}
-            <div className="flex flex-wrap gap-2 mb-8 border-b border-white/5 pb-4">
-              {[
-                ['inbox', `💬 কাস্টমার ইনবক্স (${unreadCount}টি নতুন)`],
-                ['overview', '📊 Overview'],
-                ['pricing', '💰 মূল্য তালিকা'],
-                ['contact', '📞 যোগাযোগ']
-              ].map(([v, label]) => (
-                <button key={v} onClick={() => setActiveTab(v)}
-                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all relative ${activeTab === v ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/30' : 'text-gray-400 hover:text-white bg-white/5'}`}>
-                  {label}
-                  {v === 'inbox' && unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Customer Inbox Tab */}
-            {activeTab === 'inbox' && (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass p-6 rounded-2xl">
-                  <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Inbox className="text-brand-blue" size={24} />
-                      <span>কাস্টমার মেসেজ ও ইনবক্স</span>
-                    </h2>
-                    <p className="text-gray-400 text-sm mt-1">গ্রাহকদের আসা সর্বশেষ মেসেজ, এনকোয়ারি ও অর্ডার রিকোয়েস্টসমূহ</p>
+          {/* Stats Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {stats.map((s, i) => (
+              <div key={i} className="glass rounded-2xl p-5 border border-white/10">
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} text-white flex items-center justify-center shadow-lg`}>
+                    {s.icon}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="bg-brand-blue/20 border border-brand-blue/30 text-brand-blue px-3 py-1.5 rounded-full text-xs font-semibold">
-                      মোট মেসেজ: {customerMessages.length}টি
-                    </span>
-                    <span className="bg-green-500/20 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-full text-xs font-semibold">
-                      নতুন: {unreadCount}টি
-                    </span>
+                  <span className="text-[10px] text-gray-400 bg-white/5 px-2 py-0.5 rounded-full">{s.sub}</span>
+                </div>
+                <p className="text-2xl font-bold text-white font-display">{s.value}</p>
+                <p className="text-gray-400 text-xs mt-1">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex gap-2 border-b border-white/10 pb-4 mb-6">
+            <button
+              onClick={() => setActiveTab('inbox')}
+              className={`px-5 py-2.5 rounded-full font-bold text-xs md:text-sm transition-all flex items-center gap-2 ${activeTab === 'inbox' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/30' : 'text-gray-400 hover:bg-white/5'}`}>
+              <MessageCircle size={16} /> 💬 WhatsApp লাইভ ইনবক্স ({conversations.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-5 py-2.5 rounded-full font-bold text-xs md:text-sm transition-all flex items-center gap-2 ${activeTab === 'overview' ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/30' : 'text-gray-400 hover:bg-white/5'}`}>
+              <TrendingUp size={16} /> 📊 ওভারভিউ ও রিপোর্ট
+            </button>
+          </div>
+
+          {/* TAB 1: META BUSINESS SUITE STYLE WHATSAPP LIVE INBOX */}
+          {activeTab === 'inbox' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[720px] rounded-3xl overflow-hidden glass border border-brand-blue/20">
+
+              {/* LEFT COLUMN: CUSTOMER CONTACTS LIST */}
+              <div className="lg:col-span-4 bg-slate-950/80 border-r border-white/10 flex flex-col h-full">
+                {/* Search */}
+                <div className="p-4 border-b border-white/10">
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="নাম বা মোবাইল নম্বর দিয়ে খুঁজুন..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:border-brand-blue focus:outline-none"
+                    />
                   </div>
                 </div>
 
-                {/* Messages Grid */}
-                <div className="grid grid-cols-1 gap-4">
-                  {customerMessages.map((m) => (
-                    <div key={m.id} className="glass rounded-2xl p-6 hover:border-brand-blue/40 transition-all border border-white/5">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-white/5 pb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-brand-blue/20 border border-brand-blue/30 flex items-center justify-center text-brand-blue font-bold">
-                            {m.name.charAt(0)}
+                {/* Contacts Stream */}
+                <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+                  {filteredConvs.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 text-xs">কোনো কাস্টমার মেসেজ পাওয়া যায়নি</div>
+                  ) : (
+                    filteredConvs.map((c) => {
+                      const isSelected = selectedPhone === c.phone;
+                      const lastMsg = c.messages?.[c.messages.length - 1];
+
+                      return (
+                        <div
+                          key={c.phone}
+                          onClick={() => setSelectedPhone(c.phone)}
+                          className={`p-4 cursor-pointer transition-all flex items-center gap-3 ${isSelected ? 'bg-brand-blue/15 border-l-4 border-brand-blue' : 'hover:bg-white/3'}`}>
+                          
+                          <div className="relative">
+                            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-slate-800 to-slate-700 text-white font-bold text-sm flex items-center justify-center border border-white/10">
+                              {c.name.charAt(0)}
+                            </div>
+                            <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-950 ${c.humanTakeover ? 'bg-amber-400' : 'bg-green-400'}`}></div>
                           </div>
-                          <div>
-                            <h3 className="text-white font-bold text-base">{m.name}</h3>
-                            <a href={`tel:${m.phone}`} className="text-brand-blue text-xs hover:underline flex items-center gap-1">
-                              <Phone size={12} /> {m.phone}
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center mb-1">
+                              <h4 className="text-white font-bold text-xs truncate">{c.name}</h4>
+                              <span className="text-[10px] text-gray-500">{lastMsg?.time || ''}</span>
+                            </div>
+
+                            <p className="text-gray-400 text-[11px] truncate mb-1">
+                              {lastMsg?.sender === 'admin' && <span className="text-brand-gold font-semibold">আপনার উত্তর: </span>}
+                              {lastMsg?.sender === 'bot' && <span className="text-brand-blue font-semibold">অনন্যা AI: </span>}
+                              {lastMsg?.text || 'মেসেজ শুরু হয়েছে'}
+                            </p>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[9px] px-2 py-0.5 rounded-full font-semibold ${
+                                c.orderStatus === 'Confirmed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                c.orderStatus === 'Replied' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              }`}>
+                                {c.orderStatus || 'New'}
+                              </span>
+
+                              <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                                c.humanTakeover ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-brand-blue/20 text-brand-blue border border-brand-blue/30'
+                              }`}>
+                                {c.humanTakeover ? <><User size={10} /> Human Takeover</> : <><Bot size={10} /> AI Bot Active</>}
+                              </span>
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: ACTIVE LIVE CHAT SCREEN */}
+              <div className="lg:col-span-8 bg-slate-900/60 flex flex-col h-full">
+                {activeConv ? (
+                  <>
+                    {/* Active Chat Header */}
+                    <div className="p-4 border-b border-white/10 bg-slate-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-brand-blue/20 border border-brand-blue/30 text-white font-bold flex items-center justify-center text-sm">
+                          {activeConv.name.charAt(0)}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                            {activeConv.name}
+                            <a href={`https://wa.me/${activeConv.phone}`} target="_blank" rel="noreferrer" className="text-green-400 hover:underline text-xs flex items-center gap-1">
+                              <MessageCircle size={12} /> {activeConv.phone}
                             </a>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-400 text-xs flex items-center gap-1">
-                            <Clock size={12} /> {m.time}
-                          </span>
-                          <span className="text-brand-gold text-xs bg-brand-gold/10 border border-brand-gold/20 px-2.5 py-1 rounded-full font-medium">
-                            {m.card}
-                          </span>
-                          <button
-                            onClick={() => toggleStatus(m.id)}
-                            className={`text-xs px-3 py-1 rounded-full font-bold transition-all ${
-                              m.status === 'New' ? 'bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30' :
-                              m.status === 'Replied' ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30' :
-                              'bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30'
-                            }`}
-                          >
-                            {m.status === 'New' ? '🔴 New (নতুন)' : m.status === 'Replied' ? '🟡 Replied (উত্তর দেওয়া)' : '🟢 Confirmed (কনফার্মড)'}
-                          </button>
+                          </h3>
+                          <p className="text-gray-400 text-[11px]">স্মার্ট অর্ডার ও চ্যাট রেকর্ড</p>
                         </div>
                       </div>
 
-                      <div className="bg-slate-950/60 border border-white/5 p-4 rounded-xl mb-4">
-                        <p className="text-gray-200 text-sm leading-relaxed">"{m.msg}"</p>
-                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* Status Switch */}
+                        <select
+                          value={activeConv.orderStatus || 'New'}
+                          onChange={e => handleStatusChange(activeConv.phone, e.target.value)}
+                          className="bg-slate-900 border border-white/10 text-xs text-white rounded-xl px-3 py-1.5 focus:border-brand-blue focus:outline-none font-semibold">
+                          <option value="New">🔴 New (নতুন)</option>
+                          <option value="Replied">🔵 Replied (উত্তর দেওয়া)</option>
+                          <option value="Confirmed">🟢 Confirmed (কনফার্মড)</option>
+                        </select>
 
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={`https://wa.me/88${m.phone}?text=${encodeURIComponent(`আসসালামু আলাইকুম ${m.name} ভাইয়া/আপু! BOONDHON Printing House থেকে যোগাযোগ করছি।`)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md"
-                          >
-                            <MessageCircle size={14} /> WhatsApp-এ রিপ্লাই দিন
-                          </a>
-                          <a
-                            href={`tel:${m.phone}`}
-                            className="bg-brand-blue/20 hover:bg-brand-blue/30 border border-brand-blue/40 text-brand-blue text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all"
-                          >
-                            <Phone size={14} /> কল করুন
-                          </a>
-                        </div>
+                        {/* BOT TAKEOVER TOGGLE SWITCH */}
                         <button
-                          onClick={() => toggleStatus(m.id)}
-                          className="text-gray-400 hover:text-white text-xs underline"
-                        >
-                          স্ট্যাটাস পরিবর্তন করুন
+                          onClick={() => handleToggleBot(activeConv.phone, activeConv.humanTakeover)}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 border shadow-md ${
+                            activeConv.humanTakeover 
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-400 text-slate-950 hover:brightness-110' 
+                              : 'bg-gradient-to-r from-brand-blue to-blue-600 border-brand-blue text-white hover:brightness-110'
+                          }`}>
+                          {activeConv.humanTakeover ? (
+                            <><User size={14} /> 👤 Human Takeover (Bot Paused)</>
+                          ) : (
+                            <><Bot size={14} /> 🤖 AI Bot (Auto Reply Active)</>
+                          )}
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {activeTab === 'overview' && (
-              <>
-                {/* Stat cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                  {stats.map((s, i) => (
-                    <div key={i} className={`relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${s.color} bg-opacity-20`}
-                      style={{ background: `linear-gradient(135deg, rgba(41,171,226,0.12), rgba(10,22,40,0.8))`, border: '1px solid rgba(41,171,226,0.15)' }}>
-                      <div className="text-brand-blue mb-3">{s.icon}</div>
-                      <p className="text-4xl font-bold text-white mb-1">{s.value}</p>
-                      <p className="text-white font-medium text-sm">{s.label}</p>
-                      <p className="text-gray-400 text-xs mt-1">{s.sub}</p>
-                    </div>
-                  ))}
-                </div>
+                    {/* Chat Bubble Stream */}
+                    <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-950/40">
+                      {activeConv.messages?.map((m) => (
+                        <div key={m.id} className={`flex flex-col ${m.sender === 'admin' ? 'items-end' : m.sender === 'customer' ? 'items-start' : 'items-start'}`}>
+                          
+                          {/* Sender Label */}
+                          <span className="text-[10px] text-gray-500 mb-1 px-1">
+                            {m.sender === 'admin' && '⭐ আপনি (Admin Manual)'}
+                            {m.sender === 'bot' && '🤖 অনন্যা (AI Auto Bot)'}
+                            {m.sender === 'customer' && `👤 ${activeConv.name}`}
+                            · {m.time}
+                          </span>
 
-                {/* Chart bars — Category wise */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                  <div className="glass rounded-2xl p-6">
-                    <h3 className="text-white font-semibold mb-6">কার্ড ক্যাটাগরি ডিস্ট্রিবিউশন</h3>
-                    <div className="space-y-4">
-                      {[
-                        { label: 'Affordable কার্ড', pct: 51, color: 'bg-brand-blue', count: 85 },
-                        { label: 'Premium কার্ড', pct: 49, color: 'bg-brand-gold', count: 83 },
-                      ].map((b, i) => (
-                        <div key={i}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-gray-300">{b.label}</span>
-                            <span className="text-gray-400">{b.count} ডিজাইন ({b.pct}%)</span>
-                          </div>
-                          <div className="h-3 bg-white/5 rounded-full overflow-hidden">
-                            <div className={`h-full ${b.color} rounded-full transition-all`} style={{ width: `${b.pct}%` }}></div>
+                          <div className={`max-w-[80%] p-3.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${
+                            m.sender === 'admin'
+                              ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 font-bold shadow-lg rounded-br-none'
+                              : m.sender === 'bot'
+                              ? 'bg-brand-blue/20 border border-brand-blue/30 text-white rounded-2xl rounded-bl-none shadow-md'
+                              : 'bg-white/10 border border-white/10 text-white rounded-2xl rounded-bl-none'
+                          }`}>
+                            {m.text}
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>
 
-                  <div className="glass rounded-2xl p-6">
-                    <h3 className="text-white font-semibold mb-6">পেমেন্ট পদ্ধতি</h3>
-                    <div className="space-y-3">
-                      {[
-                        { name: 'bKash', color: 'text-pink-400 bg-pink-400/10', pct: 60 },
-                        { name: 'Nagad', color: 'text-orange-400 bg-orange-400/10', pct: 25 },
-                        { name: 'Rocket', color: 'text-purple-400 bg-purple-400/10', pct: 15 },
-                      ].map((p, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <span className={`text-xs font-bold px-3 py-1 rounded-full w-16 text-center ${p.color}`}>{p.name}</span>
-                          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                            <div className="h-full bg-brand-blue/60 rounded-full" style={{ width: `${p.pct}%` }}></div>
-                          </div>
-                          <span className="text-gray-400 text-xs w-8">{p.pct}%</span>
-                        </div>
+                    {/* Quick Preset Templates */}
+                    <div className="p-2 border-t border-white/5 bg-slate-950/80 flex gap-2 overflow-x-auto">
+                      {PRESET_TEMPLATES.map((tpl, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleSendAdminReply(tpl)}
+                          className="text-[10px] whitespace-nowrap bg-white/5 border border-white/10 text-gray-300 px-3 py-1 rounded-full hover:bg-brand-blue/20 hover:text-white transition-all">
+                          {tpl.slice(0, 22)}...
+                        </button>
                       ))}
                     </div>
-                  </div>
-                </div>
 
-                {/* Order process */}
-                <div className="glass rounded-2xl p-6">
-                  <h3 className="text-white font-semibold mb-6">অর্ডার প্রক্রিয়া</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { step: '১', title: 'ডিজাইন পছন্দ', desc: 'গ্যালারি থেকে পছন্দ করুন', color: 'border-brand-blue' },
-                      { step: '২', title: 'ফর্ম পূরণ', desc: 'বিবরণ পাঠান', color: 'border-brand-gold' },
-                      { step: '৩', title: '৩০% পেমেন্ট', desc: 'bKash/Nagad/Rocket', color: 'border-green-400' },
-                      { step: '৪', title: 'ডেলিভারি', desc: '৫-৭ কর্মদিবস', color: 'border-pink-400' },
-                    ].map((s, i) => (
-                      <div key={i} className={`border ${s.color} rounded-xl p-4 bg-white/3`}>
-                        <div className="w-8 h-8 rounded-full bg-brand-blue/20 text-brand-blue font-bold flex items-center justify-center text-sm mb-3">{s.step}</div>
-                        <p className="text-white font-medium text-sm">{s.title}</p>
-                        <p className="text-gray-400 text-xs mt-1">{s.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === 'pricing' && (
-              <div className="glass rounded-2xl overflow-hidden">
-                <div className="p-6 border-b border-white/5">
-                  <h3 className="text-white font-semibold text-lg">সম্পূর্ণ মূল্য তালিকা</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-white/5">
-                        <th className="text-left text-gray-400 text-sm p-4">পরিমাণ</th>
-                        <th className="text-left text-brand-blue text-sm p-4">Affordable</th>
-                        <th className="text-left text-brand-blue text-sm p-4">প্রতি পিস</th>
-                        <th className="text-left text-brand-gold text-sm p-4">Premium</th>
-                        <th className="text-left text-brand-gold text-sm p-4">প্রতি পিস</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pricingData.map((row, i) => (
-                        <tr key={i} className={`border-b border-white/5 ${i === 1 ? 'bg-brand-blue/5' : ''}`}>
-                          <td className="p-4 text-white font-semibold">{row.pcs}</td>
-                          <td className="p-4 text-brand-blue font-bold">{row.aff}</td>
-                          <td className="p-4 text-gray-400 text-sm">{row.perAff}</td>
-                          <td className="p-4 text-brand-gold font-bold">{row.pre}</td>
-                          <td className="p-4 text-gray-400 text-sm">{row.perPre}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="p-6 bg-brand-gold/5 border-t border-brand-gold/10">
-                  <p className="text-brand-gold font-semibold text-center">🎁 ২০০+ পিসে FREE নিকাহনামা! | Custom অর্ডার ৫০+ পিস থেকে</p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'contact' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[
-                  { icon: <Phone size={24} className="text-brand-blue" />, title: 'হটলাইন', value: '01863586302', sub: 'কল করুন', href: 'tel:01863586302' },
-                  { icon: <MessageCircle size={24} className="text-green-400" />, title: 'WhatsApp', value: '01863586302', sub: 'Message করুন', href: 'https://wa.me/8801863586302' },
-                  { icon: <Facebook size={24} className="text-blue-400" />, title: 'Facebook', value: 'BOONDHON Printing House', sub: 'Page দেখুন', href: 'https://www.facebook.com/bondhonbph' },
-                  { icon: <Package size={24} className="text-brand-gold" />, title: 'অফিস', value: 'মানিকগঞ্জ', sub: 'Map দেখুন', href: 'https://maps.app.goo.gl/CnyRST5KxHjWDAtd9' },
-                ].map((c, i) => (
-                  <a key={i} href={c.href} target="_blank" rel="noreferrer"
-                    className="glass rounded-2xl p-6 flex items-center gap-4 hover:border-brand-blue/40 transition-all">
-                    <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">{c.icon}</div>
-                    <div>
-                      <p className="text-gray-400 text-sm">{c.title}</p>
-                      <p className="text-white font-semibold">{c.value}</p>
-                      <p className="text-brand-blue text-xs">{c.sub} →</p>
+                    {/* Admin Message Composer */}
+                    <div className="p-3 border-t border-white/10 bg-slate-950 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={replyInput}
+                        onChange={e => setReplyInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSendAdminReply()}
+                        placeholder={`WhatsApp-এ সরাসরি ${activeConv.name}-কে উত্তর লিখুন...`}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-brand-blue focus:outline-none"
+                      />
+                      <button
+                        onClick={() => handleSendAdminReply()}
+                        disabled={!replyInput.trim() || sendingReply}
+                        className="bg-gradient-to-r from-brand-blue to-blue-600 text-white px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:shadow-lg disabled:opacity-40 transition-all">
+                        <Send size={14} /> WhatsApp-এ পাঠান
+                      </button>
                     </div>
-                  </a>
-                ))}
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500">
+                    <MessageCircle size={48} className="mb-3 text-gray-600" />
+                    <p className="text-sm font-semibold text-gray-400">বাম পাশের তালিকা থেকে যেকোনো কাস্টমার চ্যাট সিলেক্ট করুন</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+            </div>
+          )}
+
+          {/* TAB 2: OVERVIEW & REPORTS */}
+          {activeTab === 'overview' && (
+            <div className="glass rounded-3xl p-8 border border-white/10 text-center">
+              <Sparkles size={40} className="text-brand-gold mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-white font-display mb-2">বিজনেসের পারফরম্যান্স ওভারভিউ</h3>
+              <p className="text-gray-400 text-xs max-w-lg mx-auto mb-6">
+                আপনার মেটা পিক্সেল (Dataset ID: 7392242574211491), CAPI ট্র্যাকিং এবং হোয়াটসঅ্যাপ অটো-রিপ্লাই বট সফলভাবে কাজ করছে।
+              </p>
+            </div>
+          )}
         </div>
+
       </div>
     </>
   );
