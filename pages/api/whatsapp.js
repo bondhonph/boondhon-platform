@@ -5,19 +5,14 @@ const AFFORDABLE_IDS = [
   "1HJTtR-zhhg6v2ph7MikdMDWI-LWJgG0z","1PRlMp4F1xnQJPURON535pl7t08_thXVA","1UEAeYYB3Bt5vMYEL-a7AcV1aV21Z04si",
   "1-_qTV4gq0oKMdfMRxlTZL3yUO98ZGAoi","15yHXRk2mHI6-cKeooRqT20XeHubRRrPN","1Yrcqj5g0sZDrL3QaEkfEmKnF12BEs6ir",
   "1vXwJ68j7x5qfpZdHkMkqLn0tvpblGDpl","1GWw91oefwyYr9sHSQXjePTSX-KwPjy7I","1_tnTz7HWDf4CVJHORPlani7pjEcLdm7X",
-  "1OMy_r94N_iUqvPW1t5fAGa4Sv3C_MIqF","1rXCxMziCgTImURvkahNp-AvneVljg-CW","1k_hzTbXOxxJg9rJ2OW-tnIkzLNYUqkOf",
-  "1bgYpcqh4pVLDy8yfwrS40X5ejtCFxmFv","1tLW7C2gwOmlZzGXh3bw0o7xjAPKrudIA","1ZEGHQfvuKNv-J5ZZadHKGfVAe4cvQnGq",
-  "1WE3kfWsd-0nrptiQ0fWi3dsd4iEcdw3t","1kLilyZRrhgrRfHn4aiTEcUBOu5fNDegs","1Cf7jQxeb5pyXvnA6HzGg_dYk3ZBrJ9z5",
-  "11UIRwmetqLkMU5qThwv5Vc7GnuASrZSa","1eXUGJyYhnNBXZ7PFwDgXgY-ql8cYADsh","1weNuPU3fBvPMkbFAGPiMm_ttEETSuQ9A"
+  "1OMy_r94N_iUqvPW1t5fAGa4Sv3C_MIqF","1rXCxMziCgTImURvkahNp-AvneVljg-CW","1k_hzTbXOxxJg9rJ2OW-tnIkzLNYUqkOf"
 ];
 
 const PREMIUM_IDS = [
   "182kOjBhoaqOTq7nr4ryI6re6fRuLITbH","1cTfbTDJDqBjsV-r7V1OjBZ-Z6tUAqwxj","1cA-MfI55Hh7ibreMQ4zPvt2i_LKxVHkR",
   "1fvtC5mT4slvV_kROIej7awAGmCRc7TUl","1rLVZUQ8lw6ilWM76xxARtbUreQ3JIkdi","15AQWI3wP2a57-3OxHZTCfSbskgvC5YvH",
   "1ahoubjUVdc9SJyi5n2rzZIsbugjCjHiz","1qlwwRe2Mr_gb8CZjkeG0-YxBSGmOHzZu","1oOdGtYFTz-xNmSLUO-VFS1YODqYZ74HJ",
-  "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB",
-  "1f327zMbxf9s_Z2WSYhA4cAIF_NBiveKW","1T_pxOh0mn36N882wUMyYSsXKoZE4w1XA","1OQqgPUW0j1C5Ggvh50oTnnw5VsgEQv5I",
-  "15FGsZ0xdZd7DYZb4awafD8ysH_8g-A9O","1KUI4gzdhT-1I_LpzCMCQL8Sgfy4dU_Im","1amD4c_CLTODq8nca3N_H40vPiYp53VTm"
+  "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB"
 ];
 
 const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
@@ -25,55 +20,66 @@ const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
 const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
-১. মোট মূল্যের ৩০% এডভান্স (পেমেন্ট) করে অর্ডার কনফার্ম করতে হবে।
-২. পেমেন্ট নম্বর: বিকাশ/নগদ/রকেট (পারসোনাল): 01682588856
-৩. আমাদের ডিজাইনার কার্ডের ডেমো ডিজাইন তৈরি করে আপনাকে পাঠাবে। চূড়ান্ত অনুমোদনের পর প্রিন্ট করা হবে।
-৪. প্রিন্ট শেষে জেলা শহরে ক্যাশ অন ডেলিভারি দেওয়া হবে। গ্রহণের সময় বাকি ৭০% পেমেন্ট করতে হবে।
-৫. ডেলিভারি পেতে ৫ থেকে ৭ কর্মদিবস সময় লাগবে।`;
+১. অ্যাডভান্স পেমেন্ট:
+অর্ডার কনফার্ম করতে হবে মোট মূল্যের ৩০% এডভান্স পেমেন্ট।
+পেমেন্ট করতে পারবেন নিম্নলিখিত মাধ্যমে: বিকাশ, নগদ, রকেট (পার্সোনাল) নম্বর: 01682588856.
 
-const BANGLA_ORDER_FORM_TEXT = `📝 *বিয়ের কার্ডের বাংলা ফর্ম* 🌸
+২. ডিজাইন প্রক্রিয়া:
+আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে পাঠাবে।
+আপনি ডিজাইন চূড়ান্ত করার পর আমরা প্রিন্ট প্রক্রিয়া শুরু করব।
+
+৩. ডেলিভারি এবং পেমেন্ট:
+প্রিন্ট শেষে কার্ড রেডি করে জেলা শহরে ক্যাশ অন ডেলিভারি-এর মাধ্যমে পাঠানো হবে।
+কুরিয়ার ডেলিভারি গ্রহণের সময় বাকি ৭০% পেমেন্ট করতে হবে।
+জেলা শহরের বাইরে ক্যাশ অন ডেলিভারি উপলব্ধ নয়।
+এছাড়া সরাসরি আমাদের অফিস বা কারখানা থেকে সংগ্রহ করতে পারবেন।
+
+৪. ডেলিভারি সময়:
+কার্ড ডেলিভারি পেতে ৫ থেকে ৭ কর্মদিবস সময় লাগবে।`;
+
+const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
 
 বর-
-নাম:
-পিতা:
-মাতা:
-ঠিকানা:
+নামঃ
+পিতাঃ
+মাতাঃ
+ঠিকানাঃ
 
 কনে-
-নাম:
-পিতা:
-মাতা:
-ঠিকানা:
+নামঃ
+পিতাঃ
+মাতাঃ
+ঠিকানাঃ
 
 গায়ে হলুদ-
 তারিখ (ইংরেজি):
 তারিখ (বাংলা):
-রোজ:
-সময়:
-স্থান:
+রোজঃ
+সময়ঃ
+স্থানঃ
 
 শুভ বিবাহ-
 তারিখ (ইংরেজি):
 তারিখ (বাংলা):
-রোজ:
-সময়:
-স্থান:
+রোজঃ
+সময়ঃ
+স্থানঃ
 
 বৌ-ভাত-
 তারিখ (ইংরেজি):
 তারিখ (বাংলা):
-রোজ:
-সময়:
-স্থান:
+রোজঃ
+সময়ঃ
+স্থানঃ
 
-ধন্যবাদান্তে
-(ছোট সোনামণিদের নাম):
+অভ্যর্থনায়-
+(ছোট বাচ্চাদের নাম):
 প্রয়োজনে (ফোন):
-শুভেচ্ছান্তে নাম:
+শুভেচ্ছান্তে নামঃ
 
-🚚 কুরিয়ার ইনফক্স (নাম, মোবাইল, ঠিকানা):
+🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):
 
-(লেখাটি কপি করে পূরণ করে পাঠান) 🌸`;
+(ফর্মটি কপি করে পূরণ করে পাঠান! 🥰)`;
 
 // Helper to send single image with caption
 async function sendWhatsAppImage(phoneId, to, imageUrl, caption) {
@@ -168,34 +174,28 @@ async function sendWhatsAppInteractive(phoneId, to, bodyText, buttons, imageUrl)
   }
 }
 
-// Send batch of 8 card images sequentially and log each image preview to chat store
+// Send batch of 8 card images sequentially and then send "আরও দেখুন" button
 async function send8CardGallery(phoneId, to, type, offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = idsList.slice(offset, offset + 8);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
 
-  // Send 8 images sequentially and log each image URL to chat store
   for (let i = 0; i < batch.length; i++) {
     const id = batch[i];
     const itemNum = offset + i + 1;
     const caption = `🌸 ${typeLabel} Card #${itemNum} — BOONDHON`;
     const imgUrl = driveUrl(id);
     await sendWhatsAppImage(phoneId, to, imgUrl, caption);
-    appendMessage(to, 'bot', caption, imgUrl); // Log image to chat store so admin sees thumbnail!
+    appendMessage(to, 'bot', caption, imgUrl);
     await new Promise(r => setTimeout(r, 450));
   }
 
-  // Wait 1 second AFTER all 8 images finish sending before sending the button message
   await new Promise(r => setTimeout(r, 1000));
 
   const nextOffset = offset + batch.length;
   const hasMore = nextOffset < idsList.length;
 
-  const priceText = type === 'premium'
-    ? '💰 Premium মূল্য তালিকা:\n• ৫০পিস: ৩,২৫০৳ | ১০০পিস: ৫,৫০০৳ | ২০০পিস: ৯,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!'
-    : '💰 Affordable মূল্য তালিকা:\n• ৫০পিস: ২,৭৫০৳ | ১০০পিস: ৪,৫০০৳ | ২০০পিস: ৭,০০০৳\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!';
-
-  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\n${priceText}\n\nআরও ডিজাইন দেখতে নিচে "👉 আরও দেখুন" বাটনে চাপ দিন:`;
+  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nআরও ডিজাইন দেখতে নিচে "👉 আরও দেখুন" বাটনে চাপ দিন:`;
 
   const buttons = [];
   if (hasMore) {
@@ -272,18 +272,15 @@ export default async function handler(req, res) {
           const txt = rawMsg.toLowerCase();
 
           if (from && phoneId) {
-            // 1. ALWAYS Record Customer Message in Persistent Chat Store
             const senderName = value?.contacts?.[0]?.profile?.name || '';
             appendMessage(from, 'customer', rawMsg, null, senderName);
 
-            // 2. Check if Human Takeover is active for this customer
             const existingConv = getConversation(from);
             if (existingConv && existingConv.humanTakeover === true) {
               console.log(`Human Takeover ACTIVE for ${from}. Skipping AI Bot reply.`);
               return res.status(200).send('EVENT_RECEIVED_HUMAN_TAKEOVER');
             }
 
-            // 3. AI Bot Auto-reply execution (when Human Takeover is OFF)
             if (btnId.startsWith('more_affordable_') || txt.includes('more_affordable')) {
               const offset = parseInt(btnId.replace('more_affordable_', '')) || 8;
               await send8CardGallery(phoneId, from, 'affordable', offset);
@@ -302,13 +299,7 @@ export default async function handler(req, res) {
               await sendTextOrderForm(phoneId, from);
             }
             else if (txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ঠিকানা') || btnId === 'btn_policy' || txt.includes('অফিস')) {
-              const replyText = `🚚 পেমেন্ট, ডেলিভারি ও ঠিকানা পলিসি:\n\n📍 অফিস ঠিকানা: মানিকগঞ্জ\n💳 পেমেন্ট পদ্ধতি: বিকাশ/নগদ/রকেট (01682588856)\n📝 অর্ডার নিয়ম: ৩০% অগ্রিম বুকিং ফি প্রদান করে ডেমো দেখে Approve করতে হয়।\n🚚 ডেলিভারি সময়: ৫-৭ কর্মদিবস (সুন্দরবন/এসএ পরিবহন)\n\n📝 অনলাইন অর্ডার ফর্ম: https://boondhon-platform-qr9a.vercel.app/order`;
-              const buttons = [
-                { id: 'btn_affordable', title: '💚 Affordable' },
-                { id: 'btn_premium', title: '✨ Premium' }
-              ];
-              await sendWhatsAppInteractive(phoneId, from, replyText, buttons);
-              appendMessage(from, 'bot', replyText);
+              await sendWhatsAppMessage(phoneId, from, ORDER_RULES_MSG);
             }
             else {
               const replyText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—**২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি!** 🎁\n\nকার্ডের ডিজাইন দেখতে নিচের বাটনে ক্লিক করুন:`;

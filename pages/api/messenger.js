@@ -19,6 +19,68 @@ const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
 
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
+const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
+১. অ্যাডভান্স পেমেন্ট:
+অর্ডার কনফার্ম করতে হবে মোট মূল্যের ৩০% এডভান্স পেমেন্ট।
+পেমেন্ট করতে পারবেন নিম্নলিখিত মাধ্যমে: বিকাশ, নগদ, রকেট (পার্সোনাল) নম্বর: 01682588856.
+
+২. ডিজাইন প্রক্রিয়া:
+আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে পাঠাবে।
+আপনি ডিজাইন চূড়ান্ত করার পর আমরা প্রিন্ট প্রক্রিয়া শুরু করব।
+
+৩. ডেলিভারি এবং পেমেন্ট:
+প্রিন্ট শেষে কার্ড রেডি করে জেলা শহরে ক্যাশ অন ডেলিভারি-এর মাধ্যমে পাঠানো হবে।
+কুরিয়ার ডেলিভারি গ্রহণের সময় বাকি ৭০% পেমেন্ট করতে হবে।
+জেলা শহরের বাইরে ক্যাশ অন ডেলিভারি উপলব্ধ নয়।
+এছাড়া সরাসরি আমাদের অফিস বা কারখানা থেকে সংগ্রহ করতে পারবেন।
+
+৪. ডেলিভারি সময়:
+কার্ড ডেলিভারি পেতে ৫ থেকে ৭ কর্মদিবস সময় লাগবে।`;
+
+const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
+
+বর-
+নামঃ
+পিতাঃ
+মাতাঃ
+ঠিকানাঃ
+
+কনে-
+নামঃ
+পিতাঃ
+মাতাঃ
+ঠিকানাঃ
+
+গায়ে হলুদ-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজঃ
+সময়ঃ
+স্থানঃ
+
+শুভ বিবাহ-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজঃ
+সময়ঃ
+স্থানঃ
+
+বৌ-ভাত-
+তারিখ (ইংরেজি):
+তারিখ (বাংলা):
+রোজঃ
+সময়ঃ
+স্থানঃ
+
+অভ্যর্থনায়-
+(ছোট বাচ্চাদের নাম):
+প্রয়োজনে (ফোন):
+শুভেচ্ছান্তে নামঃ
+
+🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):
+
+(ফর্মটি কপি করে পূরণ করে পাঠান! 🥰)`;
+
 const PRICE_LIST_MSG = `💰 আমাদের বিয়ের কার্ডের মূল্য তালিকা:
 
 💚 Affordable Card:
@@ -163,6 +225,12 @@ export default async function handler(req, res) {
               sendMessenger8CardGallery(senderId, 'affordable', 0);
             } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
               sendMessenger8CardGallery(senderId, 'premium', 0);
+            } else if (payload === 'BTN_ORDER' || txt.includes('order') || txt.includes('অর্ডার') || txt.includes('ফর্ম')) {
+              sendMessengerText(senderId, ORDER_RULES_MSG);
+              sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT, [
+                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium Card", payload: "BTN_PREMIUM" }
+              ]);
             } else if (payload === 'BTN_PRICE' || txt.includes('price') || txt.includes('দাম') || txt.includes('মূল্য') || txt.includes('কত')) {
               sendMessengerText(senderId, PRICE_LIST_MSG, [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
