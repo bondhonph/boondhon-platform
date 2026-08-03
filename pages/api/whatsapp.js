@@ -176,7 +176,7 @@ async function send8CardGallery(phoneId, to, type, offset = 0) {
   for (let i = 0; i < batch.length; i++) {
     const id = batch[i];
     const itemNum = offset + i + 1;
-    const caption = `🃏 ${typeLabel} Card #${itemNum}\nID: ${id.slice(0, 10)}`;
+    const caption = `🌸 ${typeLabel} Card #${itemNum} — BOONDHON`;
     await sendWhatsAppImage(phoneId, to, driveUrl(id), caption);
     await new Promise(r => setTimeout(r, 450));
   }
