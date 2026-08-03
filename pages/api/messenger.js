@@ -14,7 +14,6 @@ const PREMIUM_IDS = [
 
 const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
 
-const PAGE_ID = "100208292579845";
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
 const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
@@ -132,15 +131,11 @@ export default async function handler(req, res) {
         body.entry?.forEach(entry => {
           const webhookEvent = entry.messaging?.[0];
           if (webhookEvent) {
-            // 1. Ignore delivery, read receipts & page echo messages sent by the page/admin itself
+            // 1. Ignore delivery, read receipts & page echo messages sent by the page itself
             if (webhookEvent.delivery || webhookEvent.read || webhookEvent.message?.is_echo) return;
 
             const senderId = webhookEvent.sender?.id;
-
-            // 2. CRITICAL FIX: Ignore messages where sender is the Page itself or sent by bot app to prevent infinite loop!
-            if (!senderId || senderId === PAGE_ID || senderId === '100208292579845' || webhookEvent.message?.app_id) {
-              return;
-            }
+            if (!senderId) return;
 
             const messageId = webhookEvent.message?.mid || `${senderId}_${webhookEvent.timestamp}`;
             if (processedEvents.has(messageId)) return;
