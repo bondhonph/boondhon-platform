@@ -94,21 +94,34 @@ const PRICE_LIST_MSG = `💰 আমাদের বিয়ের কার্�
 // Deduplication map in memory
 const processedEvents = new Set();
 
-// Helper to send text message via Facebook Messenger API
-async function sendMessengerText(recipientId, text, quickReplies = []) {
+// Helper to send text message with Vertical Stacked Buttons in Messenger
+async function sendMessengerText(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
-  const payload = {
-    recipient: { id: recipientId },
-    message: { text }
-  };
-
-  if (quickReplies.length > 0) {
-    payload.message.quick_replies = quickReplies.map(qr => ({
-      content_type: "text",
-      title: qr.title,
-      payload: qr.payload
-    }));
+  let payload;
+  if (buttons.length > 0) {
+    payload = {
+      recipient: { id: recipientId },
+      message: {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "button",
+            text: text,
+            buttons: buttons.map(b => ({
+              type: "postback",
+              title: b.title,
+              payload: b.payload
+            }))
+          }
+        }
+      }
+    };
+  } else {
+    payload = {
+      recipient: { id: recipientId },
+      message: { text }
+    };
   }
 
   try {
@@ -122,7 +135,7 @@ async function sendMessengerText(recipientId, text, quickReplies = []) {
   }
 }
 
-// Send Messenger Native Carousel (Clean photos, NO prices under cards, NO online order button under cards, WITH "👉 আরও দেখুন" button!)
+// Send Messenger Native Carousel
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = idsList.slice(offset, offset + 8);
@@ -161,15 +174,15 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
   const nextOffset = offset + batch.length;
   const hasMore = nextOffset < idsList.length;
 
-  const quickReplies = [];
+  const buttons = [];
   if (hasMore) {
-    quickReplies.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
+    buttons.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
   }
-  quickReplies.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
-  quickReplies.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
+  buttons.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
+  buttons.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
 
-  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nআরও ডিজাইন দেখতে "👉 আরও দেখুন" বাটনে চাপ দিন:`;
-  await sendMessengerText(recipientId, text, quickReplies);
+  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nঅন্যান্য ডিজাইন দেখতে নিচের বাটন চাপুন:`;
+  await sendMessengerText(recipientId, text, buttons);
 }
 
 export default async function handler(req, res) {
@@ -225,12 +238,6 @@ export default async function handler(req, res) {
               sendMessenger8CardGallery(senderId, 'affordable', 0);
             } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
               sendMessenger8CardGallery(senderId, 'premium', 0);
-            } else if (payload === 'BTN_ORDER' || txt.includes('order') || txt.includes('অর্ডার') || txt.includes('ফর্ম')) {
-              sendMessengerText(senderId, ORDER_RULES_MSG);
-              sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT, [
-                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" }
-              ]);
             } else if (payload === 'BTN_PRICE' || txt.includes('price') || txt.includes('দাম') || txt.includes('মূল্য') || txt.includes('কত')) {
               sendMessengerText(senderId, PRICE_LIST_MSG, [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
@@ -238,12 +245,12 @@ export default async function handler(req, res) {
               ]);
             } else {
               const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন দেখতে নিচের বাটনে ক্লিক করুন:`;
-              const quickReplies = [
+              const buttons = [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
                 { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
                 { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
               ];
-              sendMessengerText(senderId, welcomeText, quickReplies);
+              sendMessengerText(senderId, welcomeText, buttons);
             }
           }
         });
