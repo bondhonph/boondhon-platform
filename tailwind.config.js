@@ -15,8 +15,9 @@ module.exports = {
         }
       },
       fontFamily: {
-        display: ['Playfair Display', 'serif'],
-        body: ['Hind Siliguri', 'sans-serif'],
+        display: ['Noto Serif Bengali', 'serif'],
+        body: ['Anek Bangla', 'Noto Sans Bengali', 'sans-serif'],
+        sans: ['Anek Bangla', 'Noto Sans Bengali', 'sans-serif'],
       },
     },
   },
