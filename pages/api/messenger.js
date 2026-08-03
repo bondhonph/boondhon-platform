@@ -14,6 +14,7 @@ const PREMIUM_IDS = [
 
 const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
 
+const PAGE_ID = "100208292579845";
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
 const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
@@ -81,12 +82,11 @@ async function sendMessengerImage(recipientId, imageUrl) {
   }
 }
 
-// Send 8 card images sequentially (Same to Same like WhatsApp!)
+// Send 8 card images sequentially
 async function sendMessenger8CardGallery(recipientId, type = 'affordable') {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
 
-  // Send 8 images sequentially with delay (Same to Same like WhatsApp!)
   for (let i = 0; i < idsList.length; i++) {
     const id = idsList[i];
     await sendMessengerImage(recipientId, driveUrl(id));
@@ -126,21 +126,27 @@ export default async function handler(req, res) {
       const body = req.body;
 
       if (body.object === 'page') {
-        // Return 200 immediately to prevent Meta webhook retries & duplicate messages
+        // Return 200 immediately to prevent Meta webhook retries
         res.status(200).send('EVENT_RECEIVED');
 
         body.entry?.forEach(entry => {
           const webhookEvent = entry.messaging?.[0];
           if (webhookEvent) {
-            // Ignore page echo messages sent by the page/admin itself
-            if (webhookEvent.message?.is_echo) return;
+            // 1. Ignore delivery, read receipts & page echo messages sent by the page/admin itself
+            if (webhookEvent.delivery || webhookEvent.read || webhookEvent.message?.is_echo) return;
 
-            const messageId = webhookEvent.message?.mid || `${webhookEvent.sender?.id}_${webhookEvent.timestamp}`;
-            if (processedEvents.has(messageId)) return; // Skip duplicate retries
+            const senderId = webhookEvent.sender?.id;
+
+            // 2. CRITICAL FIX: Ignore messages where sender is the Page itself or sent by bot app to prevent infinite loop!
+            if (!senderId || senderId === PAGE_ID || senderId === '100208292579845' || webhookEvent.message?.app_id) {
+              return;
+            }
+
+            const messageId = webhookEvent.message?.mid || `${senderId}_${webhookEvent.timestamp}`;
+            if (processedEvents.has(messageId)) return;
             processedEvents.add(messageId);
             if (processedEvents.size > 200) processedEvents.clear();
 
-            const senderId = webhookEvent.sender?.id;
             const message = webhookEvent.message;
             const postback = webhookEvent.postback;
 
@@ -148,25 +154,23 @@ export default async function handler(req, res) {
             let payload = message?.quick_reply?.payload || postback?.payload || '';
             const txt = text.toLowerCase();
 
-            if (senderId) {
-              appendMessage(senderId, 'customer', text);
+            appendMessage(senderId, 'customer', text);
 
-              if (payload === 'BTN_AFFORDABLE' || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল')) {
-                sendMessenger8CardGallery(senderId, 'affordable');
-              } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
-                sendMessenger8CardGallery(senderId, 'premium');
-              } else if (payload === 'BTN_ORDER' || txt.includes('order') || txt.includes('অর্ডার')) {
-                const orderText = `📝 অনলাইন অর্ডার লিংক:\n👉 https://boondhon-platform-qr9a.vercel.app/order\n\n${ORDER_RULES_MSG}`;
-                sendMessengerText(senderId, orderText);
-              } else {
-                const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন দেখতে নিচের বাটনে ক্লিক করুন:`;
-                const quickReplies = [
-                  { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                  { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-                  { title: "📝 অনলাইন অর্ডার", payload: "BTN_ORDER" }
-                ];
-                sendMessengerText(senderId, welcomeText, quickReplies);
-              }
+            if (payload === 'BTN_AFFORDABLE' || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল')) {
+              sendMessenger8CardGallery(senderId, 'affordable');
+            } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
+              sendMessenger8CardGallery(senderId, 'premium');
+            } else if (payload === 'BTN_ORDER' || txt.includes('order') || txt.includes('অর্ডার')) {
+              const orderText = `📝 অনলাইন অর্ডার লিংক:\n👉 https://boondhon-platform-qr9a.vercel.app/order\n\n${ORDER_RULES_MSG}`;
+              sendMessengerText(senderId, orderText);
+            } else {
+              const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন দেখতে নিচের বাটনে ক্লিক করুন:`;
+              const quickReplies = [
+                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
+                { title: "📝 অনলাইন অর্ডার", payload: "BTN_ORDER" }
+              ];
+              sendMessengerText(senderId, welcomeText, quickReplies);
             }
           }
         });
