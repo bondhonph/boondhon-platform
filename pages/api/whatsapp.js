@@ -172,13 +172,17 @@ async function send8CardGallery(phoneId, to, type, offset = 0) {
   const batch = idsList.slice(offset, offset + 8);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
 
-  // Send 8 images sequentially
+  // Send 8 images sequentially with strict delay so Meta delivers all 8 images first
   for (let i = 0; i < batch.length; i++) {
     const id = batch[i];
     const itemNum = offset + i + 1;
     const caption = `🃏 ${typeLabel} Card #${itemNum}\nID: ${id.slice(0, 10)}`;
     await sendWhatsAppImage(phoneId, to, driveUrl(id), caption);
+    await new Promise(r => setTimeout(r, 450));
   }
+
+  // Wait 1 second AFTER all 8 images finish sending before sending the button message
+  await new Promise(r => setTimeout(r, 1000));
 
   const nextOffset = offset + batch.length;
   const hasMore = nextOffset < idsList.length;

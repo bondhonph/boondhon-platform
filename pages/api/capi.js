@@ -12,13 +12,8 @@ export default async function handler(req, res) {
 
   const { eventName, value, currency, orderId, phone, email, url, testCode } = req.body;
 
-  const pixelId = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID;
-  const accessToken = process.env.FB_CAPI_ACCESS_TOKEN;
-
-  if (!pixelId || !accessToken) {
-    console.error('Meta Pixel ID or Access Token is missing in environment variables.');
-    return res.status(500).json({ error: 'CAPI configuration missing' });
-  }
+  const pixelId = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID || '7392242574211491';
+  const accessToken = process.env.FB_CAPI_ACCESS_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
   // Get user client details
   const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
