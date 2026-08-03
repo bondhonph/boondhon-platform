@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Navbar from '../components/Navbar';
-import { Users, ShoppingBag, Package, TrendingUp, Star, Phone, MessageCircle, Lock, LogOut, ShieldAlert, CheckCircle2, Clock, Send, ToggleLeft, ToggleRight, Bot, User, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { Users, ShoppingBag, Package, TrendingUp, Star, Phone, MessageCircle, Lock, LogOut, ShieldAlert, CheckCircle2, Clock, Send, ToggleLeft, ToggleRight, Bot, User, RefreshCw, Search, Sparkles, Image as ImageIcon } from 'lucide-react';
 
 const PRESET_TEMPLATES = [
   "আসসালামু আলাইকুম, আমরা আপনার অর্ডারের তথ্য পেয়েছি। ৩০% বুকিং পেমেন্ট পেয়েছি 💳",
@@ -33,36 +33,67 @@ export default function Dashboard() {
   const [loadingConv, setLoadingConv] = useState(false);
   const chatScrollRef = useRef(null);
 
-  // Check auth
+  // Check auth and load local backup
   useEffect(() => {
     const auth = localStorage.getItem('boondhon_admin_auth');
     if (auth === 'true') {
       setIsAuthenticated(true);
     }
     setCheckingAuth(false);
+
+    try {
+      const savedLocal = localStorage.getItem('boondhon_chats_backup');
+      if (savedLocal) {
+        const parsed = JSON.parse(savedLocal);
+        const list = Object.values(parsed).sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+        if (list.length > 0) {
+          setConversations(list);
+          setSelectedPhone(list[0].phone);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }, []);
 
-  // Fetch live conversations from API
+  // Fetch live conversations from API and merge with browser persistent storage
   const fetchConversations = async () => {
+    setLoadingConv(true);
     try {
       const res = await fetch('/api/conversations');
       const data = await res.json();
       if (data.conversations) {
-        setConversations(data.conversations);
-        if (!selectedPhone && data.conversations.length > 0) {
-          setSelectedPhone(data.conversations[0].phone);
+        let savedLocal = {};
+        try {
+          savedLocal = JSON.parse(localStorage.getItem('boondhon_chats_backup') || '{}');
+        } catch (e) {}
+
+        // Merge incoming API conversations with local persistent backup
+        data.conversations.forEach(c => {
+          if (!savedLocal[c.phone] || (c.lastUpdated || 0) >= (savedLocal[c.phone].lastUpdated || 0)) {
+            savedLocal[c.phone] = c;
+          }
+        });
+
+        localStorage.setItem('boondhon_chats_backup', JSON.stringify(savedLocal));
+        const mergedList = Object.values(savedLocal).sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+        setConversations(mergedList);
+
+        if (!selectedPhone && mergedList.length > 0) {
+          setSelectedPhone(mergedList[0].phone);
         }
       }
     } catch (err) {
       console.error('Error fetching conversations:', err);
     }
+    setLoadingConv(false);
   };
 
-  // Poll conversations every 5 seconds for real-time updates
+  // Poll conversations every 4 seconds for real-time updates
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchConversations();
-    const interval = setInterval(fetchConversations, 5000);
+    const interval = setInterval(fetchConversations, 4000);
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
@@ -101,9 +132,16 @@ export default function Dashboard() {
         body: JSON.stringify({ action: 'toggle_bot', phone, humanTakeover: nextStatus })
       });
       const data = await res.json();
-      if (data.success) {
-        fetchConversations();
+
+      // Update local storage & state immediately
+      let savedLocal = {};
+      try { savedLocal = JSON.parse(localStorage.getItem('boondhon_chats_backup') || '{}'); } catch(e){}
+      if (savedLocal[phone]) {
+        savedLocal[phone].humanTakeover = nextStatus;
+        localStorage.setItem('boondhon_chats_backup', JSON.stringify(savedLocal));
       }
+
+      fetchConversations();
     } catch (err) {
       console.error('Error toggling bot takeover:', err);
     }
@@ -118,9 +156,15 @@ export default function Dashboard() {
         body: JSON.stringify({ action: 'update_status', phone, orderStatus: newStatus })
       });
       const data = await res.json();
-      if (data.success) {
-        fetchConversations();
+      
+      let savedLocal = {};
+      try { savedLocal = JSON.parse(localStorage.getItem('boondhon_chats_backup') || '{}'); } catch(e){}
+      if (savedLocal[phone]) {
+        savedLocal[phone].orderStatus = newStatus;
+        localStorage.setItem('boondhon_chats_backup', JSON.stringify(savedLocal));
       }
+
+      fetchConversations();
     } catch (err) {
       console.error('Error updating order status:', err);
     }
@@ -320,7 +364,7 @@ export default function Dashboard() {
                             <p className="text-gray-400 text-[11px] truncate mb-1">
                               {lastMsg?.sender === 'admin' && <span className="text-brand-gold font-semibold">আপনার উত্তর: </span>}
                               {lastMsg?.sender === 'bot' && <span className="text-brand-blue font-semibold">অনন্যা AI: </span>}
-                              {lastMsg?.text || 'মেসেজ শুরু হয়েছে'}
+                              {lastMsg?.mediaUrl ? '📷 [কার্ড ছবি পাঠানো হয়েছে]' : (lastMsg?.text || 'মেসেজ শুরু হয়েছে')}
                             </p>
 
                             <div className="flex items-center gap-1.5">
@@ -363,7 +407,7 @@ export default function Dashboard() {
                               <MessageCircle size={12} /> {activeConv.phone}
                             </a>
                           </h3>
-                          <p className="text-gray-400 text-[11px]">স্মার্ট অর্ডার ও চ্যাট রেকর্ড</p>
+                          <p className="text-gray-400 text-[11px]">স্মার্ট অর্ডার ও চ্যাট রেকর্ড (স্থায়ী মেমোরি সহ)</p>
                         </div>
                       </div>
 
@@ -416,6 +460,13 @@ export default function Dashboard() {
                               : 'bg-white/10 border border-white/10 text-white rounded-2xl rounded-bl-none'
                           }`}>
                             {m.text}
+
+                            {/* Render Card Image Thumbnail if bot or user sent media */}
+                            {m.mediaUrl && (
+                              <div className="mt-2.5 rounded-xl overflow-hidden border border-white/20 max-w-[220px]">
+                                <img src={m.mediaUrl} alt="Card preview" className="w-full h-auto object-cover hover:scale-105 transition-transform" />
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}

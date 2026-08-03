@@ -168,18 +168,20 @@ async function sendWhatsAppInteractive(phoneId, to, bodyText, buttons, imageUrl)
   }
 }
 
-// Send batch of 8 card images sequentially and then send "আরও দেখুন" button
+// Send batch of 8 card images sequentially and log each image preview to chat store
 async function send8CardGallery(phoneId, to, type, offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = idsList.slice(offset, offset + 8);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
 
-  // Send 8 images sequentially with strict delay so Meta delivers all 8 images first
+  // Send 8 images sequentially and log each image URL to chat store
   for (let i = 0; i < batch.length; i++) {
     const id = batch[i];
     const itemNum = offset + i + 1;
     const caption = `🌸 ${typeLabel} Card #${itemNum} — BOONDHON`;
-    await sendWhatsAppImage(phoneId, to, driveUrl(id), caption);
+    const imgUrl = driveUrl(id);
+    await sendWhatsAppImage(phoneId, to, imgUrl, caption);
+    appendMessage(to, 'bot', caption, imgUrl); // Log image to chat store so admin sees thumbnail!
     await new Promise(r => setTimeout(r, 450));
   }
 
@@ -223,7 +225,6 @@ async function sendTextOrderForm(phoneId, to) {
 }
 
 export default async function handler(req, res) {
-  // ── 1. WEBHOOK VERIFICATION (GET REQUEST) ──
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -239,7 +240,6 @@ export default async function handler(req, res) {
     return res.status(403).send('Verification Failed');
   }
 
-  // ── 2. HANDLE INCOMING MESSAGES (POST REQUEST) ──
   if (req.method === 'POST') {
     try {
       const body = req.body;

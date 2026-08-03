@@ -91,14 +91,20 @@ export default function Order() {
     }
   };
 
-  const pricing = {
-    50: { affordable: 2750, premium: 3250 },
-    100: { affordable: 4500, premium: 5500 },
-    200: { affordable: 7000, premium: 9000 },
+  const finalQty = (customQty && !isNaN(parseInt(customQty))) ? Math.max(1, parseInt(customQty)) : qty;
+
+  const calculatePrice = (q, t) => {
+    if (q === 50) return t === 'premium' ? 3250 : 2750;
+    if (q === 100) return t === 'premium' ? 5500 : 4500;
+    if (q === 200) return t === 'premium' ? 9000 : 7000;
+    
+    const rate = t === 'premium' 
+      ? (q < 100 ? 65 : q < 200 ? 55 : 45)
+      : (q < 100 ? 55 : q < 200 ? 45 : 35);
+    return q * rate;
   };
 
-  const finalQty = customQty ? parseInt(customQty) : qty;
-  const price = pricing[qty]?.[tier] || (tier === 'affordable' ? 2750 : 3250);
+  const price = calculatePrice(finalQty, tier);
   const advance = Math.ceil(price * 0.3);
 
   // Validate required fields before submitting

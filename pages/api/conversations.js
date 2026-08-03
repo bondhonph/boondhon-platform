@@ -1,4 +1,4 @@
-import { getConversations, getConversation, setHumanTakeover, setOrderStatus, appendMessage } from '../../lib/chat-store';
+import { getConversations, getConversation, setHumanTakeover, setOrderStatus, appendMessage, clearAllStore } from '../../lib/chat-store';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -13,6 +13,11 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const { action, phone, humanTakeover, orderStatus, text, sender, name } = req.body;
+
+    if (action === 'clear_all') {
+      clearAllStore();
+      return res.status(200).json({ success: true, conversations: [] });
+    }
 
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required' });
