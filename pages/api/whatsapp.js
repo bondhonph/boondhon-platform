@@ -195,10 +195,10 @@ async function send8CardGallery(phoneId, to, type, offset = 0) {
 
   const buttons = [];
   if (hasMore) {
-    buttons.push({ id: `more_${type}_${nextOffset}`, title: `👉 আরও দেখুন (${typeLabel})` });
+    buttons.push({ id: `more_${type}_${nextOffset}`, title: '👉 আরও দেখুন' });
   }
   buttons.push({ id: 'btn_order', title: '📝 অনলাইন অর্ডার' });
-  buttons.push({ id: type === 'premium' ? 'btn_affordable' : 'btn_premium', title: type === 'premium' ? '💚 Affordable Card' : '✨ Premium Card' });
+  buttons.push({ id: type === 'premium' ? 'btn_affordable' : 'btn_premium', title: type === 'premium' ? '💚 Affordable' : '✨ Premium' });
 
   await sendWhatsAppInteractive(phoneId, to, text, buttons);
 }
