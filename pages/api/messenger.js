@@ -94,12 +94,18 @@ const PRICE_LIST_MSG = `💰 আমাদের বিয়ের কার্�
 // Deduplication map in memory
 const processedEvents = new Set();
 
-// Helper to send text message with Vertical Stacked Buttons in Messenger
+// Helper to send text message with Vertical Stacked Buttons & Text Fallback
 async function sendMessengerText(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
   let payload;
   if (buttons.length > 0) {
+    const validButtons = buttons.slice(0, 3).map(b => ({
+      type: "postback",
+      title: b.title.substring(0, 20), // Enforce Meta 20-char title limit
+      payload: b.payload
+    }));
+
     payload = {
       recipient: { id: recipientId },
       message: {
@@ -108,11 +114,7 @@ async function sendMessengerText(recipientId, text, buttons = []) {
           payload: {
             template_type: "button",
             text: text,
-            buttons: buttons.map(b => ({
-              type: "postback",
-              title: b.title,
-              payload: b.payload
-            }))
+            buttons: validButtons
           }
         }
       }
@@ -125,17 +127,33 @@ async function sendMessengerText(recipientId, text, buttons = []) {
   }
 
   try {
-    await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('Messenger API Send Error:', JSON.stringify(data));
+      // Fallback: If template fails, send pure text
+      if (buttons.length > 0) {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: { id: recipientId },
+            message: { text: text }
+          })
+        });
+      }
+    }
   } catch (err) {
     console.error('Error sending Messenger text:', err);
   }
 }
 
-// Send Messenger Native Carousel
+// Send Messenger Native Carousel (8 Cards)
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = idsList.slice(offset, offset + 8);
@@ -162,11 +180,15 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
   };
 
   try {
-    await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('Messenger Carousel Send Error:', JSON.stringify(data));
+    }
   } catch (err) {
     console.error('Error sending Messenger carousel:', err);
   }
