@@ -15,13 +15,14 @@ const PREMIUM_IDS = [
   "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB"
 ];
 
-const driveUrl = (id) => `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`;
+// Direct Google CDN image URL with explicit JPEG content-type for Meta
+const directCdnUrl = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
 
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
 const ORDER_RULES_MSG = `📋 BOONDHON অর্ডার ও ডেলিভারি পলিসি:
 
-১. অ্যাডভান্স পেমент:
+১. অ্যাডভান্স পেমেন্ট:
 অর্ডার কনফার্ম করতে হবে মোট মূল্যের ৩০% এডভান্স পেমেন্ট।
 পেমেন্ট করতে পারবেন নিম্নলিখিত মাধ্যমে: বিকাশ, নগদ, রকেট (পার্সোনাল) নম্বর: 01682588856.
 
@@ -95,7 +96,7 @@ const PRICE_LIST_MSG = `💰 আমাদের বিয়ের কার্�
 // Deduplication map in memory
 const processedEvents = new Set();
 
-// Helper to send text message with Vertical Stacked Buttons & Text Fallback
+// Helper to send text message with Vertical Stacked Buttons in Messenger
 async function sendMessengerText(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
@@ -133,10 +134,9 @@ async function sendMessengerText(recipientId, text, buttons = []) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    
     const data = await response.json();
     if (!response.ok) {
-      console.error('Messenger API Send Error:', JSON.stringify(data));
+      console.error('Messenger Text Error:', JSON.stringify(data));
       if (buttons.length > 0) {
         await fetch(url, {
           method: 'POST',
@@ -153,62 +153,51 @@ async function sendMessengerText(recipientId, text, buttons = []) {
   }
 }
 
-// Send Messenger Native Carousel (8 Cards) with Individual Image Fallback
-async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
-  const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const batch = idsList.slice(offset, offset + 8);
-  const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
+// Send image message
+async function sendMessengerImage(recipientId, imageUrl) {
   const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
-
-  const elements = batch.map((id, index) => ({
-    title: `🌸 ${typeLabel} Card #${offset + index + 1}`,
-    subtitle: `BOONDHON Printing House`,
-    image_url: driveUrl(id)
-  }));
-
   const payload = {
     recipient: { id: recipientId },
     message: {
       attachment: {
-        type: "template",
-        payload: {
-          template_type: "generic",
-          elements: elements
-        }
+        type: "image",
+        payload: { url: imageUrl, is_reusable: true }
       }
     }
   };
 
   try {
-    const response = await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const data = await response.json();
-    if (!response.ok) {
-      console.error('Messenger Carousel Send Error:', JSON.stringify(data));
-      for (const id of batch) {
-        await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipient: { id: recipientId },
-            message: {
-              attachment: {
-                type: "image",
-                payload: { url: driveUrl(id), is_reusable: true }
-              }
-            }
-          })
-        });
-        await new Promise(r => setTimeout(r, 300));
-      }
+    if (!res.ok) {
+      const data = await res.json();
+      console.error('Messenger Image Send Error:', JSON.stringify(data));
     }
   } catch (err) {
-    console.error('Error sending Messenger carousel:', err);
+    console.error('Error sending image:', err);
+  }
+}
+
+// Send 8 Card Gallery: First send 8 photos sequentially (so they load 100% reliably & swipable), then send buttons!
+async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
+  const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
+  const batch = idsList.slice(offset, offset + 8);
+  const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
+
+  // 1. Send all 8 photos sequentially with 350ms delay
+  for (let i = 0; i < batch.length; i++) {
+    const id = batch[i];
+    const imgUrl = directCdnUrl(id);
+    await sendMessengerImage(recipientId, imgUrl);
+    await new Promise(r => setTimeout(r, 350));
   }
 
+  await new Promise(r => setTimeout(r, 600));
+
+  // 2. Prepare action buttons
   const nextOffset = offset + batch.length;
   const hasMore = nextOffset < idsList.length;
 
