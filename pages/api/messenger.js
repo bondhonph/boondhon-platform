@@ -225,7 +225,7 @@ async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   }
 }
 
-// Send Direct Full-Size Image Attachment with .jpg proxy URL
+// Send Direct Full-Size Image Attachment (Clean Meta Payload - NO is_reusable flag)
 async function sendMessengerImage(recipientId, id) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
   
@@ -238,7 +238,7 @@ async function sendMessengerImage(recipientId, id) {
     message: {
       attachment: {
         type: "image",
-        payload: { url: primaryUrl, is_reusable: true }
+        payload: { url: primaryUrl }
       }
     }
   };
@@ -262,7 +262,7 @@ async function sendMessengerImage(recipientId, id) {
           message: {
             attachment: {
               type: "image",
-              payload: { url: fallbackUrl, is_reusable: true }
+              payload: { url: fallbackUrl }
             }
           }
         })
