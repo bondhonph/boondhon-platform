@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Chatbot from '../components/Chatbot';
 import { driveUrl, AFFORDABLE_IDS, PREMIUM_IDS, getCardCode } from '../lib/data';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react';
 
 const PAGE_SIZE = 24;
 
@@ -15,6 +15,10 @@ export default function Products() {
   const [tab, setTab] = useState('affordable');
   const [page, setPage] = useState(1);
   const [selectedIndex, setSelectedIndex] = useState(null);
+
+  // Touch Swipe Gesture State for Mobile Slider
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
   useEffect(() => {
     if (router.query.tab === 'premium') setTab('premium');
@@ -34,6 +38,27 @@ export default function Products() {
     if (selectedIndex === null) return;
     setSelectedIndex(prev => (prev < ids.length - 1 ? prev + 1 : 0));
   }, [selectedIndex, ids.length]);
+
+  // Touch swipe handler
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    const diff = touchStartX.current - touchEndX.current;
+    if (diff > 50) {
+      handleNext(); // Swiped Left -> Next Card
+    } else if (diff < -50) {
+      handlePrev(); // Swiped Right -> Previous Card
+    }
+    touchStartX.current = 0;
+    touchEndX.current = 0;
+  };
 
   // Keyboard arrow keys navigation (Left/Right/Escape)
   useEffect(() => {
@@ -76,7 +101,7 @@ export default function Products() {
         <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-display font-bold text-white mb-3">কার্ড গ্যালারি</h1>
-            <p className="text-gray-400">আমাদের সম্পূর্ণ কালেকশন থেকে আপনার পছন্দের ডিজাইন বেছে নিন</p>
+            <p className="text-gray-400">আমাদের সম্পূর্ণ কালেকশন থেকে আপনার পছন্দের ডিজাইন বেছে নিন (ছবিতে ক্লিক করে বড় করে স্লাইড করুন)</p>
           </div>
 
           {/* Tabs */}
@@ -116,6 +141,11 @@ export default function Products() {
                   {tab === 'premium' && (
                     <div className="absolute top-2 right-2 z-10 bg-brand-gold text-black text-xs px-2 py-0.5 rounded-full font-bold">P</div>
                   )}
+
+                  {/* Zoom indicator icon */}
+                  <div className="absolute bottom-2 right-2 z-10 bg-slate-900/80 text-white p-1 rounded-full opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all">
+                    <Maximize2 size={12} />
+                  </div>
 
                   <img
                     src={driveUrl(id)}
@@ -168,26 +198,30 @@ export default function Products() {
           </div>
         </div>
 
-        {/* Interactive Lightbox Modal with Next/Previous Side Arrows */}
+        {/* Full-screen Lightbox Modal with Next/Previous Side Arrows & Touch Swipe */}
         {selectedIndex !== null && selectedId && (
-          <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 select-none" onClick={() => setSelectedIndex(null)}>
+          <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 select-none animate-fade-in" onClick={() => setSelectedIndex(null)}>
             
             {/* Modal Container */}
-            <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="relative max-w-xl w-full" onClick={e => e.stopPropagation()}>
 
               {/* Close Button */}
               <button
                 onClick={() => setSelectedIndex(null)}
                 className="absolute -top-12 right-0 text-gray-300 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all">
-                <X size={20} />
+                <X size={22} />
               </button>
 
-              {/* Main Card Image Box */}
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-slate-950 group">
+              {/* Main Card Image Box with Touch Swipe Listeners */}
+              <div
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-slate-950 group">
                 <img
                   src={driveUrl(selectedId)}
                   alt={`Wedding card ${selectedCode}`}
-                  className="w-full max-h-[75vh] object-contain mx-auto"
+                  className="w-full max-h-[75vh] object-contain mx-auto transition-transform duration-300"
                 />
 
                 {/* Left Side Arrow Button (ON IMAGE) */}
@@ -195,8 +229,8 @@ export default function Products() {
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handlePrev(); }}
                   title="পূর্ববর্তী কার্ড (Previous Card)"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/85 border border-white/30 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-30">
-                  <ChevronLeft size={28} />
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/85 border border-white/30 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-30">
+                  <ChevronLeft size={30} />
                 </button>
 
                 {/* Right Side Arrow Button (ON IMAGE) */}
@@ -204,14 +238,14 @@ export default function Products() {
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleNext(); }}
                   title="পরবর্তী কার্ড (Next Card)"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/85 border border-white/30 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-30">
-                  <ChevronRight size={28} />
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-900/85 border border-white/30 text-white flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:scale-110 active:scale-95 transition-all shadow-2xl z-30">
+                  <ChevronRight size={30} />
                 </button>
 
                 {/* Top Badge: Design Code & Counter */}
-                <div className="absolute top-3 left-3 bg-slate-900/90 text-white text-xs font-mono font-bold px-3 py-1.5 rounded-full border border-white/20 shadow-lg flex items-center gap-2 z-20">
-                  <span className="text-brand-gold">{selectedCode}</span>
-                  <span className="text-gray-400 text-[10px]">({selectedIndex + 1} / {ids.length})</span>
+                <div className="absolute top-3 left-3 bg-slate-900/90 text-white text-xs font-mono font-bold px-3.5 py-1.5 rounded-full border border-white/20 shadow-lg flex items-center gap-2 z-20">
+                  <span className="text-brand-gold font-bold">{selectedCode}</span>
+                  <span className="text-gray-300 text-[11px]">({selectedIndex + 1} / {ids.length})</span>
                 </div>
               </div>
 
@@ -229,8 +263,8 @@ export default function Products() {
                 </a>
               </div>
 
-              <p className="text-center text-gray-500 text-[11px] mt-2">
-                💡 টিপস: কিবোর্ডের Left (←) ও Right (→) অ্যারো চেপেও কার্ড নেভিগেট করতে পারবেন।
+              <p className="text-center text-gray-400 text-xs mt-2.5 font-medium">
+                💡 ডানে/বামে সোয়াইপ করুন বা Left (←) ও Right (→) কি চেপে পরের ছবিগুলো দেখুন।
               </p>
             </div>
 
