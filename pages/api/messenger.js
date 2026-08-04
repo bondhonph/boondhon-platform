@@ -15,7 +15,8 @@ const PREMIUM_IDS = [
   "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB"
 ];
 
-const directCdnUrl = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
+const lh3CdnUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
+const proxyCdnUrl = (id) => `https://boondhon-platform-qr9a.vercel.app/api/img?id=${id}`;
 
 const PAGE_ACCESS_TOKEN = (process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD").trim();
 
@@ -193,8 +194,8 @@ async function sendMessengerText(recipientId, text, buttons = []) {
   }
 }
 
-// Send image message via Facebook Messenger API
-async function sendMessengerImage(recipientId, imageUrl) {
+// Send image message with automatic fallback URL
+async function sendMessengerImage(recipientId, imageUrl, fallbackUrl) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
   const payload = {
     recipient: { id: recipientId },
@@ -214,7 +215,23 @@ async function sendMessengerImage(recipientId, imageUrl) {
     });
     if (!res.ok) {
       const data = await res.json();
-      console.error('Messenger Image Send Error:', JSON.stringify(data));
+      console.error('Messenger Image Primary URL Error:', JSON.stringify(data));
+
+      if (fallbackUrl) {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: { id: recipientId },
+            message: {
+              attachment: {
+                type: "image",
+                payload: { url: fallbackUrl, is_reusable: true }
+              }
+            }
+          })
+        });
+      }
     }
   } catch (err) {
     console.error('Error sending image:', err);
@@ -230,8 +247,9 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
   // 1. Send all 8 photos via Messenger API
   for (let i = 0; i < batch.length; i++) {
     const id = batch[i];
-    const imgUrl = directCdnUrl(id);
-    await sendMessengerImage(recipientId, imgUrl);
+    const imgUrl = lh3CdnUrl(id);
+    const altUrl = proxyCdnUrl(id);
+    await sendMessengerImage(recipientId, imgUrl, altUrl);
     appendMessage(recipientId, 'bot', `🌸 ${typeLabel} Card #${offset + i + 1}`, imgUrl);
     await new Promise(r => setTimeout(r, 250));
   }
