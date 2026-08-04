@@ -262,7 +262,7 @@ async function send5PermanentButtons(recipientId, mainText) {
   await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
 }
 
-// Send 8 Card Gallery Batch with PERMANENT VERTICAL 👉 আরও দেখুন button!
+// Send 8 Card Gallery Batch WITHOUT repeating Welcome Message!
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
@@ -349,7 +349,6 @@ export default async function handler(req, res) {
           if (webhookEvent) {
             if (webhookEvent.delivery || webhookEvent.read) continue;
 
-            // Prevent self bot echo loop only
             if (webhookEvent.message?.is_echo && webhookEvent.message?.app_id === "2563899990649523") {
               continue;
             }
@@ -393,12 +392,13 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
             } else {
+              // Welcome message is ONLY sent ONCE when starting conversation or greeting!
               const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন ও সুবিধা দেখতে নিচের ৫টি বাটনের যেকোনো একটিতে ক্লিক করুন:`;
               await send5PermanentButtons(senderId, welcomeText);
               appendMessage(senderId, 'bot', welcomeText);
             }
           }
-        }
+        });
 
         return res.status(200).send('EVENT_RECEIVED');
       }
