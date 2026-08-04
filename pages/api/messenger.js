@@ -238,25 +238,24 @@ async function sendMessengerImage(recipientId, imageUrl, fallbackUrl) {
   }
 }
 
-// Send 8 Card Gallery: Send 8 photos via sendMessengerImage, then send buttons!
+// Send ALL 8 Card Photos using high-speed parallel promises so 100% of images deliver!
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = idsList.slice(offset, offset + 8);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
 
-  // 1. Send all 8 photos via Messenger API
-  for (let i = 0; i < batch.length; i++) {
-    const id = batch[i];
+  // Dispatch all image requests in parallel so all 8 images arrive 100% reliably
+  const imagePromises = batch.map((id, i) => {
     const imgUrl = lh3CdnUrl(id);
     const altUrl = proxyCdnUrl(id);
-    await sendMessengerImage(recipientId, imgUrl, altUrl);
     appendMessage(recipientId, 'bot', `🌸 ${typeLabel} Card #${offset + i + 1}`, imgUrl);
-    await new Promise(r => setTimeout(r, 250));
-  }
+    return sendMessengerImage(recipientId, imgUrl, altUrl);
+  });
 
+  await Promise.all(imagePromises);
   await new Promise(r => setTimeout(r, 400));
 
-  // 2. Prepare action buttons
+  // Prepare action buttons including Delivery Policy & Order Forms
   const nextOffset = offset + batch.length;
   const hasMore = nextOffset < idsList.length;
 
@@ -264,10 +263,10 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
   if (hasMore) {
     buttons.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
   }
-  buttons.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
-  buttons.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
+  buttons.push({ title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" });
+  buttons.push({ title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" });
 
-  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nঅন্যান্য অপশন দেখতে নিচের বাটন চাপুন:`;
+  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nনিচের অপশনে চাপ দিয়ে অর্ডার ফর্ম বা ডেলিভারি পলিসি দেখুন:`;
   await sendMessengerText(recipientId, text, buttons);
   appendMessage(recipientId, 'bot', text);
 }
@@ -335,29 +334,32 @@ export default async function handler(req, res) {
             } else if (payload === 'BTN_POLICY' || txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ডেলিভারি') || txt.includes('কুরিয়ার')) {
               await sendMessengerText(senderId, ORDER_RULES_MSG, [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" }
+                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
+                { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" }
               ]);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             } else if (payload === 'BTN_PRICE' || txt.includes('price') || txt.includes('দাম') || txt.includes('মূল্য') || txt.includes('কত')) {
               await sendMessengerText(senderId, PRICE_LIST_MSG, [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" }
+                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
+                { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" }
               ]);
               appendMessage(senderId, 'bot', PRICE_LIST_MSG);
             } else if (payload === 'BTN_FORM' || txt.includes('form') || txt.includes('ফর্ম')) {
               await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
               await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT, [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" }
+                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
+                { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
               ]);
               appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
             } else {
-              const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন দেখতে নিচের বাটনে ক্লিক করুন:`;
+              const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন ও সুবিধা দেখতে নিচের বাটনে ক্লিক করুন:`;
               const buttons = [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
                 { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-                { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
+                { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
               ];
               await sendMessengerText(senderId, welcomeText, buttons);
               appendMessage(senderId, 'bot', welcomeText);
