@@ -168,7 +168,7 @@ export default function Order() {
       })
     }).catch(err => console.error('CAPI Call Error:', err));
 
-    const url = `https://wa.me/8801863586302?text=${encodeURIComponent(msg)}`;
+    const url = `https://wa.me/8801701016826?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
   };
 

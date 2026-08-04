@@ -256,7 +256,7 @@ export default function Products() {
                   className="flex-1 text-center bg-gradient-to-r from-brand-blue to-blue-500 text-white py-3.5 rounded-xl font-bold text-sm shadow-xl hover:shadow-brand-blue/30 hover:opacity-95 transition-all">
                   এই ডিজাইনে অর্ডার করুন ({selectedCode})
                 </Link>
-                <a href={`https://wa.me/8801863586302?text=${encodeURIComponent(`আসসালামু আলাইকুম, আমি ${selectedCode} ডিজাইনটি পছন্দ করেছি: ${driveUrl(selectedId)}`)}`}
+                <a href={`https://wa.me/8801701016826?text=${encodeURIComponent(`আসসালামু আলাইকুম, আমি ${selectedCode} ডিজাইনটি পছন্দ করেছি: ${driveUrl(selectedId)}`)}`}
                   target="_blank" rel="noreferrer"
                   className="flex-1 text-center bg-green-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-green-500 transition-all shadow-lg">
                   WhatsApp করুন

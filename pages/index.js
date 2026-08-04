@@ -230,7 +230,7 @@ export default function Home() {
               <Link href="/order" className="bg-gradient-to-r from-brand-blue to-blue-400 text-white px-10 py-4 rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-brand-blue/30 transition-all">
                 অর্ডার ফর্ম পূরণ করুন 🌸
               </Link>
-              <a href="https://wa.me/8801863586302" target="_blank" rel="noreferrer"
+              <a href="https://wa.me/8801701016826" target="_blank" rel="noreferrer"
                 className="bg-green-600 text-white px-10 py-4 rounded-full font-bold text-lg hover:bg-green-500 transition-all">
                 WhatsApp করুন 💬
               </a>

@@ -100,7 +100,7 @@ export default function Pricing() {
             <Gift size={40} className="text-brand-gold mx-auto mb-4" />
             <h3 className="text-2xl font-display font-bold text-white mb-2">Custom অর্ডার (৫০+ পিস)</h3>
             <p className="text-gray-400 mb-4">৫০ পিসের বেশি যেকোনো পরিমাণে অর্ডার করতে পারবেন। বেশি পিসে আরো ভালো দাম পাবেন।</p>
-            <a href="https://wa.me/8801863586302?text=Custom order inquiry"
+            <a href="https://wa.me/8801701016826?text=Custom order inquiry"
               target="_blank" rel="noreferrer"
               className="inline-block bg-green-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-green-500 transition-all">
               WhatsApp-এ কথা বলুন

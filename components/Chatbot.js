@@ -82,7 +82,7 @@ const DELIVERY_POLICY_TEXT = `🚚 ডেলিভারি ও পলিসি:
 ২. ডেমো ডিজাইন approve করার পর print
 ৩. জেলা শহরে ক্যাশ অন ডেলিভারি (৫-৭ কর্মদিবস)
 
-📞 হটলাইন: 01701016826 | WhatsApp: 01863586302`;
+📞 হটলাইন: 01701016826 | WhatsApp: 01701016826`;
 
 const WELCOME = {
   role: 'bot',
@@ -205,7 +205,7 @@ export default function Chatbot() {
           {
             role: 'bot',
             type: 'text',
-            content: `🎁 **২০০ পিস বিয়ের কার্ড অর্ডারে ফ্রি নিকাহনামা অফার!**\n\n২০০ পিস যেকোনো বিয়ের কার্ড অর্ডার করলেই সাথে ১টি ল্যামিনেটেড প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি দেওয়া হচ্ছে! 🥰\n\nঅর্ডার করতে "অর্ডার করব" বাটনে চাপুন বা হোয়াটসঅ্যাপে মেসেজ দিন: 01863586302 🌸`
+            content: `🎁 **২০০ পিস বিয়ের কার্ড অর্ডারে ফ্রি নিকাহনামা অফার!**\n\n২০০ পিস যেকোনো বিয়ের কার্ড অর্ডার করলেই সাথে ১টি ল্যামিনেটেড প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি দেওয়া হচ্ছে! 🥰\n\nঅর্ডার করতে "অর্ডার করব" বাটনে চাপুন বা হোয়াটসঅ্যাপে মেসেজ দিন: 01701016826 🌸`
           }
         ]);
         setLoading(false);
@@ -226,7 +226,7 @@ export default function Chatbot() {
         const data = await res.json();
         setMessages(prev => [...prev, { role: 'bot', type: 'text', content: data.reply }]);
       } catch (err) {
-        setMessages(prev => [...prev, { role: 'bot', type: 'text', content: 'আসসালামু আলাইকুম! BOONDHON Printing House-এ আপনাকে স্বাগতম। আপনি কোন তথ্যটি জানতে চান বলুন? 🥰 WhatsApp: 01863586302' }]);
+        setMessages(prev => [...prev, { role: 'bot', type: 'text', content: 'আসসালামু আলাইকুম! BOONDHON Printing House-এ আপনাকে স্বাগতম। আপনি কোন তথ্যটি জানতে চান বলুন? 🥰 WhatsApp: 01701016826' }]);
       }
       setLoading(false);
     }, 250);
