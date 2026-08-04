@@ -425,7 +425,7 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', welcomeText);
             }
           }
-        });
+        }
 
         return res.status(200).send('EVENT_RECEIVED');
       }
