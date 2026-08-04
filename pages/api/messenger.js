@@ -60,8 +60,6 @@ const PREMIUM_IDS = [
   "1MX7rnQG2F0H8UX5ofGazO53knl7SUNE1","148EhK2GqvlP8Z-X-pK4Cp-Zb_sXqBLAu","1EuLjjvKMWIMkgbnK5PKOsKC5kHEG5H11"
 ];
 
-const directCdnUrl = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
-
 const PAGE_ACCESS_TOKEN = (process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD").trim();
 
 const ORDER_RULES_MSG = `📋 BOONDHON অর্ডার ও ডেলিভারি পলিসি:
@@ -227,15 +225,20 @@ async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   }
 }
 
-// Send Direct Full-Size Image Attachment via Facebook Messenger API
-async function sendMessengerImage(recipientId, imageUrl) {
+// Send Direct Full-Size Image Attachment with .jpg proxy URL
+async function sendMessengerImage(recipientId, id) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
+  
+  // Clean .jpg URL endpoint for Meta image attachment scraper
+  const primaryUrl = `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`;
+  const fallbackUrl = `https://lh3.googleusercontent.com/d/${id}`;
+
   const payload = {
     recipient: { id: recipientId },
     message: {
       attachment: {
         type: "image",
-        payload: { url: imageUrl, is_reusable: true }
+        payload: { url: primaryUrl, is_reusable: true }
       }
     }
   };
@@ -248,7 +251,22 @@ async function sendMessengerImage(recipientId, imageUrl) {
     });
     if (!res.ok) {
       const data = await res.json();
-      console.error('Messenger Image Direct Send Error:', JSON.stringify(data));
+      console.error('Messenger Image Direct Send Primary Error:', JSON.stringify(data));
+
+      // Try fallback URL if primary fails
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            attachment: {
+              type: "image",
+              payload: { url: fallbackUrl, is_reusable: true }
+            }
+          }
+        })
+      });
     }
   } catch (err) {
     console.error('Error sending image:', err);
@@ -290,7 +308,7 @@ async function send5PermanentButtons(recipientId, mainText) {
   await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
 }
 
-// Send 8 Direct Full-Size Card Photo Attachments (Exactly matching User's Screenshot)!
+// Send 8 Direct Full-Size Card Photo Attachments (Matching User Screenshot)!
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
@@ -300,10 +318,9 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
   // 1. Send all 8 photos sequentially as DIRECT FULL-SIZE IMAGE ATTACHMENTS!
   for (let i = 0; i < batch.length; i++) {
     const id = batch[i];
-    const imgUrl = directCdnUrl(id);
-    await sendMessengerImage(recipientId, imgUrl);
-    appendMessage(recipientId, 'bot', `🌸 ${typeLabel} Card #${currentOffset + i + 1}`, imgUrl);
-    await new Promise(r => setTimeout(r, 250));
+    await sendMessengerImage(recipientId, id);
+    appendMessage(recipientId, 'bot', `🌸 ${typeLabel} Card #${currentOffset + i + 1}`, `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`);
+    await new Promise(r => setTimeout(r, 300));
   }
 
   await new Promise(r => setTimeout(r, 400));
