@@ -152,7 +152,7 @@ async function sendMessengerText(recipientId, text, buttons = []) {
   }
 }
 
-// Send Messenger Native Carousel (8 Cards)
+// Send Messenger Native Carousel (8 Cards) with Individual Image Fallback
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = idsList.slice(offset, offset + 8);
@@ -187,6 +187,23 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
     const data = await response.json();
     if (!response.ok) {
       console.error('Messenger Carousel Send Error:', JSON.stringify(data));
+      // FALLBACK: Send images individually if Carousel template fails
+      for (const id of batch) {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: { id: recipientId },
+            message: {
+              attachment: {
+                type: "image",
+                payload: { url: driveUrl(id), is_reusable: true }
+              }
+            }
+          })
+        });
+        await new Promise(r => setTimeout(r, 300));
+      }
     }
   } catch (err) {
     console.error('Error sending Messenger carousel:', err);
@@ -235,7 +252,10 @@ export default async function handler(req, res) {
             const senderId = webhookEvent.sender?.id;
             if (!senderId) return;
 
-            const messageId = webhookEvent.message?.mid || `${senderId}_${webhookEvent.timestamp}`;
+            const postbackPayload = webhookEvent.postback?.payload || '';
+            const quickReplyPayload = webhookEvent.message?.quick_reply?.payload || '';
+            const messageId = webhookEvent.message?.mid || `${senderId}_${webhookEvent.timestamp}_${postbackPayload || quickReplyPayload}`;
+
             if (processedEvents.has(messageId)) return;
             processedEvents.add(messageId);
             if (processedEvents.size > 200) processedEvents.clear();
@@ -243,8 +263,8 @@ export default async function handler(req, res) {
             const message = webhookEvent.message;
             const postback = webhookEvent.postback;
 
-            let text = message?.text || postback?.payload || '';
-            let payload = message?.quick_reply?.payload || postback?.payload || '';
+            let text = message?.text || postback?.payload || postback?.title || '';
+            let payload = quickReplyPayload || postbackPayload || '';
             const txt = text.toLowerCase();
 
             appendMessage(senderId, 'customer', text);
