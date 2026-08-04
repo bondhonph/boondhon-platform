@@ -19,8 +19,9 @@ const driveUrl = (id) => `https://boondhon-platform-qr9a.vercel.app/api/img/${id
 
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
-const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
-১. অ্যাডভান্স পেমেন্ট:
+const ORDER_RULES_MSG = `📋 BOONDHON অর্ডার ও ডেলিভারি পলিসি:
+
+১. অ্যাডভান্স পেমент:
 অর্ডার কনফার্ম করতে হবে মোট মূল্যের ৩০% এডভান্স পেমেন্ট।
 পেমেন্ট করতে পারবেন নিম্নলিখিত মাধ্যমে: বিকাশ, নগদ, রকেট (পার্সোনাল) নম্বর: 01682588856.
 
@@ -187,7 +188,6 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
     const data = await response.json();
     if (!response.ok) {
       console.error('Messenger Carousel Send Error:', JSON.stringify(data));
-      // FALLBACK: Send images individually if Carousel template fails
       for (const id of batch) {
         await fetch(url, {
           method: 'POST',
@@ -217,9 +217,9 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
     buttons.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
   }
   buttons.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
-  buttons.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
+  buttons.push({ title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" });
 
-  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nঅন্যান্য ডিজাইন দেখতে নিচের বাটন চাপুন:`;
+  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nঅন্যান্য অপশন দেখতে নিচের বাটন চাপুন:`;
   await sendMessengerText(recipientId, text, buttons);
 }
 
@@ -279,6 +279,11 @@ export default async function handler(req, res) {
               sendMessenger8CardGallery(senderId, 'affordable', 0);
             } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
               sendMessenger8CardGallery(senderId, 'premium', 0);
+            } else if (payload === 'BTN_POLICY' || txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ডেলিভারি') || txt.includes('কুরিয়ার')) {
+              sendMessengerText(senderId, ORDER_RULES_MSG, [
+                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium Card", payload: "BTN_PREMIUM" }
+              ]);
             } else if (payload === 'BTN_PRICE' || txt.includes('price') || txt.includes('দাম') || txt.includes('মূল্য') || txt.includes('কত')) {
               sendMessengerText(senderId, PRICE_LIST_MSG, [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
@@ -289,7 +294,7 @@ export default async function handler(req, res) {
               const buttons = [
                 { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
                 { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-                { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
+                { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
               ];
               sendMessengerText(senderId, welcomeText, buttons);
             }
