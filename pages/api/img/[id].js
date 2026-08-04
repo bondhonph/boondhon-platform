@@ -4,6 +4,14 @@ export default async function handler(req, res) {
     return res.status(400).send('Missing image ID');
   }
 
+  // Set CORS headers for Meta Image Scraper & Messenger Web UI
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // Strip .jpg / .png extension if present
   id = id.replace(/\.jpg$/i, '').replace(/\.png$/i, '');
 
