@@ -183,47 +183,29 @@ const PRICE_LIST_MSG = `💰 আমাদের বিয়ের কার্�
 // Deduplication map in memory
 const processedEvents = new Set();
 
-// Helper to send text message with Buttons via Quick Replies or Button Template
-async function sendMessengerText(recipientId, text, buttons = []) {
+// Send Native Button Template (Permanent vertical stacked buttons inside white bubble)
+async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
-  let payload;
-  if (buttons.length > 3) {
-    payload = {
-      recipient: { id: recipientId },
-      message: {
-        text: text,
-        quick_replies: buttons.map(b => ({
-          content_type: "text",
-          title: b.title.substring(0, 20),
-          payload: b.payload
-        }))
-      }
-    };
-  } else if (buttons.length > 0) {
-    payload = {
-      recipient: { id: recipientId },
-      message: {
-        attachment: {
-          type: "template",
-          payload: {
-            template_type: "button",
-            text: text,
-            buttons: buttons.map(b => ({
-              type: "postback",
-              title: b.title.substring(0, 20),
-              payload: b.payload
-            }))
-          }
+  const validButtons = buttons.slice(0, 3).map(b => ({
+    type: "postback",
+    title: b.title.substring(0, 20),
+    payload: b.payload
+  }));
+
+  const payload = {
+    recipient: { id: recipientId },
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text: text,
+          buttons: validButtons
         }
       }
-    };
-  } else {
-    payload = {
-      recipient: { id: recipientId },
-      message: { text }
-    };
-  }
+    }
+  };
 
   try {
     const response = await fetch(url, {
@@ -233,7 +215,7 @@ async function sendMessengerText(recipientId, text, buttons = []) {
     });
     const data = await response.json();
     if (!response.ok) {
-      console.error('Messenger Text Error:', JSON.stringify(data));
+      console.error('Messenger Button Block Error:', JSON.stringify(data));
       await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,51 +226,48 @@ async function sendMessengerText(recipientId, text, buttons = []) {
       });
     }
   } catch (err) {
+    console.error('Error sending Messenger button block:', err);
+  }
+}
+
+// Send Plain Text Message
+async function sendMessengerText(recipientId, text) {
+  const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text: text }
+      })
+    });
+  } catch (err) {
     console.error('Error sending Messenger text:', err);
   }
 }
 
-// Send image message
-async function sendMessengerImage(recipientId, imageUrl) {
-  const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
-  const payload = {
-    recipient: { id: recipientId },
-    message: {
-      attachment: {
-        type: "image",
-        payload: { url: imageUrl, is_reusable: true }
-      }
-    }
-  };
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      console.error('Messenger Image Send Error:', JSON.stringify(data));
-    }
-  } catch (err) {
-    console.error('Error sending image:', err);
-  }
-}
-
-// Send ALL 5 Buttons in 1 single message block!
-async function send5MessengerButtons(recipientId, messageText) {
-  const all5Buttons = [
+// Send ALL 5 Permanent Vertical Buttons in 2 Stacked White Bubble Cards!
+async function send5PermanentButtons(recipientId, mainText) {
+  // Block 1 (Permanent Vertical Buttons: Affordable, Premium, Price)
+  const buttons1 = [
     { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
     { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-    { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" },
+    { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
+  ];
+  await sendMessengerButtonBlock(recipientId, mainText, buttons1);
+
+  await new Promise(r => setTimeout(r, 300));
+
+  // Block 2 (Permanent Vertical Buttons: Order Form, Delivery Policy)
+  const buttons2 = [
     { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
     { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
   ];
-  await sendMessengerText(recipientId, messageText, all5Buttons);
+  await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
 }
 
-// Send 8 Card Gallery Batch with 👉 আরও দেখুন pagination across all 87+ items!
+// Send 8 Card Gallery Batch with PERMANENT VERTICAL 👉 আরও দেখুন button!
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const currentOffset = offset >= idsList.length ? 0 : offset;
@@ -323,22 +302,32 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
 
   await new Promise(r => setTimeout(r, 400));
 
-  // 2. Build Buttons including 👉 আরও দেখুন if more images exist
+  // 2. Build PERMANENT VERTICAL BUTTONS attached inside the white message bubble!
   let nextOffset = currentOffset + batch.length;
   if (nextOffset >= idsList.length) {
-    nextOffset = 0; // Loop back to start if reached end of 87+ catalog
+    nextOffset = 0;
   }
 
-  const buttons = [];
-  buttons.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
-  buttons.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
-  buttons.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
-  buttons.push({ title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" });
-  buttons.push({ title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" });
+  // Block 1 Buttons (Permanent: 👉 আরও দেখুন, Premium/Affordable, Price)
+  const buttons1 = [
+    { title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` },
+    { title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" },
+    { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
+  ];
 
-  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${currentOffset + 1} - ${currentOffset + batch.length} / ${idsList.length} নম্বর ডিজাইন)\n\nপরের ৮টি বিয়ের কার্ডের ছবি দেখতে "👉 আরও দেখুন" বাটন চাপুন:`;
-  await sendMessengerText(recipientId, text, buttons);
-  appendMessage(recipientId, 'bot', text);
+  const text1 = `🌸 BOONDHON ${typeLabel} গ্যালারি (${currentOffset + 1} - ${currentOffset + batch.length} / ${idsList.length} নম্বর ডিজাইন)\n\nপরের ৮টি ছবি দেখতে "👉 আরও দেখুন" চাপুন:`;
+  await sendMessengerButtonBlock(recipientId, text1, buttons1);
+
+  await new Promise(r => setTimeout(r, 300));
+
+  // Block 2 Buttons (Permanent: Form, Policy)
+  const buttons2 = [
+    { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
+    { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
+  ];
+  await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা ডেলিভারি পলিসি দেখতে নিচের বাটন চাপুন:", buttons2);
+
+  appendMessage(recipientId, 'bot', text1);
 }
 
 export default async function handler(req, res) {
@@ -404,19 +393,19 @@ export default async function handler(req, res) {
             } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
               await sendMessenger8CardGallery(senderId, 'premium', 0);
             } else if (payload === 'BTN_POLICY' || txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ডেলিভারি') || txt.includes('কুরিয়ার')) {
-              await send5MessengerButtons(senderId, ORDER_RULES_MSG);
+              await send5PermanentButtons(senderId, ORDER_RULES_MSG);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             } else if (payload === 'BTN_PRICE' || txt.includes('price') || txt.includes('দাম') || txt.includes('মূল্য') || txt.includes('কত')) {
-              await send5MessengerButtons(senderId, PRICE_LIST_MSG);
+              await send5PermanentButtons(senderId, PRICE_LIST_MSG);
               appendMessage(senderId, 'bot', PRICE_LIST_MSG);
             } else if (payload === 'BTN_FORM' || txt.includes('form') || txt.includes('ফর্ম')) {
               await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
-              await send5MessengerButtons(senderId, ENGLISH_ORDER_FORM_TEXT);
+              await send5PermanentButtons(senderId, ENGLISH_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
             } else {
               const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন ও সুবিধা দেখতে নিচের ৫টি বাটনের যেকোনো একটিতে ক্লিক করুন:`;
-              await send5MessengerButtons(senderId, welcomeText);
+              await send5PermanentButtons(senderId, welcomeText);
               appendMessage(senderId, 'bot', welcomeText);
             }
           }
