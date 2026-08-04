@@ -180,10 +180,7 @@ const PRICE_LIST_MSG = `💰 আমাদের বিয়ের কার্�
 
 🎁 ২০০+ পিস অর্ডারে ১টি ফ্রি নিকাহনামা সম্পূর্ণ ফ্রি!`;
 
-// Deduplication map in memory
-const processedEvents = new Set();
-
-// Send Native Button Template (Permanent vertical stacked buttons inside white bubble)
+// Helper to send Native Button Template (Permanent vertical stacked buttons inside white bubble)
 async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
@@ -249,7 +246,6 @@ async function sendMessengerText(recipientId, text) {
 
 // Send ALL 5 Permanent Vertical Buttons in 2 Stacked White Bubble Cards!
 async function send5PermanentButtons(recipientId, mainText) {
-  // Block 1 (Permanent Vertical Buttons: Affordable, Premium, Price)
   const buttons1 = [
     { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
     { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
@@ -259,7 +255,6 @@ async function send5PermanentButtons(recipientId, mainText) {
 
   await new Promise(r => setTimeout(r, 300));
 
-  // Block 2 (Permanent Vertical Buttons: Order Form, Delivery Policy)
   const buttons2 = [
     { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
     { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
@@ -270,7 +265,7 @@ async function send5PermanentButtons(recipientId, mainText) {
 // Send 8 Card Gallery Batch with PERMANENT VERTICAL 👉 আরও দেখুন button!
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const currentOffset = offset >= idsList.length ? 0 : offset;
+  const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
   const batch = idsList.slice(currentOffset, currentOffset + 8);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
@@ -308,7 +303,6 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
     nextOffset = 0;
   }
 
-  // Block 1 Buttons (Permanent: 👉 আরও দেখুন, Premium/Affordable, Price)
   const buttons1 = [
     { title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` },
     { title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" },
@@ -320,7 +314,6 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
 
   await new Promise(r => setTimeout(r, 300));
 
-  // Block 2 Buttons (Permanent: Form, Policy)
   const buttons2 = [
     { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
     { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
@@ -356,6 +349,7 @@ export default async function handler(req, res) {
           if (webhookEvent) {
             if (webhookEvent.delivery || webhookEvent.read) continue;
 
+            // Prevent self bot echo loop only
             if (webhookEvent.message?.is_echo && webhookEvent.message?.app_id === "2563899990649523") {
               continue;
             }
@@ -365,11 +359,6 @@ export default async function handler(req, res) {
 
             const postbackPayload = webhookEvent.postback?.payload || '';
             const quickReplyPayload = webhookEvent.message?.quick_reply?.payload || '';
-            const messageId = webhookEvent.message?.mid || `${senderId}_${webhookEvent.timestamp}_${postbackPayload || quickReplyPayload}`;
-
-            if (processedEvents.has(messageId)) continue;
-            processedEvents.add(messageId);
-            if (processedEvents.size > 200) processedEvents.clear();
 
             const message = webhookEvent.message;
             const postback = webhookEvent.postback;
@@ -382,12 +371,12 @@ export default async function handler(req, res) {
 
             if (payload.startsWith('MORE_AFFORDABLE_')) {
               const rawOffset = payload.replace('MORE_AFFORDABLE_', '');
-              const offset = isNaN(parseInt(rawOffset)) ? 0 : parseInt(rawOffset);
-              await sendMessenger8CardGallery(senderId, 'affordable', offset);
+              const offset = parseInt(rawOffset, 10);
+              await sendMessenger8CardGallery(senderId, 'affordable', isNaN(offset) ? 0 : offset);
             } else if (payload.startsWith('MORE_PREMIUM_')) {
               const rawOffset = payload.replace('MORE_PREMIUM_', '');
-              const offset = isNaN(parseInt(rawOffset)) ? 0 : parseInt(rawOffset);
-              await sendMessenger8CardGallery(senderId, 'premium', offset);
+              const offset = parseInt(rawOffset, 10);
+              await sendMessenger8CardGallery(senderId, 'premium', isNaN(offset) ? 0 : offset);
             } else if (payload === 'BTN_AFFORDABLE' || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল')) {
               await sendMessenger8CardGallery(senderId, 'affordable', 0);
             } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
@@ -409,7 +398,7 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', welcomeText);
             }
           }
-        });
+        }
 
         return res.status(200).send('EVENT_RECEIVED');
       }
