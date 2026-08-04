@@ -138,18 +138,25 @@ const PRICE_LIST_MSG = `💰 আমাদের বিয়ের কার্�
 // Deduplication map in memory
 const processedEvents = new Set();
 
-// Helper to send text message with Vertical Stacked Buttons in Messenger
+// Helper to send text message with ALL 5 Buttons via Quick Replies or Button Template
 async function sendMessengerText(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
   let payload;
-  if (buttons.length > 0) {
-    const validButtons = buttons.slice(0, 3).map(b => ({
-      type: "postback",
-      title: b.title.substring(0, 20),
-      payload: b.payload
-    }));
-
+  if (buttons.length > 3) {
+    // Quick Replies support up to 13 buttons at once in 1 single message!
+    payload = {
+      recipient: { id: recipientId },
+      message: {
+        text: text,
+        quick_replies: buttons.map(b => ({
+          content_type: "text",
+          title: b.title.substring(0, 20),
+          payload: b.payload
+        }))
+      }
+    };
+  } else if (buttons.length > 0) {
     payload = {
       recipient: { id: recipientId },
       message: {
@@ -158,7 +165,11 @@ async function sendMessengerText(recipientId, text, buttons = []) {
           payload: {
             template_type: "button",
             text: text,
-            buttons: validButtons
+            buttons: buttons.map(b => ({
+              type: "postback",
+              title: b.title.substring(0, 20),
+              payload: b.payload
+            }))
           }
         }
       }
@@ -221,22 +232,16 @@ async function sendMessengerImage(recipientId, imageUrl) {
   }
 }
 
-// Helper to send ALL 5 Buttons in 2 Stacked Blocks
+// Send ALL 5 Buttons in 1 single message block!
 async function send5MessengerButtons(recipientId, messageText) {
-  // Block 1 (3 Buttons)
-  const buttons1 = [
+  const all5Buttons = [
     { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
     { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-    { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
-  ];
-  await sendMessengerText(recipientId, messageText, buttons1);
-
-  // Block 2 (2 Buttons) - Total 5 Buttons!
-  const buttons2 = [
+    { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" },
     { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
     { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
   ];
-  await sendMessengerText(recipientId, "অর্ডার করতে বা সুবিধা জানতে নিচের বাটনগুলোতে চাপ দিন:", buttons2);
+  await sendMessengerText(recipientId, messageText, all5Buttons);
 }
 
 // Send ALL 8 Card Photos in 1 single HTTP request via Generic Template Carousel (100% guaranteed delivery) + ALL 5 BUTTONS!
@@ -275,7 +280,6 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
     const data = await res.json();
     if (!res.ok) {
       console.error('Messenger Carousel Error:', JSON.stringify(data));
-      // Fallback to sending image messages if carousel template is rejected
       for (const id of batch) {
         await sendMessengerImage(recipientId, directCdnUrl(id));
       }
@@ -286,25 +290,21 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
 
   await new Promise(r => setTimeout(r, 400));
 
-  // 2. Send ALL 5 Action Buttons in 2 Stacked Blocks!
+  // 2. Send ALL 5 Action Buttons in 1 single Quick Reply Message!
   const nextOffset = offset + batch.length;
   const hasMore = nextOffset < idsList.length;
 
-  const buttons1 = [];
+  const galleryButtons = [];
   if (hasMore) {
-    buttons1.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
+    galleryButtons.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
   }
-  buttons1.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
-  buttons1.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
+  galleryButtons.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
+  galleryButtons.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
+  galleryButtons.push({ title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" });
+  galleryButtons.push({ title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" });
 
-  const text1 = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)`;
-  await sendMessengerText(recipientId, text1, buttons1);
-
-  const buttons2 = [
-    { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
-    { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
-  ];
-  await sendMessengerText(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
+  const text1 = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nনিচের ৫টি অপশনের যেকোনোটিতে চাপ দিন:`;
+  await sendMessengerText(recipientId, text1, galleryButtons);
 
   appendMessage(recipientId, 'bot', text1);
 }
