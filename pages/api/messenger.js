@@ -308,24 +308,25 @@ async function send5PermanentButtons(recipientId, mainText) {
   await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
 }
 
-// Send 8 Direct Full-Size Card Photo Attachments (Matching User Screenshot)!
-async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
+// Send 4 Direct Full-Size Card Photo Attachments then Buttons (fast, no timeout)!
+async function sendMessengerCardGallery(recipientId, type = 'affordable', offset = 0) {
+  const BATCH = 4;
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
-  const batch = idsList.slice(currentOffset, currentOffset + 8);
+  const batch = idsList.slice(currentOffset, currentOffset + BATCH);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
 
-  // 1. Send all 8 photos sequentially as DIRECT FULL-SIZE IMAGE ATTACHMENTS!
-  for (let i = 0; i < batch.length; i++) {
-    const id = batch[i];
-    await sendMessengerImage(recipientId, id);
-    appendMessage(recipientId, 'bot', `🌸 ${typeLabel} Card #${currentOffset + i + 1}`, `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`);
-    await new Promise(r => setTimeout(r, 300));
+  // 1. Send photos in parallel pairs for speed (2 at a time)
+  for (let i = 0; i < batch.length; i += 2) {
+    const promises = [];
+    promises.push(sendMessengerImage(recipientId, batch[i]));
+    if (i + 1 < batch.length) {
+      promises.push(sendMessengerImage(recipientId, batch[i + 1]));
+    }
+    await Promise.all(promises);
   }
 
-  await new Promise(r => setTimeout(r, 400));
-
-  // 2. Build PERMANENT VERTICAL BUTTONS attached inside the white message bubble!
+  // 2. Build PERMANENT VERTICAL BUTTONS
   let nextOffset = currentOffset + batch.length;
   if (nextOffset >= idsList.length) {
     nextOffset = 0;
@@ -337,16 +338,14 @@ async function sendMessenger8CardGallery(recipientId, type = 'affordable', offse
     { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
   ];
 
-  const text1 = `🌸 BOONDHON ${typeLabel} গ্যালারি (${currentOffset + 1} - ${currentOffset + batch.length} / ${idsList.length} নম্বর ডিজাইন)\n\nপরের ৮টি ছবি দেখতে "👉 আরও দেখুন" চাপুন:`;
+  const text1 = `🌸 ${typeLabel} গ্যালারি (${currentOffset + 1} - ${currentOffset + batch.length} / ${idsList.length})\n\n"👉 আরও দেখুন" চাপুন:`;
   await sendMessengerButtonBlock(recipientId, text1, buttons1);
-
-  await new Promise(r => setTimeout(r, 300));
 
   const buttons2 = [
     { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
     { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
   ];
-  await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা ডেলিভারি পলিসি দেখতে নিচের বাটন চাপুন:", buttons2);
+  await sendMessengerButtonBlock(recipientId, "অর্ডার বা ডেলিভারি পলিসি দেখুন:", buttons2);
 
   appendMessage(recipientId, 'bot', text1);
 }
@@ -399,15 +398,15 @@ export default async function handler(req, res) {
             if (payload.startsWith('MORE_AFFORDABLE_')) {
               const rawOffset = payload.replace('MORE_AFFORDABLE_', '');
               const offset = parseInt(rawOffset, 10);
-              await sendMessenger8CardGallery(senderId, 'affordable', isNaN(offset) ? 0 : offset);
+              await sendMessengerCardGallery(senderId, 'affordable', isNaN(offset) ? 0 : offset);
             } else if (payload.startsWith('MORE_PREMIUM_')) {
               const rawOffset = payload.replace('MORE_PREMIUM_', '');
               const offset = parseInt(rawOffset, 10);
-              await sendMessenger8CardGallery(senderId, 'premium', isNaN(offset) ? 0 : offset);
+              await sendMessengerCardGallery(senderId, 'premium', isNaN(offset) ? 0 : offset);
             } else if (payload === 'BTN_AFFORDABLE' || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল')) {
-              await sendMessenger8CardGallery(senderId, 'affordable', 0);
+              await sendMessengerCardGallery(senderId, 'affordable', 0);
             } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
-              await sendMessenger8CardGallery(senderId, 'premium', 0);
+              await sendMessengerCardGallery(senderId, 'premium', 0);
             } else if (payload === 'BTN_POLICY' || txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ডেলিভারি') || txt.includes('কুরিয়ার')) {
               await send5PermanentButtons(senderId, ORDER_RULES_MSG);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
