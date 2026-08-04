@@ -308,23 +308,16 @@ async function send5PermanentButtons(recipientId, mainText) {
   await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
 }
 
-// Send 4 Direct Full-Size Card Photo Attachments then Buttons (fast, no timeout)!
+// Send 8 Direct Full-Size Card Photo Attachments then Buttons!
 async function sendMessengerCardGallery(recipientId, type = 'affordable', offset = 0) {
-  const BATCH = 4;
+  const BATCH = 8;
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
   const batch = idsList.slice(currentOffset, currentOffset + BATCH);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
 
-  // 1. Send photos in parallel pairs for speed (2 at a time)
-  for (let i = 0; i < batch.length; i += 2) {
-    const promises = [];
-    promises.push(sendMessengerImage(recipientId, batch[i]));
-    if (i + 1 < batch.length) {
-      promises.push(sendMessengerImage(recipientId, batch[i + 1]));
-    }
-    await Promise.all(promises);
-  }
+  // 1. Send ALL 8 photos in parallel at once (fast, no timeout!)
+  await Promise.all(batch.map(id => sendMessengerImage(recipientId, id)));
 
   // 2. Build PERMANENT VERTICAL BUTTONS
   let nextOffset = currentOffset + batch.length;
