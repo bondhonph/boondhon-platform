@@ -15,7 +15,7 @@ const PREMIUM_IDS = [
   "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB"
 ];
 
-const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
+const driveUrl = (id) => `https://boondhon-platform-qr9a.vercel.app/api/img?id=${id}`;
 
 const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
 
@@ -102,7 +102,7 @@ async function sendMessengerText(recipientId, text, buttons = []) {
   if (buttons.length > 0) {
     const validButtons = buttons.slice(0, 3).map(b => ({
       type: "postback",
-      title: b.title.substring(0, 20), // Enforce Meta 20-char title limit
+      title: b.title.substring(0, 20),
       payload: b.payload
     }));
 
@@ -136,7 +136,6 @@ async function sendMessengerText(recipientId, text, buttons = []) {
     const data = await response.json();
     if (!response.ok) {
       console.error('Messenger API Send Error:', JSON.stringify(data));
-      // Fallback: If template fails, send pure text
       if (buttons.length > 0) {
         await fetch(url, {
           method: 'POST',
