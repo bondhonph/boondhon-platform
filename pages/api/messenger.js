@@ -392,10 +392,12 @@ export default async function handler(req, res) {
             appendMessage(senderId, 'customer', text);
 
             if (payload.startsWith('MORE_AFFORDABLE_')) {
-              const offset = parseInt(payload.replace('MORE_AFFORDABLE_', '')) || 8;
+              const rawOffset = payload.replace('MORE_AFFORDABLE_', '');
+              const offset = isNaN(parseInt(rawOffset)) ? 0 : parseInt(rawOffset);
               await sendMessenger8CardGallery(senderId, 'affordable', offset);
             } else if (payload.startsWith('MORE_PREMIUM_')) {
-              const offset = parseInt(payload.replace('MORE_PREMIUM_', '')) || 8;
+              const rawOffset = payload.replace('MORE_PREMIUM_', '');
+              const offset = isNaN(parseInt(rawOffset)) ? 0 : parseInt(rawOffset);
               await sendMessenger8CardGallery(senderId, 'premium', offset);
             } else if (payload === 'BTN_AFFORDABLE' || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল')) {
               await sendMessenger8CardGallery(senderId, 'affordable', 0);
