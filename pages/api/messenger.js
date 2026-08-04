@@ -227,6 +227,34 @@ async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   }
 }
 
+// Send Direct Full-Size Image Attachment via Facebook Messenger API
+async function sendMessengerImage(recipientId, imageUrl) {
+  const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
+  const payload = {
+    recipient: { id: recipientId },
+    message: {
+      attachment: {
+        type: "image",
+        payload: { url: imageUrl, is_reusable: true }
+      }
+    }
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      console.error('Messenger Image Direct Send Error:', JSON.stringify(data));
+    }
+  } catch (err) {
+    console.error('Error sending image:', err);
+  }
+}
+
 // Send Plain Text Message
 async function sendMessengerText(recipientId, text) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
@@ -262,37 +290,20 @@ async function send5PermanentButtons(recipientId, mainText) {
   await sendMessengerButtonBlock(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
 }
 
-// Send 8 Card Gallery Batch WITHOUT repeating Welcome Message!
+// Send 8 Direct Full-Size Card Photo Attachments (Exactly matching User's Screenshot)!
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
   const batch = idsList.slice(currentOffset, currentOffset + 8);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
-  const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
-  // 1. Send Batch of 8 Card Images via Meta Generic Template Carousel!
-  const elements = batch.map((id, index) => ({
-    title: `🌸 ${typeLabel} Card #${currentOffset + index + 1}`,
-    subtitle: `BOONDHON Printing House`,
-    image_url: directCdnUrl(id)
-  }));
-
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipient: { id: recipientId },
-        message: {
-          attachment: {
-            type: "template",
-            payload: { template_type: "generic", elements: elements }
-          }
-        }
-      })
-    });
-  } catch (err) {
-    console.error('Error sending carousel batch:', err);
+  // 1. Send all 8 photos sequentially as DIRECT FULL-SIZE IMAGE ATTACHMENTS!
+  for (let i = 0; i < batch.length; i++) {
+    const id = batch[i];
+    const imgUrl = directCdnUrl(id);
+    await sendMessengerImage(recipientId, imgUrl);
+    appendMessage(recipientId, 'bot', `🌸 ${typeLabel} Card #${currentOffset + i + 1}`, imgUrl);
+    await new Promise(r => setTimeout(r, 250));
   }
 
   await new Promise(r => setTimeout(r, 400));
@@ -392,7 +403,6 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
             } else {
-              // Welcome message is ONLY sent ONCE when starting conversation or greeting!
               const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন ও সুবিধা দেখতে নিচের ৫টি বাটনের যেকোনো একটিতে ক্লিক করুন:`;
               await send5PermanentButtons(senderId, welcomeText);
               appendMessage(senderId, 'bot', welcomeText);
