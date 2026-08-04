@@ -15,8 +15,7 @@ const PREMIUM_IDS = [
   "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB"
 ];
 
-const lh3CdnUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
-const proxyCdnUrl = (id) => `https://boondhon-platform-qr9a.vercel.app/api/img?id=${id}`;
+const directCdnUrl = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
 
 const PAGE_ACCESS_TOKEN = (process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD").trim();
 
@@ -194,8 +193,8 @@ async function sendMessengerText(recipientId, text, buttons = []) {
   }
 }
 
-// Send image message with automatic fallback URL
-async function sendMessengerImage(recipientId, imageUrl, fallbackUrl) {
+// Send image message
+async function sendMessengerImage(recipientId, imageUrl) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
   const payload = {
     recipient: { id: recipientId },
@@ -215,60 +214,99 @@ async function sendMessengerImage(recipientId, imageUrl, fallbackUrl) {
     });
     if (!res.ok) {
       const data = await res.json();
-      console.error('Messenger Image Primary URL Error:', JSON.stringify(data));
-
-      if (fallbackUrl) {
-        await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipient: { id: recipientId },
-            message: {
-              attachment: {
-                type: "image",
-                payload: { url: fallbackUrl, is_reusable: true }
-              }
-            }
-          })
-        });
-      }
+      console.error('Messenger Image Send Error:', JSON.stringify(data));
     }
   } catch (err) {
     console.error('Error sending image:', err);
   }
 }
 
-// Send ALL 8 Card Photos using high-speed parallel promises so 100% of images deliver!
+// Helper to send ALL 5 Buttons in 2 Stacked Blocks
+async function send5MessengerButtons(recipientId, messageText) {
+  // Block 1 (3 Buttons)
+  const buttons1 = [
+    { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
+    { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
+    { title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" }
+  ];
+  await sendMessengerText(recipientId, messageText, buttons1);
+
+  // Block 2 (2 Buttons) - Total 5 Buttons!
+  const buttons2 = [
+    { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
+    { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
+  ];
+  await sendMessengerText(recipientId, "অর্ডার করতে বা সুবিধা জানতে নিচের বাটনগুলোতে চাপ দিন:", buttons2);
+}
+
+// Send ALL 8 Card Photos in 1 single HTTP request via Generic Template Carousel (100% guaranteed delivery) + ALL 5 BUTTONS!
 async function sendMessenger8CardGallery(recipientId, type = 'affordable', offset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = idsList.slice(offset, offset + 8);
   const typeLabel = type === 'premium' ? 'Premium' : 'Affordable';
+  const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
-  // Dispatch all image requests in parallel so all 8 images arrive 100% reliably
-  const imagePromises = batch.map((id, i) => {
-    const imgUrl = lh3CdnUrl(id);
-    const altUrl = proxyCdnUrl(id);
-    appendMessage(recipientId, 'bot', `🌸 ${typeLabel} Card #${offset + i + 1}`, imgUrl);
-    return sendMessengerImage(recipientId, imgUrl, altUrl);
-  });
+  // 1. Send ALL 8 Card Images in 1 single Meta API call!
+  const elements = batch.map((id, index) => ({
+    title: `🌸 ${typeLabel} Card #${offset + index + 1}`,
+    subtitle: `BOONDHON Printing House`,
+    image_url: directCdnUrl(id)
+  }));
 
-  await Promise.all(imagePromises);
+  const carouselPayload = {
+    recipient: { id: recipientId },
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "generic",
+          elements: elements
+        }
+      }
+    }
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(carouselPayload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('Messenger Carousel Error:', JSON.stringify(data));
+      // Fallback to sending image messages if carousel template is rejected
+      for (const id of batch) {
+        await sendMessengerImage(recipientId, directCdnUrl(id));
+      }
+    }
+  } catch (err) {
+    console.error('Error sending carousel:', err);
+  }
+
   await new Promise(r => setTimeout(r, 400));
 
-  // Prepare action buttons including Delivery Policy & Order Forms
+  // 2. Send ALL 5 Action Buttons in 2 Stacked Blocks!
   const nextOffset = offset + batch.length;
   const hasMore = nextOffset < idsList.length;
 
-  const buttons = [];
+  const buttons1 = [];
   if (hasMore) {
-    buttons.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
+    buttons1.push({ title: "👉 আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` });
   }
-  buttons.push({ title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" });
-  buttons.push({ title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" });
+  buttons1.push({ title: type === 'premium' ? "💚 Affordable Card" : "✨ Premium Card", payload: type === 'premium' ? "BTN_AFFORDABLE" : "BTN_PREMIUM" });
+  buttons1.push({ title: "💰 মূল্য তালিকা", payload: "BTN_PRICE" });
 
-  const text = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)\n\nনিচের অপশনে চাপ দিয়ে অর্ডার ফর্ম বা ডেলিভারি পলিসি দেখুন:`;
-  await sendMessengerText(recipientId, text, buttons);
-  appendMessage(recipientId, 'bot', text);
+  const text1 = `🌸 BOONDHON ${typeLabel} গ্যালারি (${offset + 1} - ${offset + batch.length} নম্বর ডিজাইন)`;
+  await sendMessengerText(recipientId, text1, buttons1);
+
+  const buttons2 = [
+    { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" },
+    { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
+  ];
+  await sendMessengerText(recipientId, "অর্ডার করতে বা অন্যান্য সার্ভিস দেখতে নিচের বাটন চাপুন:", buttons2);
+
+  appendMessage(recipientId, 'bot', text1);
 }
 
 export default async function handler(req, res) {
@@ -332,40 +370,23 @@ export default async function handler(req, res) {
             } else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
               await sendMessenger8CardGallery(senderId, 'premium', 0);
             } else if (payload === 'BTN_POLICY' || txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ডেলিভারি') || txt.includes('কুরিয়ার')) {
-              await sendMessengerText(senderId, ORDER_RULES_MSG, [
-                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-                { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" }
-              ]);
+              await send5MessengerButtons(senderId, ORDER_RULES_MSG);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             } else if (payload === 'BTN_PRICE' || txt.includes('price') || txt.includes('দাম') || txt.includes('মূল্য') || txt.includes('কত')) {
-              await sendMessengerText(senderId, PRICE_LIST_MSG, [
-                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-                { title: "📝 বাংলা ও Eng ফর্ম", payload: "BTN_FORM" }
-              ]);
+              await send5MessengerButtons(senderId, PRICE_LIST_MSG);
               appendMessage(senderId, 'bot', PRICE_LIST_MSG);
             } else if (payload === 'BTN_FORM' || txt.includes('form') || txt.includes('ফর্ম')) {
               await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
-              await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT, [
-                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-                { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
-              ]);
+              await send5MessengerButtons(senderId, ENGLISH_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
             } else {
-              const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন ও সুবিধা দেখতে নিচের বাটনে ক্লিক করুন:`;
-              const buttons = [
-                { title: "💚 Affordable Card", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium Card", payload: "BTN_PREMIUM" },
-                { title: "🚚 ডেলিভারি পলিসি", payload: "BTN_POLICY" }
-              ];
-              await sendMessengerText(senderId, welcomeText, buttons);
+              const welcomeText = `আসসালামু আলাইকুম! আমি বন্ধন প্রিন্টিং হাউস থেকে অনন্যা বলছি। কেমন আছেন আপনি? 🌸\n\nএখন আমাদের একটা দারুণ ধামাকা অফার চলছে—২০০ পিস কার্ডের সাথে ১টি প্রিমিয়াম নিকাহনামা সম্পূর্ণ ফ্রি! 🎁\n\nকার্ডের ডিজাইন ও সুবিধা দেখতে নিচের ৫টি বাটনের যেকোনো একটিতে ক্লিক করুন:`;
+              await send5MessengerButtons(senderId, welcomeText);
               appendMessage(senderId, 'bot', welcomeText);
             }
           }
-        }
+        });
 
         return res.status(200).send('EVENT_RECEIVED');
       }
