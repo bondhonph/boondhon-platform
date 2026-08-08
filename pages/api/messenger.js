@@ -432,11 +432,24 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // Customer asked a specific question → AUTO-PAUSE bot, let human take over
-                setHumanTakeover(senderId, true);
-                const reply = "ধন্যবাদ! 😊 আমাদের টিম শীঘ্রই আপনাকে উত্তর দেবে। অনুগ্রহ করে একটু অপেক্ষা করুন! 🌸";
-                await sendMessengerText(senderId, reply);
+                // Customer asked a specific question → reply with catalog + AUTO-PAUSE for human follow-up
+                const reply = "ধন্যবাদ! 😊 আমাদের কালেকশন দেখুন, শীঘ্রই আমাদের টিম আপনার প্রশ্নের উত্তর দেবে! 🌸";
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                  { title: "Premium দেখুন", payload: "BTN_PREMIUM" },
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                ]);
                 appendMessage(senderId, 'bot', reply);
+
+                // Send 3 best images so customer stays engaged
+                for (let i = 0; i < 3; i++) {
+                  await sendMessengerImage(senderId, AFFORDABLE_IDS[i]);
+                  await delay(300);
+                }
+                appendMessage(senderId, 'bot', '📷 Affordable ডিজাইন স্যাম্পল');
+
+                // Auto-pause so human can follow up and close the sale
+                setHumanTakeover(senderId, true);
                 console.log(`AUTO-PAUSED bot for Messenger ${senderId} — customer asked: "${text}"`);
               }
             }
