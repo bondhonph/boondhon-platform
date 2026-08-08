@@ -1,4 +1,4 @@
-import { appendMessage } from '../../lib/chat-store';
+import { appendMessage, getConversation, setHumanTakeover } from '../../lib/chat-store';
 
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
@@ -262,9 +262,9 @@ async function sendMessengerText(recipientId, text) {
   }
 }
 
-// Send 3 Direct Full-Size Card Photo Attachments Sequentially then Buttons!
+// Send 8 Direct Full-Size Card Photo Attachments Sequentially then Buttons!
 async function sendSequentialGallery(recipientId, type, offset, text) {
-  const BATCH = 3;
+  const BATCH = 8;
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
   const batch = idsList.slice(currentOffset, currentOffset + BATCH);
@@ -334,11 +334,21 @@ export default async function handler(req, res) {
 
             appendMessage(senderId, 'customer', text);
 
+            // ===== HUMAN TAKEOVER CHECK =====
+            const existingConv = getConversation(senderId);
+            if (existingConv && existingConv.humanTakeover === true) {
+              console.log(`Human Takeover ACTIVE for Messenger ${senderId}. Skipping bot reply.`);
+              continue;
+            }
+
             const attachments = message?.attachments;
             let isPhoto = false;
             if (attachments && attachments.length > 0) {
               isPhoto = attachments.some(att => att.type === 'image');
             }
+
+            // Check if this is a button click (postback) or free-text
+            const isButtonClick = !!(payload || postbackPayload || quickReplyPayload);
 
             let quantity = null;
             if (payload.startsWith('QTY_')) {
@@ -382,7 +392,7 @@ export default async function handler(req, res) {
               const offset = parseInt(payload.replace('MORE_PREMIUM_', ''), 10);
               await sendSequentialGallery(senderId, 'premium', offset, "আরও দেখবেন নাকি অর্ডার করবেন? 😊");
             }
-            else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost/)) {
+            else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam/)) {
               const reply = "কত পিস কার্ড লাগবে আপনার? 😊\nপিস সংখ্যা বললে সাথে সাথে দাম জানাবো!";
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "৫০ পিস", payload: "QTY_50" },
@@ -408,13 +418,27 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             }
             else {
-              const reply = "আসসালামু আলাইকুম! 🌸\nবন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
+              // Check if customer typed a real question (not just 'hi', 'hello', Get Started etc)
+              const isGreeting = txt.match(/^(hi|hello|hey|হাই|হ্যালো|আসসালামু|assalamu|get started|start|শুরু)$/i);
+              const isFirstTime = !existingConv || !existingConv.messages || existingConv.messages.length <= 1;
+
+              if (isGreeting || isFirstTime || isButtonClick) {
+                // First time or greeting → send welcome
+                const reply = "আসসালামু আলাইকুম! 🌸\nবন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                  { title: "Premium দেখুন", payload: "BTN_PREMIUM" },
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
+              } else {
+                // Customer asked a specific question → AUTO-PAUSE bot, let human take over
+                setHumanTakeover(senderId, true);
+                const reply = "ধন্যবাদ! 😊 আমাদের টিম শীঘ্রই আপনাকে উত্তর দেবে। অনুগ্রহ করে একটু অপেক্ষা করুন! 🌸";
+                await sendMessengerText(senderId, reply);
+                appendMessage(senderId, 'bot', reply);
+                console.log(`AUTO-PAUSED bot for Messenger ${senderId} — customer asked: "${text}"`);
+              }
             }
           }
         }
