@@ -179,27 +179,32 @@ async function analyzeCardImage(photoUrl) {
     const mimeType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
 
     const prompt = `You are an expert AI Wedding Card specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
-Analyze the user's wedding card image and determine whether it is "AFFORDABLE" or "PREMIUM".
+Your task is to compare the customer's uploaded wedding card photo directly against our Google Drive catalog datasets (Affordable [83 cards] vs Premium [78 cards]):
 
-CRITICAL DISTINGUISHING FACTOR: CARD SIZE (ছোট সাইজ বনাম বড় সাইজ)
-Note: Both categories have beautiful designs, gold foil, and decorations. The main difference is the physical CARD SIZE and dimensions:
+GOOGLE DRIVE CATALOG DATASET RULES:
 
-1. "AFFORDABLE" (💚 সাশ্রয়ী কালেকশন):
-   - ছোট সাইজের কার্ড (Small / Compact / Medium standard size card).
-   - Compact proportions, standard smaller dimensions, handy pocket/single size.
-   - Price: 50 pcs = 2,750৳, 100 pcs = 4,500৳, 200 pcs = 7,000৳ (+ Free Nikahnama 🎁).
+1. "PREMIUM" (✨ প্রিমিয়াম / লাক্সারি কালেকশন - ৭৮টি ড্রাইভ ডিজাইন):
+   - বড় ও জ্যাম্বো সাইজের লাক্সারি কার্ড (Large / Jumbo format).
+   - গোল্ড ও রেড ফয়েল লেজার-কাট খিলান/গম্বুজ (Dome/Arch) কাটআউট উইন্ডো ও সাদা রিবন হ্যান্ডেল (যেমন: লাল-সোনালী বা সোনালী খিলান জ্যাকেট ফোল্ডার)।
+   - হার্ট কাটআউট জ্যাকেট যার ভেতর থেকে আলাদা কার্ড বের করতে হয় (Heart die-cut jacket with inner card).
+   - রাজকীয় জালিদার গেইটফোল্ড (Gatefold filigree lace cover), হার্ডবোর্ড বক্স, ভেলভেট, সাটিন ফিতা বা টার্সেল।
 
-2. "PREMIUM" (✨ প্রিমিয়াম / লাক্সারি কালেকশন):
-   - বড় সাইজের কার্ড (Large / Big / Jumbo luxury size card format).
-   - Wide, tall, heavy, jumbo format, large luxury folder / jacket structure.
-   - Price: 50 pcs = 3,250৳, 100 pcs = 5,500৳, 200 pcs = 9,000৳ (+ Free Nikahnama 🎁).
+2. "AFFORDABLE" (💚 সাশ্রয়ী কালেকশন - ৮৩টি ড্রাইভ ডিজাইন):
+   - ছোট ও কমপ্যাক্ট সাইজের কার্ড (Small / Compact standard format).
+   - ময়ূর (Peacock) প্রিন্টেড ফ্লোরাল বর্ডার কার্ড, সিঙ্গেল শিট ফ্ল্যাট কার্ড, সাধারণ ২-ফোল্ড আর্ট কার্ড।
+   - আর্ট পেপারের উপর সাধারণ প্রিন্ট বা ফ্ল্যাট ফয়েল ডিজাইন (যেখানে আলাদা লেজার-কাট জ্যাকেট বা উইন্ডো হ্যান্ডেল নেই)।
+
+TASK:
+- If the card matches a design in our Premium catalog -> "PREMIUM".
+- If the card matches a design in our Affordable catalog -> "AFFORDABLE".
+- If external -> determine which catalog style it is closest to.
 
 Respond in strict JSON:
 {
-  "category": "AFFORDABLE" | "PREMIUM",
+  "category": "PREMIUM" | "AFFORDABLE",
   "isExternal": false | true,
   "confidence": 0.95,
-  "reason": "কার্ডের সাইজ (ছোট বনাম বড়) ও গঠন বিশ্লেষণ"
+  "reason": "ড্রাইভ ক্যাটালগের সাথে ম্যাচিংয়ের কারণ"
 }`;
 
     const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
