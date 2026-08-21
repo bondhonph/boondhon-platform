@@ -166,29 +166,35 @@ async function analyzeCardImage(photoUrl) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyCVEkrtXT9hkllGpbyGIekH8TLgzFJvZ_I";
   try {
     const imgRes = await fetch(photoUrl);
-    if (!imgRes.ok) return null;
+    if (!imgRes.ok) {
+      console.error('Failed to fetch photoUrl from Messenger:', imgRes.status);
+      return null;
+    }
     const arrayBuffer = await imgRes.arrayBuffer();
     const base64Data = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
+    const mimeType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
 
-    const prompt = `You are the AI Wedding Card Vision Specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
-Analyze the customer's wedding card photo and accurately determine if it is "Affordable" or "Premium".
+    const prompt = `You are an expert AI Wedding Card specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
+Analyze the user's wedding card image and classify whether it is "AFFORDABLE" or "PREMIUM".
 
-IMPORTANT CATALOG CRITERIA:
-Note: Gold foil and floral motifs exist in BOTH Affordable and Premium categories. Distinguish by structure:
+CLASSIFICATION RULES:
+1. "AFFORDABLE" (💚 সাশ্রয়ী কালেকশন):
+   - Flat single-sheet card or standard 2-fold / 3-fold card on 250-300gsm art cardstock.
+   - Traditional printed floral/ornate borders, Bengali wedding motifs, screen print, or flat gold foil stamping on paper.
+   - Key identifier: It is a standard flat paper card without an intricate laser-cut lace pocket/outer jacket.
 
-1. "Affordable" (💚 সাশ্রয়ী কালেকশন):
-   - Single sheet flat card, standard single-fold cards, 2-fold standard art cardstock / offset paper.
-   - Printed traditional borders, motifs, calligraphy or gold ink/foil on flat card without laser-cut outer jackets.
-   - Price: 50 pcs = 2,750৳, 100 pcs = 4,500৳, 200 pcs = 7,000৳ (+ Free Nikahnama 🎁).
+2. "PREMIUM" (✨ প্রিমিয়াম / লাক্সারি কালেকশন):
+   - Multi-piece luxury structure: An outer intricate laser-cut die-cut lace jacket/pocket with a separate insert card inside.
+   - Ornate die-cut window (e.g. laser-cut heart, floral filigree gatefold, royal arch/dome cutout).
+   - Heavy rigid hardboard, box structure, velvet, satin ribbons, or tassels.
 
-2. "Premium" (✨ প্রিমিয়াম / লাক্সারি কালেকশন):
-   - Multi-layered / multi-piece luxury structure: Outer decorative jacket/folder with separate inner card insert.
-   - Intricate laser-cut die-cuts (e.g. heart cutout, floral lace gatefold, arch opening), hardboard / heavy rigid structure, ribbons, tassels, or luxury 3D envelope jackets.
-   - Price: 50 pcs = 3,250৳, 100 pcs = 5,500৳, 200 pcs = 9,000৳ (+ Free Nikahnama 🎁).
-
-OUTPUT STRICT JSON ONLY:
-{"category":"PREMIUM"|"AFFORDABLE","isExternal":false|true,"summary":"short description"}`;
+Respond with valid JSON:
+{
+  "category": "AFFORDABLE" | "PREMIUM",
+  "isExternal": false | true,
+  "confidence": 0.95,
+  "reason": "short explanation in Bengali"
+}`;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     const geminiRes = await fetch(geminiUrl, {
@@ -202,28 +208,44 @@ OUTPUT STRICT JSON ONLY:
               { text: prompt },
               {
                 inline_data: {
-                  mime_type: mimeType.split(';')[0],
+                  mime_type: mimeType,
                   data: base64Data
                 }
               }
             ]
           }
         ],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 300,
+          responseMimeType: "application/json"
+        }
       })
     });
 
     if (!geminiRes.ok) {
-      console.error('Gemini Vision Error:', await geminiRes.text());
+      const errText = await geminiRes.text();
+      console.error('Gemini Vision API Error:', errText);
       return null;
     }
 
     const data = await geminiRes.json();
     const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = textOut.replace(/```json|```/g, '').trim();
-    return JSON.parse(cleanJson);
+    
+    // Robust JSON extraction
+    const jsonMatch = textOut.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log('Card Vision Analysis Result:', JSON.stringify(parsed));
+      return {
+        category: (parsed.category || '').toUpperCase().includes('PREM') ? 'PREMIUM' : 'AFFORDABLE',
+        isExternal: Boolean(parsed.isExternal),
+        reason: parsed.reason || ''
+      };
+    }
+    return null;
   } catch (err) {
-    console.error('Card Image Analysis Failed:', err);
+    console.error('Card Image Analysis Exception:', err);
     return null;
   }
 }
@@ -591,7 +613,7 @@ export default async function handler(req, res) {
             // ===== PHOTO UPLOADED — SMART CARD ANALYSIS =====
             if (isPhoto && photoUrl) {
               const analysis = await analyzeCardImage(photoUrl);
-              const category = analysis ? (analysis.category === 'PREMIUM' ? 'premium' : 'affordable') : 'premium';
+              const category = analysis ? (analysis.category === 'PREMIUM' ? 'premium' : 'affordable') : 'affordable';
               const isExternal = analysis ? analysis.isExternal : false;
               
               // Track current category context
@@ -627,12 +649,12 @@ export default async function handler(req, res) {
                 const sampleImages = getUnseenImages(senderId, idsList, 3);
                 for (const imgId of sampleImages) {
                   await sendMessengerImage(senderId, imgId);
-                  await delay(300);
+                  await delay(250);
                 }
 
                 const followUp = "এই ডিজাইনগুলো কেমন লাগলো? আরও দেখতে চাইলে বলুন! 😊";
                 await sendMessengerButtonBlock(senderId, followUp, [
-                  { title: "আরও দেখুন", payload: `MORE_${category.toUpperCase()}` },
+                  { title: "আরও দেখুন", payload: `MORE_${category.toUpperCase()}_0` },
                   oppositeBtn,
                   { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
