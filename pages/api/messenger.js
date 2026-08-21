@@ -200,41 +200,52 @@ Respond with valid JSON:
   "reason": "short explanation in Bengali"
 }`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    let textOut = '';
+
+    for (const modelName of modelsToTry) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
               {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data
-                }
+                role: 'user',
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data
+                    }
+                  }
+                ]
               }
-            ]
+            ],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 300,
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        if (geminiRes.ok) {
+          const data = await geminiRes.json();
+          textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (textOut) {
+            console.log(`Gemini Vision succeeded with model: ${modelName}`);
+            break;
           }
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 300,
-          responseMimeType: "application/json"
+        } else {
+          console.warn(`Vision model ${modelName} failed (${geminiRes.status}):`, await geminiRes.text());
         }
-      })
-    });
-
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('Gemini Vision API Error:', errText);
-      return null;
+      } catch (callErr) {
+        console.warn(`Vision model ${modelName} call exception:`, callErr.message);
+      }
     }
-
-    const data = await geminiRes.json();
-    const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     // Robust JSON extraction
     const jsonMatch = textOut.match(/\{[\s\S]*\}/);
@@ -308,24 +319,30 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
     // Add current message
     recentMsgs.push({ role: 'user', parts: [{ text: customerMessage }] });
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: recentMsgs,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
-      })
-    });
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    for (const modelName of modelsToTry) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: recentMsgs,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
+          })
+        });
 
-    if (!geminiRes.ok) {
-      console.error('Gemini AI Brain Error:', await geminiRes.text());
-      return null;
+        if (geminiRes.ok) {
+          const data = await geminiRes.json();
+          const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (reply) return reply;
+        }
+      } catch (mErr) {
+        console.warn(`Sales brain model ${modelName} error:`, mErr.message);
+      }
     }
-
-    const data = await geminiRes.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+    return null;
   } catch (err) {
     console.error('AI Sales Brain Error:', err);
     return null;
