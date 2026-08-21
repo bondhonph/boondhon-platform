@@ -228,6 +228,83 @@ OUTPUT STRICT JSON ONLY:
   }
 }
 
+// ===== GEMINI AI SALES BRAIN =====
+async function generateAISalesResponse(senderId, customerMessage, conversationHistory) {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyCVEkrtXT9hkllGpbyGIekH8TLgzFJvZ_I";
+  
+  const systemPrompt = `তুমি "বন্ধন প্রিন্টিং হাউস" এর AI সেলস অ্যাসিস্ট্যান্ট। তুমি মানিকগঞ্জ থেকে বিয়ের কার্ড বিক্রি করো।
+তোমার নাম: বন্ধন অ্যাসিস্ট্যান্ট।
+
+🎯 তোমার মূল লক্ষ্য: কাস্টমারের সাথে বন্ধুত্বপূর্ণ কথা বলে তাদের অর্ডার কনফার্ম করানো (সেল ক্লোজ)।
+
+📦 প্রোডাক্ট ক্যাটালগ:
+১. 💚 Affordable (সাশ্রয়ী) কালেকশন:
+   - সিম্পল, সুন্দর ডিজাইন। সিঙ্গেল শিট/ফোল্ড কার্ড।
+   - ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)
+   - ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)
+   - ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ফ্রি নিকাহনামা 🎁)
+
+২. ✨ Premium (প্রিমিয়াম/লাক্সারি) কালেকশন:
+   - লেজার কাট, গোল্ড ফয়েল, হার্ডবোর্ড জ্যাকেট, রিবন।
+   - ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)
+   - ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)
+   - ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ফ্রি নিকাহনামা 🎁)
+
+💳 অর্ডার প্রক্রিয়া:
+- ৩০% অ্যাডভান্স: বিকাশ/নগদ/রকেট 01682588856
+- ডিজাইনার ডিজাইন তৈরি করে পাঠাবে
+- ডেলিভারি: ৫-৭ কর্মদিবস
+- জেলা শহরে ক্যাশ অন ডেলিভারি
+
+🗣️ কথা বলার নিয়ম:
+- বাংলায় কথা বলো, ইমোজি ব্যবহার করো
+- ছোট ছোট বাক্যে কথা বলো, বেশি লম্বা করো না (সর্বোচ্চ ৩-৪ লাইন)
+- কাস্টমার যা জিজ্ঞেস করে সরাসরি উত্তর দাও
+- বিয়ের শুভেচ্ছা জানাও, উৎসাহ দাও
+- কখনো ২টা ক্যাটাগরির দাম একসাথে বোলো না, আগে জানো কাস্টমার কোনটা চায়
+- কাস্টমারকে কার্ড দেখতে বলো বা পিস সংখ্যা জিজ্ঞেস করো
+- সবসময় একটা পরবর্তী পদক্ষেপ (next action) সাজেস্ট করো
+
+⚠️ গুরুত্বপূর্ণ:
+- শুধু টেক্সট রিপ্লাই দাও, কোনো মার্কডাউন/কোড ফর্ম্যাট না
+- ১৫০ শব্দের বেশি লিখো না
+- কাস্টমার কাস্টম/নিজের ডিজাইন চাইলে বলো আমরা কাস্টম ডিজাইনও করি
+- প্রতিযোগীদের নিয়ে নেতিবাচক কথা বোলো না`;
+
+  try {
+    // Build conversation context (last 10 messages)
+    const recentMsgs = (conversationHistory || []).slice(-10).map(msg => ({
+      role: msg.sender === 'customer' ? 'user' : 'model',
+      parts: [{ text: msg.text || '(media)' }]
+    }));
+
+    // Add current message
+    recentMsgs.push({ role: 'user', parts: [{ text: customerMessage }] });
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiRes = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: recentMsgs,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
+      })
+    });
+
+    if (!geminiRes.ok) {
+      console.error('Gemini AI Brain Error:', await geminiRes.text());
+      return null;
+    }
+
+    const data = await geminiRes.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+  } catch (err) {
+    console.error('AI Sales Brain Error:', err);
+    return null;
+  }
+}
+
 // Helper to send Native Button Template (max 3 buttons per Meta's limit)
 async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
@@ -393,7 +470,23 @@ export default async function handler(req, res) {
           if (webhookEvent) {
             if (webhookEvent.delivery || webhookEvent.read) continue;
 
-            if (webhookEvent.message?.is_echo && webhookEvent.message?.app_id === "2563899990649523") {
+            // ===== ECHO DETECTION: Admin manual reply → auto-takeover =====
+            if (webhookEvent.message?.is_echo) {
+              const echoAppId = webhookEvent.message?.app_id;
+              const BOT_APP_ID = "2563899990649523";
+              
+              if (echoAppId === BOT_APP_ID) {
+                // Bot's own echo → skip silently
+                continue;
+              }
+              
+              // Admin/human replied from Page Inbox → activate human takeover
+              const recipientId = webhookEvent.recipient?.id;
+              if (recipientId) {
+                setHumanTakeover(recipientId, true);
+                appendMessage(recipientId, 'admin', webhookEvent.message?.text || '(admin reply)');
+                console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — admin replied manually`);
+              }
               continue;
             }
 
@@ -412,22 +505,24 @@ export default async function handler(req, res) {
 
             appendMessage(senderId, 'customer', text);
 
-            // ===== HUMAN TAKEOVER CHECK =====
+            // ===== HUMAN TAKEOVER CHECK WITH AUTO-RESUME =====
             const existingConv = getConversation(senderId);
+            const AUTO_RESUME_MS = 15 * 60 * 1000; // 15 minutes
             
-            // If customer explicitly requests human takeover via button
-            if (payload === 'BTN_HUMAN' || txt.match(/human|মানুষ|সাপোর্ট|support|representative|agent/i)) {
-              setHumanTakeover(senderId, true);
-              const reply = "🙋‍♂️ আমাদের একজন প্রতিনিধি শীঘ্রই আপনার সাথে কথা বলবেন। অনুগ্রহ করে একটু অপেক্ষা করুন! 😊\n\n(বট এখন পজ করা হয়েছে — মানুষ রিপ্লাই দিবে)";
-              await sendMessengerText(senderId, reply);
-              appendMessage(senderId, 'bot', reply);
-              continue;
-            }
-            
-            // If human takeover is active, skip all bot replies
             if (existingConv && existingConv.humanTakeover === true) {
-              console.log(`Human Takeover ACTIVE for Messenger ${senderId}. Skipping bot reply.`);
-              continue;
+              const lastAdmin = existingConv.lastAdminReplyTime || 0;
+              const elapsed = Date.now() - lastAdmin;
+              
+              if (elapsed > AUTO_RESUME_MS) {
+                // Admin inactive > 15 min → auto-resume bot
+                setHumanTakeover(senderId, false);
+                console.log(`🤖 BOT AUTO-RESUMED for ${senderId} — admin inactive ${Math.round(elapsed/60000)} min`);
+                // Fall through to bot logic below
+              } else {
+                // Admin still active → skip bot reply
+                console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Admin replied ${Math.round(elapsed/60000)} min ago. Skipping bot.`);
+                continue;
+              }
             }
 
             const attachments = message?.attachments;
@@ -614,7 +709,7 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // Unknown question — offer catalog + human support (no auto-pause)
+                // ===== AI SALES BRAIN — Smart conversational reply =====
                 const currentCat = getCurrentCategory(senderId);
                 const catBtn = currentCat === 'premium'
                   ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
@@ -622,7 +717,11 @@ export default async function handler(req, res) {
                     ? { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
                     : { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" };
 
-                const reply = "ধন্যবাদ! 😊 আপনার প্রশ্নের উত্তর দিতে আমাদের টিমকে জানাচ্ছি। এদিকে আমাদের কালেকশন দেখুন! 🌸";
+                // Get AI response using conversation history
+                const convHistory = existingConv?.messages || [];
+                const aiReply = await generateAISalesResponse(senderId, text, convHistory);
+                
+                const reply = aiReply || "ধন্যবাদ! 😊 আমাদের কালেকশন দেখতে নিচের বাটনে ক্লিক করুন!";
                 await sendMessengerButtonBlock(senderId, reply, [
                   catBtn,
                   { title: "দাম জানুন", payload: "BTN_PRICE" },
