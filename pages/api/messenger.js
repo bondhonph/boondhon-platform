@@ -360,7 +360,7 @@ async function sendSequentialGallery(recipientId, type, text) {
   const buttons = [
     { title: "আরও দেখুন", payload: `MORE_${type.toUpperCase()}` },
     switchBtn,
-    { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+    { title: "অর্ডার করবো", payload: "BTN_ORDER" }
   ];
 
   await sendMessengerButtonBlock(recipientId, text, buttons);
@@ -478,7 +478,7 @@ export default async function handler(req, res) {
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                   oppositeBtn,
-                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
@@ -501,7 +501,7 @@ export default async function handler(req, res) {
                 await sendMessengerButtonBlock(senderId, followUp, [
                   { title: "আরও দেখুন", payload: `MORE_${category.toUpperCase()}` },
                   oppositeBtn,
-                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
                 appendMessage(senderId, 'bot', followUp);
               }
@@ -518,7 +518,7 @@ export default async function handler(req, res) {
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                 oppositeBtn,
-                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -546,7 +546,7 @@ export default async function handler(req, res) {
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                   oppositeBtn,
-                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
@@ -555,7 +555,7 @@ export default async function handler(req, res) {
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "💚 Affordable", payload: "BTN_AFFORDABLE_PRICE" },
                   { title: "✨ Premium", payload: "BTN_PREMIUM_PRICE" },
-                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               }
@@ -567,7 +567,7 @@ export default async function handler(req, res) {
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                 { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                { title: "✨ Premium দাম", payload: "BTN_PREMIUM_PRICE" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -577,7 +577,7 @@ export default async function handler(req, res) {
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
                 { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                { title: "💚 Affordable দাম", payload: "BTN_AFFORDABLE_PRICE" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -587,7 +587,7 @@ export default async function handler(req, res) {
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
                 { title: "ডেলিভারি পলিসি", payload: "BTN_POLICY" },
-                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -626,7 +626,7 @@ export default async function handler(req, res) {
                 await sendMessengerButtonBlock(senderId, reply, [
                   catBtn,
                   { title: "দাম জানুন", payload: "BTN_PRICE" },
-                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               }
