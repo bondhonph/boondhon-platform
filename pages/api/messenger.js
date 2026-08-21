@@ -415,7 +415,22 @@ async function sendMessengerText(recipientId, text) {
   }
 }
 
-// Send 8 Direct Full-Size Card Photos sequentially, wait for delivery, then send progress message & buttons
+// In-memory deduplication cache for Facebook Webhook retries
+const processedEvents = new Map();
+function isDuplicateEvent(eventId) {
+  if (!eventId) return false;
+  const now = Date.now();
+  for (const [k, time] of processedEvents.entries()) {
+    if (now - time > 120000) processedEvents.delete(k);
+  }
+  if (processedEvents.has(eventId)) {
+    return true;
+  }
+  processedEvents.set(eventId, now);
+  return false;
+}
+
+// Send 8 Direct Full-Size Card Photos sequentially, then send progress message & buttons (strictly 8 items, then stop)
 async function sendSequentialGallery(recipientId, type) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const { batch, seenCount, totalCount } = getUnseenImagesWithStats(recipientId, idsList, 8);
@@ -425,11 +440,10 @@ async function sendSequentialGallery(recipientId, type) {
   
   for (const id of batch) {
     await sendMessengerImage(recipientId, id);
-    await delay(700);
+    await delay(180);
   }
 
-  // Allow Facebook media delivery pipeline to finish sending all 8 photos before displaying the button block
-  await delay(1200);
+  await delay(400);
 
   const typeName = type === 'premium' ? '✨ প্রিমিয়াম' : '💚 সাশ্রয়ী';
   const progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের মধ্যে আপনি ${bngDigits(seenCount)}টি দেখেছেন। 😍\n\nআরও দেখতে 'আরও দেখুন' বাটনে চাপুন। কত পিস লাগবে আপনার? 😊`;
@@ -498,6 +512,12 @@ export default async function handler(req, res) {
 
             const senderId = webhookEvent.sender?.id;
             if (!senderId) continue;
+
+            const eventId = webhookEvent.message?.mid || (webhookEvent.postback ? `${senderId}_${webhookEvent.timestamp}_${webhookEvent.postback.payload}` : null);
+            if (eventId && isDuplicateEvent(eventId)) {
+              console.log(`⏩ Duplicate webhook event skipped: ${eventId}`);
+              continue;
+            }
 
             const postbackPayload = webhookEvent.postback?.payload || '';
             const quickReplyPayload = webhookEvent.message?.quick_reply?.payload || '';
