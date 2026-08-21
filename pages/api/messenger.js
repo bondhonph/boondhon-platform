@@ -1,4 +1,4 @@
-import { appendMessage, getConversation, setHumanTakeover } from '../../lib/chat-store';
+import { appendMessage, getConversation, setHumanTakeover, getUnseenImages } from '../../lib/chat-store';
 
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
@@ -163,23 +163,22 @@ async function analyzeCardImage(photoUrl) {
     const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
 
     const prompt = `You are the AI Wedding Card Vision Specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
-Your task is to analyze the customer's uploaded wedding card image and determine whether it belongs to the "Affordable" or "Premium" category.
+Analyze the customer's wedding card photo and accurately determine if it is "Affordable" or "Premium".
 
-CATALOG RULES:
+IMPORTANT CATALOG CRITERIA:
+Note: Gold foil and floral motifs exist in BOTH Affordable and Premium categories. Distinguish by structure:
+
 1. "Affordable" (💚 সাশ্রয়ী কালেকশন):
-   - Single sheet cards, single-fold cards, standard cardstock, matte or offset paper.
-   - Simple traditional / floral border prints without laser-cut lace, hardboard box, or heavy golden foil stamp overlays.
-   - Rate: 50 pcs = 2,750৳ (55৳/pc), 100 pcs = 4,500৳ (45৳/pc), 200 pcs = 7,000৳ (35৳/pc + Free Nikahnama 🎁).
+   - Single sheet flat card, standard single-fold cards, 2-fold standard art cardstock / offset paper.
+   - Printed traditional borders, motifs, calligraphy or gold ink/foil on flat card without laser-cut outer jackets.
+   - Price: 50 pcs = 2,750৳, 100 pcs = 4,500৳, 200 pcs = 7,000৳ (+ Free Nikahnama 🎁).
 
 2. "Premium" (✨ প্রিমিয়াম / লাক্সারি কালেকশন):
-   - Luxury gold foil / silver foil stamping, intricate laser-cut die-cuts (e.g. heart laser cut, ornate floral cutout jacket, arch gate), embossed textures, ribbons, hardboard/folder structure, glitter or luxury inserts.
-   - Rate: 50 pcs = 3,250৳ (65৳/pc), 100 pcs = 5,500৳ (55৳/pc), 200 pcs = 9,000৳ (45৳/pc + Free Nikahnama 🎁).
+   - Multi-layered / multi-piece luxury structure: Outer decorative jacket/folder with separate inner card insert.
+   - Intricate laser-cut die-cuts (e.g. heart cutout, floral lace gatefold, arch opening), hardboard / heavy rigid structure, ribbons, tassels, or luxury 3D envelope jackets.
+   - Price: 50 pcs = 3,250৳, 100 pcs = 5,500৳, 200 pcs = 9,000৳ (+ Free Nikahnama 🎁).
 
-TASK:
-1. If the card has gold/silver foil, laser-cut pattern, heart die-cut, floral cutout jacket, luxury emboss, or hardboard finish -> "PREMIUM".
-2. Otherwise -> "AFFORDABLE".
-3. Determine if it is a direct style match or external/custom design.
-4. Output STRICT JSON ONLY (no markdown code fences):
+OUTPUT STRICT JSON ONLY:
 {"category":"PREMIUM"|"AFFORDABLE","isExternal":false|true,"summary":"short description"}`;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -330,25 +329,19 @@ async function sendMessengerText(recipientId, text) {
   }
 }
 
-// Send 8 Direct Full-Size Card Photo Attachments Sequentially then Buttons!
-async function sendSequentialGallery(recipientId, type, offset, text) {
-  const BATCH = 8;
+// Send 4 Direct Full-Size Card Photo Attachments Sequentially then Buttons!
+async function sendSequentialGallery(recipientId, type, text) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const currentOffset = (isNaN(offset) || offset >= idsList.length) ? 0 : offset;
-  const batch = idsList.slice(currentOffset, currentOffset + BATCH);
+  const batch = getUnseenImages(recipientId, idsList, 4);
   
   for (const id of batch) {
     await sendMessengerImage(recipientId, id);
     await delay(300);
   }
 
-  let nextOffset = currentOffset + batch.length;
-  if (nextOffset >= idsList.length) {
-    nextOffset = 0;
-  }
-
+  const typeName = type === 'premium' ? 'প্রিমিয়াম' : 'সাশ্রয়ী';
   const buttons = [
-    { title: "আরও দেখুন", payload: `MORE_${type.toUpperCase()}_${nextOffset}` },
+    { title: `আরও ৪টি ${typeName}`, payload: `MORE_${type.toUpperCase()}` },
     { title: "দাম জানুন", payload: "BTN_PRICE" },
     { title: "অর্ডার করবো", payload: "BTN_ORDER" }
   ];
@@ -453,9 +446,10 @@ export default async function handler(req, res) {
                   await sendMessengerText(senderId, reply);
                   appendMessage(senderId, 'bot', reply);
 
-                  // Send 3 closest premium sample images
-                  for (let i = 0; i < 3; i++) {
-                    await sendMessengerImage(senderId, PREMIUM_IDS[i]);
+                  // Send 3 closest premium sample images (unique to this user)
+                  const sampleImages = getUnseenImages(senderId, PREMIUM_IDS, 3);
+                  for (const imgId of sampleImages) {
+                    await sendMessengerImage(senderId, imgId);
                     await delay(300);
                   }
 
@@ -480,9 +474,10 @@ export default async function handler(req, res) {
                   await sendMessengerText(senderId, reply);
                   appendMessage(senderId, 'bot', reply);
 
-                  // Send 3 closest affordable sample images
-                  for (let i = 0; i < 3; i++) {
-                    await sendMessengerImage(senderId, AFFORDABLE_IDS[i]);
+                  // Send 3 closest affordable sample images (unique to this user)
+                  const sampleImages = getUnseenImages(senderId, AFFORDABLE_IDS, 3);
+                  for (const imgId of sampleImages) {
+                    await sendMessengerImage(senderId, imgId);
                     await delay(300);
                   }
 
@@ -504,19 +499,11 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            else if (payload === 'BTN_AFFORDABLE' || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল')) {
-              await sendSequentialGallery(senderId, 'affordable', 0, "এগুলো আমাদের সবচেয়ে জনপ্রিয় ডিজাইন! 😍\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
+            else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী') || txt.includes('সাশ্রয়ী')) {
+              await sendSequentialGallery(senderId, 'affordable', "এগুলো আমাদের চমৎকার সাশ্রয়ী ডিজাইন! 😍\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
             }
-            else if (payload === 'BTN_PREMIUM' || txt.includes('premium') || txt.includes('প্রিমিয়াম')) {
-              await sendSequentialGallery(senderId, 'premium', 0, "প্রিমিয়াম কালেকশনের সেরা ডিজাইন! ✨\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
-            }
-            else if (payload.startsWith('MORE_AFFORDABLE_')) {
-              const offset = parseInt(payload.replace('MORE_AFFORDABLE_', ''), 10);
-              await sendSequentialGallery(senderId, 'affordable', offset, "আরও দেখবেন নাকি অর্ডার করবেন? 😊");
-            }
-            else if (payload.startsWith('MORE_PREMIUM_')) {
-              const offset = parseInt(payload.replace('MORE_PREMIUM_', ''), 10);
-              await sendSequentialGallery(senderId, 'premium', offset, "আরও দেখবেন নাকি অর্ডার করবেন? 😊");
+            else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
+              await sendSequentialGallery(senderId, 'premium', "প্রিমিয়াম কালেকশনের সেরা ডিজাইন! ✨\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
             }
             else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam/)) {
               const reply = "কত পিস কার্ড লাগবে আপনার? 😊\nপিস সংখ্যা বললে সাথে সাথে দাম জানাবো!";
@@ -567,12 +554,13 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
 
-                // Send 3 best images so customer stays engaged
-                for (let i = 0; i < 3; i++) {
-                  await sendMessengerImage(senderId, AFFORDABLE_IDS[i]);
+                // Send 3 fresh unseen images so customer stays engaged
+                const unseenSamples = getUnseenImages(senderId, AFFORDABLE_IDS, 3);
+                for (const imgId of unseenSamples) {
+                  await sendMessengerImage(senderId, imgId);
                   await delay(300);
                 }
-                appendMessage(senderId, 'bot', '📷 Affordable ডিজাইন স্যাম্পল');
+                appendMessage(senderId, 'bot', '📷 নতুন ডিজাইন স্যাম্পল');
 
                 // Auto-pause so human can follow up and close the sale
                 setHumanTakeover(senderId, true);
