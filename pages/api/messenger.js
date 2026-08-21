@@ -1,4 +1,4 @@
-import { appendMessage, getConversation, setHumanTakeover, getUnseenImages } from '../../lib/chat-store';
+import { appendMessage, getConversation, setHumanTakeover, getUnseenImages, setCurrentCategory, getCurrentCategory } from '../../lib/chat-store';
 
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
@@ -131,25 +131,34 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 // Helper to convert English digits to Bengali digits
 const bngDigits = (num) => num.toString().replace(/\d/g, d => '০১২৩৪৫৬৭৮৯'[d]);
 
-// Helper to calculate price and format message
-function getPriceMessage(qty) {
-  let affPerPiece = 55;
-  let premPerPiece = 65;
+// Helper to calculate price for a SINGLE category only
+function getCategoryPrice(qty, category) {
+  const isAffordable = category === 'affordable';
+  let perPiece;
   
-  if (qty >= 200) {
-    affPerPiece = 35;
-    premPerPiece = 45;
-  } else if (qty >= 100) {
-    affPerPiece = 45;
-    premPerPiece = 55;
+  if (isAffordable) {
+    perPiece = qty >= 200 ? 35 : qty >= 100 ? 45 : 55;
+  } else {
+    perPiece = qty >= 200 ? 45 : qty >= 100 ? 55 : 65;
   }
 
-  const affTotal = qty * affPerPiece;
-  const premTotal = qty * premPerPiece;
-
+  const total = qty * perPiece;
   const freeGift = qty >= 200 ? "\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!" : "";
+  const label = isAffordable ? "💚 সাশ্রয়ী (Affordable)" : "✨ প্রিমিয়াম (Premium)";
 
-  return `${bngDigits(qty)} পিসের দাম:\n💚 Affordable: ${bngDigits(affTotal.toLocaleString('en-IN').replace(/,/g, ','))}৳ (পিস ${bngDigits(affPerPiece)}৳)\n✨ Premium: ${bngDigits(premTotal.toLocaleString('en-IN').replace(/,/g, ','))}৳ (পিস ${bngDigits(premPerPiece)}৳)${freeGift}\nকোনটা পছন্দ? 😊`;
+  return `${label} কালেকশন:\n${bngDigits(qty)} পিসের দাম: ${bngDigits(total.toLocaleString('en-IN').replace(/,/g, ','))}৳ (পিস প্রতি ${bngDigits(perPiece)}৳)${freeGift}`;
+}
+
+// Full price table for a single category
+function getFullPriceTable(category) {
+  const isAffordable = category === 'affordable';
+  const label = isAffordable ? "💚 সাশ্রয়ী (Affordable)" : "✨ প্রিমিয়াম (Premium)";
+  
+  if (isAffordable) {
+    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)`;
+  } else {
+    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)`;
+  }
 }
 
 // Gemini Vision Analysis for Card Recognition
@@ -329,20 +338,29 @@ async function sendMessengerText(recipientId, text) {
   }
 }
 
-// Send 8 Direct Full-Size Card Photo Attachments Sequentially then Buttons!
+// Send 8 Direct Full-Size Card Photos then Smart Buttons (opposite category switch + human support)
 async function sendSequentialGallery(recipientId, type, text) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const batch = getUnseenImages(recipientId, idsList, 8);
+  
+  // Track current category
+  setCurrentCategory(recipientId, type);
   
   for (const id of batch) {
     await sendMessengerImage(recipientId, id);
     await delay(250);
   }
 
+  // Dynamic opposite-category switch button
+  const switchBtn = type === 'premium'
+    ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+    : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+
+  // Meta allows max 3 buttons per template
   const buttons = [
     { title: "আরও দেখুন", payload: `MORE_${type.toUpperCase()}` },
-    { title: "দাম জানুন", payload: "BTN_PRICE" },
-    { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    switchBtn,
+    { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
   ];
 
   await sendMessengerButtonBlock(recipientId, text, buttons);
@@ -396,6 +414,17 @@ export default async function handler(req, res) {
 
             // ===== HUMAN TAKEOVER CHECK =====
             const existingConv = getConversation(senderId);
+            
+            // If customer explicitly requests human takeover via button
+            if (payload === 'BTN_HUMAN' || txt.match(/human|মানুষ|সাপোর্ট|support|representative|agent/i)) {
+              setHumanTakeover(senderId, true);
+              const reply = "🙋‍♂️ আমাদের একজন প্রতিনিধি শীঘ্রই আপনার সাথে কথা বলবেন। অনুগ্রহ করে একটু অপেক্ষা করুন! 😊\n\n(বট এখন পজ করা হয়েছে — মানুষ রিপ্লাই দিবে)";
+              await sendMessengerText(senderId, reply);
+              appendMessage(senderId, 'bot', reply);
+              continue;
+            }
+            
+            // If human takeover is active, skip all bot replies
             if (existingConv && existingConv.humanTakeover === true) {
               console.log(`Human Takeover ACTIVE for Messenger ${senderId}. Skipping bot reply.`);
               continue;
@@ -426,98 +455,139 @@ export default async function handler(req, res) {
               }
             }
 
+            // ===== PHOTO UPLOADED — SMART CARD ANALYSIS =====
             if (isPhoto && photoUrl) {
               const analysis = await analyzeCardImage(photoUrl);
-              const isPrem = analysis ? analysis.category === 'PREMIUM' : true;
+              const category = analysis ? (analysis.category === 'PREMIUM' ? 'premium' : 'affordable') : 'premium';
               const isExternal = analysis ? analysis.isExternal : false;
+              
+              // Track current category context
+              setCurrentCategory(senderId, category);
 
-              if (isPrem) {
-                if (!isExternal) {
-                  const reply = "দারুণ পছন্দ! এটি আমাদের ✨ Premium (লাক্সারি) কালেকশনের কার্ড। 😍\n\nপ্রিমিয়াম কার্ডের রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nআপনার কত পিস লাগবে বলুন? 😊";
-                  await sendMessengerButtonBlock(senderId, reply, [
-                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                    { title: "আরও প্রিমিয়াম", payload: "BTN_PREMIUM" },
-                    { title: "পলিসি দেখুন", payload: "BTN_POLICY" }
-                  ]);
-                  appendMessage(senderId, 'bot', reply);
-                } else {
-                  const reply = "আপনার পাঠানো ডিজাইনটি দারুণ! 😍 আমাদের কাছে এই স্টাইলের সাথে মিল থাকা ✨ Premium (লাক্সারি) কালেকশনের চমৎকার কার্ড রয়েছে।\n\nপ্রিমিয়াম রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nনিচে আমাদের সবচেয়ে কাছাকাছি সেরা কিছু ডিজাইন শেয়ার করছি:";
-                  await sendMessengerText(senderId, reply);
-                  appendMessage(senderId, 'bot', reply);
+              const oppositeBtn = category === 'premium'
+                ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+                : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
 
-                  // Send 3 closest premium sample images (unique to this user)
-                  const sampleImages = getUnseenImages(senderId, PREMIUM_IDS, 3);
-                  for (const imgId of sampleImages) {
-                    await sendMessengerImage(senderId, imgId);
-                    await delay(300);
-                  }
-
-                  const followUp = "এই ডিজাইনগুলো কেমন লাগলো? কত পিস লাগবে আপনার? 😊";
-                  await sendMessengerButtonBlock(senderId, followUp, [
-                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                    { title: "আরও প্রিমিয়াম", payload: "BTN_PREMIUM" }
-                  ]);
-                  appendMessage(senderId, 'bot', followUp);
-                }
+              if (!isExternal) {
+                // ===== OUR DESIGN — Single category price only =====
+                const priceTable = getFullPriceTable(category);
+                const emoji = category === 'premium' ? '✨' : '💚';
+                const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+                
+                const reply = `দারুণ পছন্দ! এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড। 😍\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন? 😊`;
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                  oppositeBtn,
+                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
               } else {
-                if (!isExternal) {
-                  const reply = "দারুণ পছন্দ! এটি আমাদের 💚 Affordable (সাশ্রয়ী) কালেকশনের কার্ড। 🥰\n\nসাশ্রয়ী কার্ডের রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nআপনার কত পিস লাগবে বলুন? 😊";
-                  await sendMessengerButtonBlock(senderId, reply, [
-                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                    { title: "আরও সাশ্রয়ী", payload: "BTN_AFFORDABLE" },
-                    { title: "পলিসি দেখুন", payload: "BTN_POLICY" }
-                  ]);
-                  appendMessage(senderId, 'bot', reply);
-                } else {
-                  const reply = "আপনার পাঠানো ডিজাইনটি দারুণ! 🥰 আমাদের কাছে এই স্টাইলের সাথে মিল থাকা 💚 Affordable (সাশ্রয়ী) কালেকশনের চমৎকার কার্ড রয়েছে।\n\nসাশ্রয়ী রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nনিচে আমাদের সবচেয়ে কাছাকাছি সেরা কিছু ডিজাইন শেয়ার করছি:";
-                  await sendMessengerText(senderId, reply);
-                  appendMessage(senderId, 'bot', reply);
+                // ===== NOT OUR DESIGN — Suggest closest matches from detected category =====
+                const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+                const idsList = category === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
+                
+                const reply = `আপনার পাঠানো ডিজাইনটি আমাদের কালেকশনের নয়। 🤔\nতবে এর স্টাইলের সাথে কাছাকাছি আমাদের ${catName} কালেকশনের কয়েকটি ডিজাইন আছে।\n\nনিচে দেখুন: 👇`;
+                await sendMessengerText(senderId, reply);
+                appendMessage(senderId, 'bot', reply);
 
-                  // Send 3 closest affordable sample images (unique to this user)
-                  const sampleImages = getUnseenImages(senderId, AFFORDABLE_IDS, 3);
-                  for (const imgId of sampleImages) {
-                    await sendMessengerImage(senderId, imgId);
-                    await delay(300);
-                  }
-
-                  const followUp = "এই ডিজাইনগুলো কেমন লাগলো? কত পিস লাগবে আপনার? 😊";
-                  await sendMessengerButtonBlock(senderId, followUp, [
-                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                    { title: "আরও সাশ্রয়ী", payload: "BTN_AFFORDABLE" }
-                  ]);
-                  appendMessage(senderId, 'bot', followUp);
+                // Send 3 closest unseen sample images
+                const sampleImages = getUnseenImages(senderId, idsList, 3);
+                for (const imgId of sampleImages) {
+                  await sendMessengerImage(senderId, imgId);
+                  await delay(300);
                 }
+
+                const followUp = "এই ডিজাইনগুলো কেমন লাগলো? আরও দেখতে চাইলে বলুন! 😊";
+                await sendMessengerButtonBlock(senderId, followUp, [
+                  { title: "আরও দেখুন", payload: `MORE_${category.toUpperCase()}` },
+                  oppositeBtn,
+                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                ]);
+                appendMessage(senderId, 'bot', followUp);
               }
-            } 
+            }
+            // ===== QUANTITY — Show price for CURRENT category only =====
             else if (quantity) {
-              const reply = getPriceMessage(quantity);
+              const currentCat = getCurrentCategory(senderId) || 'affordable';
+              const reply = getCategoryPrice(quantity, currentCat) + "\n\nঅর্ডার করতে চাইলে বলুন! 😊";
+              
+              const oppositeBtn = currentCat === 'premium'
+                ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+                : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+              
               await sendMessengerButtonBlock(senderId, reply, [
-                { title: "Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                oppositeBtn,
+                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী') || txt.includes('সাশ্রয়ী')) {
-              await sendSequentialGallery(senderId, 'affordable', "এগুলো আমাদের চমৎকার সাশ্রয়ী ডিজাইন! 😍\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
+            // ===== AFFORDABLE COLLECTION =====
+            else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')) {
+              await sendSequentialGallery(senderId, 'affordable', "এগুলো আমাদের চমৎকার 💚 সাশ্রয়ী ডিজাইন! 😍\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
             }
-            else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
+            // ===== PREMIUM COLLECTION =====
+            else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
               await sendSequentialGallery(senderId, 'premium', "প্রিমিয়াম কালেকশনের সেরা ডিজাইন! ✨\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
             }
+            // ===== PRICE — Context-aware single category =====
             else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam/)) {
-              const reply = "কত পিস কার্ড লাগবে আপনার? 😊\nপিস সংখ্যা বললে সাথে সাথে দাম জানাবো!";
+              const currentCat = getCurrentCategory(senderId);
+              
+              if (currentCat) {
+                // Show price for current active category only
+                const priceTable = getFullPriceTable(currentCat);
+                const reply = priceTable + "\n\nকত পিস লাগবে বলুন, সাথে সাথে হিসাব দিয়ে দিচ্ছি! 😊";
+                
+                const oppositeBtn = currentCat === 'premium'
+                  ? { title: "💚 Affordable দাম", payload: "BTN_AFFORDABLE_PRICE" }
+                  : { title: "✨ Premium দাম", payload: "BTN_PREMIUM_PRICE" };
+                
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                  oppositeBtn,
+                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
+              } else {
+                // No category selected yet — ask which one
+                const reply = "কোন কালেকশনের দাম জানতে চান? 😊";
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "💚 Affordable", payload: "BTN_AFFORDABLE_PRICE" },
+                  { title: "✨ Premium", payload: "BTN_PREMIUM_PRICE" },
+                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
+              }
+            }
+            // ===== CATEGORY-SPECIFIC PRICE BUTTONS =====
+            else if (payload === 'BTN_AFFORDABLE_PRICE') {
+              setCurrentCategory(senderId, 'affordable');
+              const reply = getFullPriceTable('affordable') + "\n\nকত পিস লাগবে বলুন! 😊";
               await sendMessengerButtonBlock(senderId, reply, [
-                { title: "৫০ পিস", payload: "QTY_50" },
-                { title: "১০০ পিস", payload: "QTY_100" },
-                { title: "২০০ পিস", payload: "QTY_200" }
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
+            else if (payload === 'BTN_PREMIUM_PRICE') {
+              setCurrentCategory(senderId, 'premium');
+              const reply = getFullPriceTable('premium') + "\n\nকত পিস লাগবে বলুন! 😊";
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== ORDER =====
             else if (payload === 'BTN_ORDER' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
-              const reply = "দারুণ! 🎉 অর্ডার করতে:\n৩০% অ্যাডভান্স পাঠান: বিকাশ/নগদ 01682588856\nতারপর এখানে স্ক্রিনশট পাঠান। 😊";
+              const reply = "দারুণ! 🎉 অর্ডার করতে:\n৩০% অ্যাডভান্স পাঠান: বিকাশ/নগদ/রকেট 01682588856\nতারপর এখানে স্ক্রিনশট পাঠান। 😊";
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
-                { title: "ডেলিভারি পলিসি", payload: "BTN_POLICY" }
+                { title: "ডেলিভারি পলিসি", payload: "BTN_POLICY" },
+                { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -529,41 +599,36 @@ export default async function handler(req, res) {
               await sendMessengerText(senderId, ORDER_RULES_MSG);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             }
+            // ===== DEFAULT — Welcome or fallback =====
             else {
-              // Check if customer typed a real question (not just 'hi', 'hello', Get Started etc)
               const isGreeting = txt.match(/^(hi|hello|hey|হাই|হ্যালো|আসসালামু|assalamu|get started|start|শুরু)$/i);
               const isFirstTime = !existingConv || !existingConv.messages || existingConv.messages.length <= 1;
 
               if (isGreeting || isFirstTime || isButtonClick) {
-                // First time or greeting → send welcome
+                // Welcome message with Human Support option
                 const reply = "আসসালামু আলাইকুম! 🌸\nবন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
                 await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                  { title: "Premium দেখুন", payload: "BTN_PREMIUM" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                  { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                  { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // Customer asked a specific question → reply with catalog + AUTO-PAUSE for human follow-up
-                const reply = "ধন্যবাদ! 😊 আমাদের কালেকশন দেখুন, শীঘ্রই আমাদের টিম আপনার প্রশ্নের উত্তর দেবে! 🌸";
+                // Unknown question — offer catalog + human support (no auto-pause)
+                const currentCat = getCurrentCategory(senderId);
+                const catBtn = currentCat === 'premium'
+                  ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+                  : currentCat === 'affordable'
+                    ? { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
+                    : { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" };
+
+                const reply = "ধন্যবাদ! 😊 আপনার প্রশ্নের উত্তর দিতে আমাদের টিমকে জানাচ্ছি। এদিকে আমাদের কালেকশন দেখুন! 🌸";
                 await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                  { title: "Premium দেখুন", payload: "BTN_PREMIUM" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                  catBtn,
+                  { title: "দাম জানুন", payload: "BTN_PRICE" },
+                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
-
-                // Send 3 fresh unseen images so customer stays engaged
-                const unseenSamples = getUnseenImages(senderId, AFFORDABLE_IDS, 3);
-                for (const imgId of unseenSamples) {
-                  await sendMessengerImage(senderId, imgId);
-                  await delay(300);
-                }
-                appendMessage(senderId, 'bot', '📷 নতুন ডিজাইন স্যাম্পল');
-
-                // Auto-pause so human can follow up and close the sale
-                setHumanTakeover(senderId, true);
-                console.log(`AUTO-PAUSED bot for Messenger ${senderId} — customer asked: "${text}"`);
               }
             }
           }
