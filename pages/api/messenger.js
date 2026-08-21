@@ -200,7 +200,7 @@ Respond with valid JSON:
   "reason": "short explanation in Bengali"
 }`;
 
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
     let textOut = '';
 
     for (const modelName of modelsToTry) {
@@ -319,7 +319,7 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
     // Add current message
     recentMsgs.push({ role: 'user', parts: [{ text: customerMessage }] });
 
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
     for (const modelName of modelsToTry) {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;

@@ -11,13 +11,27 @@ export default async function handler(req, res) {
     });
   }
 
-  let availableModels = [];
-  try {
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
-    const listData = await listRes.json();
-    availableModels = listData.models ? listData.models.map(m => m.name.replace('models/', '')) : listData;
-  } catch (lErr) {
-    availableModels = { error: lErr.message };
+  const models = ['gemini-3.6-flash', 'gemini-3.1-pro-preview'];
+  const results = {};
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Respond with JSON: {"status":"ok","model":"' + model + '"}' }] }]
+        })
+      });
+      const data = await response.json();
+      results[model] = {
+        httpStatus: response.status,
+        data: data
+      };
+    } catch (err) {
+      results[model] = { error: err.message };
+    }
   }
 
   // Debug Page info call
@@ -29,7 +43,7 @@ export default async function handler(req, res) {
       status: metaRes.ok ? "success" : "token_error",
       geminiKeyConfigured: Boolean(key),
       geminiKeyPrefix: key ? key.substring(0, 8) + '...' : 'none',
-      availableModels: availableModels,
+      geminiResults: results,
       metaResponse: metaData
     });
   } catch (err) {
