@@ -163,7 +163,11 @@ function getFullPriceTable(category) {
 
 // Gemini Vision Analysis for Card Recognition
 async function analyzeCardImage(photoUrl) {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyCVEkrtXT9hkllGpbyGIekH8TLgzFJvZ_I";
+  const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
+  if (!GEMINI_API_KEY) {
+    console.error('GEMINI_API_KEY is not configured in environment variables');
+    return null;
+  }
   try {
     const imgRes = await fetch(photoUrl);
     if (!imgRes.ok) {
@@ -252,7 +256,8 @@ Respond with valid JSON:
 
 // ===== GEMINI AI SALES BRAIN =====
 async function generateAISalesResponse(senderId, customerMessage, conversationHistory) {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyCVEkrtXT9hkllGpbyGIekH8TLgzFJvZ_I";
+  const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
+  if (!GEMINI_API_KEY) return null;
   
   const systemPrompt = `তুমি "বন্ধন প্রিন্টিং হাউস" এর AI সেলস অ্যাসিস্ট্যান্ট। তুমি মানিকগঞ্জ থেকে বিয়ের কার্ড বিক্রি করো।
 তোমার নাম: বন্ধন অ্যাসিস্ট্যান্ট।
