@@ -62,21 +62,21 @@ const PREMIUM_IDS = [
 
 const PAGE_ACCESS_TOKEN = (process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD").trim();
 
-const ORDER_RULES_MSG = `📋 BOONDHON অর্ডার ও ডেলিভারি পলিসি:
+const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
 
 ১. অ্যাডভান্স পেমেন্ট:
-অর্ডার কনফার্ম করতে হবে মোট মূল্যের ৩০% এডভান্স পেমেন্ট।
-পেমেন্ট করতে পারবেন নিম্নলিখিত মাধ্যমে: বিকাশ, নগদ, রকেট (পার্সোনাল) নম্বর: 01682588856.
+> অর্ডার কনফার্ম করতে হবে মোট মূল্যের ৩০% এডভান্স পেমেন্ট।
+> পেমেন্ট করতে পারবেন নিম্নলিখিত মাধ্যমে: বিকাশ, নগদ, রকেট (পার্সোনাল) নম্বর: 01682588856.
 
 ২. ডিজাইন প্রক্রিয়া:
-আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে পাঠাবে।
-আপনি ডিজাইন চূড়ান্ত করার পর আমরা প্রিন্ট প্রক্রিয়া শুরু করব।
+> আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে পাঠাবে।
+> আপনি ডিজাইন চূড়ান্ত করার পর আমরা প্রিন্ট প্রক্রিয়া শুরু করব।
 
 ৩. ডেলিভারি এবং পেমেন্ট:
-প্রিন্ট শেষে কার্ড রেডি করে জেলা শহরে ক্যাশ অন ডেলিভারি-এর মাধ্যমে পাঠানো হবে।
-কুরিয়ার ডেলিভারি গ্রহণের সময় বাকি ৭০% পেমেন্ট করতে হবে।
-জেলা শহরের বাইরে ক্যাশ অন ডেলিভারি উপলব্ধ নয়।
-এছাড়া সরাসরি আমাদের অফিস বা কারখানা থেকে সংগ্রহ করতে পারবেন।
+> প্রিন্ট শেষে কার্ড রেডি করে জেলা শহরে ক্যাশ অন ডেলিভারি-এর মাধ্যমে পাঠানো হবে।
+> কুরিয়ার ডেলিভারি গ্রহণের সময় বাকি ৭০% পেমেন্ট করতে হবে।
+> জেলা শহরের বাইরে ক্যাশ অন ডেলিভারি উপলব্ধ নয়।
+> এছাড়া সরাসরি আমাদের অফিস বা কারখানা থেকে সংগ্রহ করতে পারবেন।
 
 ৪. ডেলিভারি সময়:
 কার্ড ডেলিভারি পেতে ৫ থেকে ৭ কর্মদিবস সময় লাগবে।`;
@@ -724,13 +724,16 @@ export default async function handler(req, res) {
             }
             // ===== ORDER =====
             else if (payload === 'BTN_ORDER' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
-              const reply = "দারুণ! 🎉 অর্ডার করতে:\n৩০% অ্যাডভান্স পাঠান: বিকাশ/নগদ/রকেট 01682588856\nতারপর এখানে স্ক্রিনশট পাঠান। 😊";
-              await sendMessengerButtonBlock(senderId, reply, [
+              await sendMessengerText(senderId, ORDER_RULES_MSG);
+              appendMessage(senderId, 'bot', ORDER_RULES_MSG);
+
+              const followUp = "কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇";
+              await sendMessengerButtonBlock(senderId, followUp, [
                 { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
-                { title: "ডেলিভারি পলিসি", payload: "BTN_POLICY" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
+                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
               ]);
-              appendMessage(senderId, 'bot', reply);
+              appendMessage(senderId, 'bot', followUp);
             }
             else if (payload === 'BTN_FORM' || txt.match(/ফর্ম|form/)) {
               await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
