@@ -179,25 +179,27 @@ async function analyzeCardImage(photoUrl) {
     const mimeType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
 
     const prompt = `You are an expert AI Wedding Card specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
-Analyze the user's wedding card image and classify whether it is "AFFORDABLE" or "PREMIUM".
+Analyze the user's wedding card image and determine whether it is "AFFORDABLE" or "PREMIUM".
 
-CLASSIFICATION RULES:
+CRITICAL DISTINGUISHING FACTOR: CARD SIZE (ছোট সাইজ বনাম বড় সাইজ)
+Note: Both categories have beautiful designs, gold foil, and decorations. The main difference is the physical CARD SIZE and dimensions:
+
 1. "AFFORDABLE" (💚 সাশ্রয়ী কালেকশন):
-   - Flat single-sheet card or standard 2-fold / 3-fold card on 250-300gsm art cardstock.
-   - Traditional printed floral/ornate borders, Bengali wedding motifs, screen print, or flat gold foil stamping on paper.
-   - Key identifier: It is a standard flat paper card without an intricate laser-cut lace pocket/outer jacket.
+   - ছোট সাইজের কার্ড (Small / Compact / Medium standard size card).
+   - Compact proportions, standard smaller dimensions, handy pocket/single size.
+   - Price: 50 pcs = 2,750৳, 100 pcs = 4,500৳, 200 pcs = 7,000৳ (+ Free Nikahnama 🎁).
 
 2. "PREMIUM" (✨ প্রিমিয়াম / লাক্সারি কালেকশন):
-   - Multi-piece luxury structure: An outer intricate laser-cut die-cut lace jacket/pocket with a separate insert card inside.
-   - Ornate die-cut window (e.g. laser-cut heart, floral filigree gatefold, royal arch/dome cutout).
-   - Heavy rigid hardboard, box structure, velvet, satin ribbons, or tassels.
+   - বড় সাইজের কার্ড (Large / Big / Jumbo luxury size card format).
+   - Wide, tall, heavy, jumbo format, large luxury folder / jacket structure.
+   - Price: 50 pcs = 3,250৳, 100 pcs = 5,500৳, 200 pcs = 9,000৳ (+ Free Nikahnama 🎁).
 
-Respond with valid JSON:
+Respond in strict JSON:
 {
   "category": "AFFORDABLE" | "PREMIUM",
   "isExternal": false | true,
   "confidence": 0.95,
-  "reason": "short explanation in Bengali"
+  "reason": "কার্ডের সাইজ (ছোট বনাম বড়) ও গঠন বিশ্লেষণ"
 }`;
 
     const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
