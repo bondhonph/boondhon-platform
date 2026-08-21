@@ -152,6 +152,74 @@ function getPriceMessage(qty) {
   return `${bngDigits(qty)} পিসের দাম:\n💚 Affordable: ${bngDigits(affTotal.toLocaleString('en-IN').replace(/,/g, ','))}৳ (পিস ${bngDigits(affPerPiece)}৳)\n✨ Premium: ${bngDigits(premTotal.toLocaleString('en-IN').replace(/,/g, ','))}৳ (পিস ${bngDigits(premPerPiece)}৳)${freeGift}\nকোনটা পছন্দ? 😊`;
 }
 
+// Gemini Vision Analysis for Card Recognition
+async function analyzeCardImage(photoUrl) {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyCVEkrtXT9hkllGpbyGIekH8TLgzFJvZ_I";
+  try {
+    const imgRes = await fetch(photoUrl);
+    if (!imgRes.ok) return null;
+    const arrayBuffer = await imgRes.arrayBuffer();
+    const base64Data = Buffer.from(arrayBuffer).toString('base64');
+    const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
+
+    const prompt = `You are the AI Wedding Card Vision Specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
+Your task is to analyze the customer's uploaded wedding card image and determine whether it belongs to the "Affordable" or "Premium" category.
+
+CATALOG RULES:
+1. "Affordable" (💚 সাশ্রয়ী কালেকশন):
+   - Single sheet cards, single-fold cards, standard cardstock, matte or offset paper.
+   - Simple traditional / floral border prints without laser-cut lace, hardboard box, or heavy golden foil stamp overlays.
+   - Rate: 50 pcs = 2,750৳ (55৳/pc), 100 pcs = 4,500৳ (45৳/pc), 200 pcs = 7,000৳ (35৳/pc + Free Nikahnama 🎁).
+
+2. "Premium" (✨ প্রিমিয়াম / লাক্সারি কালেকশন):
+   - Luxury gold foil / silver foil stamping, intricate laser-cut die-cuts (e.g. heart laser cut, ornate floral cutout jacket, arch gate), embossed textures, ribbons, hardboard/folder structure, glitter or luxury inserts.
+   - Rate: 50 pcs = 3,250৳ (65৳/pc), 100 pcs = 5,500৳ (55৳/pc), 200 pcs = 9,000৳ (45৳/pc + Free Nikahnama 🎁).
+
+TASK:
+1. If the card has gold/silver foil, laser-cut pattern, heart die-cut, floral cutout jacket, luxury emboss, or hardboard finish -> "PREMIUM".
+2. Otherwise -> "AFFORDABLE".
+3. Determine if it is a direct style match or external/custom design.
+4. Output STRICT JSON ONLY (no markdown code fences):
+{"category":"PREMIUM"|"AFFORDABLE","isExternal":false|true,"summary":"short description"}`;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiRes = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: mimeType.split(';')[0],
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
+      })
+    });
+
+    if (!geminiRes.ok) {
+      console.error('Gemini Vision Error:', await geminiRes.text());
+      return null;
+    }
+
+    const data = await geminiRes.json();
+    const textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const cleanJson = textOut.replace(/```json|```/g, '').trim();
+    return JSON.parse(cleanJson);
+  } catch (err) {
+    console.error('Card Image Analysis Failed:', err);
+    return null;
+  }
+}
+
 // Helper to send Native Button Template (max 3 buttons per Meta's limit)
 async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
@@ -343,8 +411,13 @@ export default async function handler(req, res) {
 
             const attachments = message?.attachments;
             let isPhoto = false;
+            let photoUrl = null;
             if (attachments && attachments.length > 0) {
-              isPhoto = attachments.some(att => att.type === 'image');
+              const imgAtt = attachments.find(att => att.type === 'image');
+              if (imgAtt) {
+                isPhoto = true;
+                photoUrl = imgAtt.payload?.url;
+              }
             }
 
             // Check if this is a button click (postback) or free-text
@@ -361,13 +434,66 @@ export default async function handler(req, res) {
               }
             }
 
-            if (isPhoto) {
-              const reply = "সুন্দর ডিজাইন! 😍 এই ধরনের কার্ড আমাদের কাছেও আছে। কত পিস লাগবে আপনার?";
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "Premium দেখুন", payload: "BTN_PREMIUM" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
+            if (isPhoto && photoUrl) {
+              const analysis = await analyzeCardImage(photoUrl);
+              const isPrem = analysis ? analysis.category === 'PREMIUM' : true;
+              const isExternal = analysis ? analysis.isExternal : false;
+
+              if (isPrem) {
+                if (!isExternal) {
+                  const reply = "দারুণ পছন্দ! এটি আমাদের ✨ Premium (লাক্সারি) কালেকশনের কার্ড। 😍\n\nপ্রিমিয়াম কার্ডের রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nআপনার কত পিস লাগবে বলুন? 😊";
+                  await sendMessengerButtonBlock(senderId, reply, [
+                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                    { title: "আরও প্রিমিয়াম", payload: "BTN_PREMIUM" },
+                    { title: "পলিসি দেখুন", payload: "BTN_POLICY" }
+                  ]);
+                  appendMessage(senderId, 'bot', reply);
+                } else {
+                  const reply = "আপনার পাঠানো ডিজাইনটি দারুণ! 😍 আমাদের কাছে এই স্টাইলের সাথে মিল থাকা ✨ Premium (লাক্সারি) কালেকশনের চমৎকার কার্ড রয়েছে।\n\nপ্রিমিয়াম রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nনিচে আমাদের সবচেয়ে কাছাকাছি সেরা কিছু ডিজাইন শেয়ার করছি:";
+                  await sendMessengerText(senderId, reply);
+                  appendMessage(senderId, 'bot', reply);
+
+                  // Send 3 closest premium sample images
+                  for (let i = 0; i < 3; i++) {
+                    await sendMessengerImage(senderId, PREMIUM_IDS[i]);
+                    await delay(300);
+                  }
+
+                  const followUp = "এই ডিজাইনগুলো কেমন লাগলো? কত পিস লাগবে আপনার? 😊";
+                  await sendMessengerButtonBlock(senderId, followUp, [
+                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                    { title: "আরও প্রিমিয়াম", payload: "BTN_PREMIUM" }
+                  ]);
+                  appendMessage(senderId, 'bot', followUp);
+                }
+              } else {
+                if (!isExternal) {
+                  const reply = "দারুণ পছন্দ! এটি আমাদের 💚 Affordable (সাশ্রয়ী) কালেকশনের কার্ড। 🥰\n\nসাশ্রয়ী কার্ডের রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nআপনার কত পিস লাগবে বলুন? 😊";
+                  await sendMessengerButtonBlock(senderId, reply, [
+                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                    { title: "আরও সাশ্রয়ী", payload: "BTN_AFFORDABLE" },
+                    { title: "পলিসি দেখুন", payload: "BTN_POLICY" }
+                  ]);
+                  appendMessage(senderId, 'bot', reply);
+                } else {
+                  const reply = "আপনার পাঠানো ডিজাইনটি দারুণ! 🥰 আমাদের কাছে এই স্টাইলের সাথে মিল থাকা 💚 Affordable (সাশ্রয়ী) কালেকশনের চমৎকার কার্ড রয়েছে।\n\nসাশ্রয়ী রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)\n\nনিচে আমাদের সবচেয়ে কাছাকাছি সেরা কিছু ডিজাইন শেয়ার করছি:";
+                  await sendMessengerText(senderId, reply);
+                  appendMessage(senderId, 'bot', reply);
+
+                  // Send 3 closest affordable sample images
+                  for (let i = 0; i < 3; i++) {
+                    await sendMessengerImage(senderId, AFFORDABLE_IDS[i]);
+                    await delay(300);
+                  }
+
+                  const followUp = "এই ডিজাইনগুলো কেমন লাগলো? কত পিস লাগবে আপনার? 😊";
+                  await sendMessengerButtonBlock(senderId, followUp, [
+                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                    { title: "আরও সাশ্রয়ী", payload: "BTN_AFFORDABLE" }
+                  ]);
+                  appendMessage(senderId, 'bot', followUp);
+                }
+              }
             } 
             else if (quantity) {
               const reply = getPriceMessage(quantity);
