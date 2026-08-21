@@ -11,27 +11,13 @@ export default async function handler(req, res) {
     });
   }
 
-  const models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-exp', 'gemini-1.5-flash-8b', 'gemini-1.5-flash-latest', 'gemini-pro'];
-  const results = {};
-
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'Hello, respond with JSON: {"status":"ok"}' }] }]
-        })
-      });
-      const data = await response.json();
-      results[model] = {
-        httpStatus: response.status,
-        data: data
-      };
-    } catch (err) {
-      results[model] = { error: err.message };
-    }
+  let availableModels = [];
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    const listData = await listRes.json();
+    availableModels = listData.models ? listData.models.map(m => m.name.replace('models/', '')) : listData;
+  } catch (lErr) {
+    availableModels = { error: lErr.message };
   }
 
   // Debug Page info call
@@ -43,7 +29,7 @@ export default async function handler(req, res) {
       status: metaRes.ok ? "success" : "token_error",
       geminiKeyConfigured: Boolean(key),
       geminiKeyPrefix: key ? key.substring(0, 8) + '...' : 'none',
-      geminiResults: results,
+      availableModels: availableModels,
       metaResponse: metaData
     });
   } catch (err) {
