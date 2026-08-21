@@ -430,11 +430,20 @@ function isDuplicateEvent(eventId) {
   return false;
 }
 
-// Send 8 Direct Full-Size Card Photos sequentially, then send progress message & buttons (strictly 8 items, then stop)
-async function sendSequentialGallery(recipientId, type) {
+// Send 8 Direct Full-Size Card Photos sequentially using guaranteed offset tracking
+async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const { batch, seenCount, totalCount } = getUnseenImagesWithStats(recipientId, idsList, 8);
+  const totalCount = idsList.length;
   
+  let offset = requestedOffset !== null ? parseInt(requestedOffset, 10) : 0;
+  if (isNaN(offset) || offset >= totalCount || offset < 0) {
+    offset = 0;
+  }
+
+  const batch = idsList.slice(offset, offset + 8);
+  const nextOffset = (offset + 8 >= totalCount) ? 0 : (offset + 8);
+  const seenCount = Math.min(offset + batch.length, totalCount);
+
   // Track current category
   setCurrentCategory(recipientId, type);
   
@@ -448,14 +457,17 @@ async function sendSequentialGallery(recipientId, type) {
   const typeName = type === 'premium' ? '✨ প্রিমিয়াম' : '💚 সাশ্রয়ী';
   const progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের মধ্যে আপনি ${bngDigits(seenCount)}টি দেখেছেন। 😍\n\nআরও দেখতে 'আরও দেখুন' বাটনে চাপুন। কত পিস লাগবে আপনার? 😊`;
 
-  // Dynamic opposite-category switch button
+  // Dynamic opposite-category switch button (starts at offset 0)
   const switchBtn = type === 'premium'
     ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
     : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
 
+  // Guaranteed sequential payload carrying nextOffset
+  const morePayload = `MORE_${type.toUpperCase()}_${nextOffset}`;
+
   // Meta allows max 3 buttons per template
   const buttons = [
-    { title: "আরও দেখুন", payload: `MORE_${type.toUpperCase()}` },
+    { title: "আরও দেখুন", payload: morePayload },
     switchBtn,
     { title: "অর্ডার করবো", payload: "BTN_ORDER" }
   ];
@@ -645,11 +657,19 @@ export default async function handler(req, res) {
             }
             // ===== AFFORDABLE COLLECTION =====
             else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')) {
-              await sendSequentialGallery(senderId, 'affordable');
+              let offset = 0;
+              if (payload.startsWith('MORE_AFFORDABLE_')) {
+                offset = parseInt(payload.replace('MORE_AFFORDABLE_', ''), 10) || 0;
+              }
+              await sendSequentialGallery(senderId, 'affordable', offset);
             }
             // ===== PREMIUM COLLECTION =====
             else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
-              await sendSequentialGallery(senderId, 'premium');
+              let offset = 0;
+              if (payload.startsWith('MORE_PREMIUM_')) {
+                offset = parseInt(payload.replace('MORE_PREMIUM_', ''), 10) || 0;
+              }
+              await sendSequentialGallery(senderId, 'premium', offset);
             }
             // ===== PRICE — Context-aware single category =====
             else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam/)) {
