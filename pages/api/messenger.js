@@ -605,12 +605,12 @@ export default async function handler(req, res) {
               const isFirstTime = !existingConv || !existingConv.messages || existingConv.messages.length <= 1;
 
               if (isGreeting || isFirstTime || isButtonClick) {
-                // Welcome message with Human Support option
+                // Welcome message
                 const reply = "আসসালামু আলাইকুম! 🌸\nবন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                   { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                  { title: "মানুষের সাথে কথা", payload: "BTN_HUMAN" }
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
