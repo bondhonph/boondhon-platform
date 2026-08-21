@@ -1,4 +1,4 @@
-import { appendMessage, getConversation, setHumanTakeover, getUnseenImages, setCurrentCategory, getCurrentCategory } from '../../lib/chat-store';
+import { appendMessage, getConversation, setHumanTakeover, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory } from '../../lib/chat-store';
 
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
@@ -415,18 +415,24 @@ async function sendMessengerText(recipientId, text) {
   }
 }
 
-// Send 8 Direct Full-Size Card Photos then Smart Buttons (opposite category switch + human support)
-async function sendSequentialGallery(recipientId, type, text) {
+// Send 8 Direct Full-Size Card Photos sequentially, wait for delivery, then send progress message & buttons
+async function sendSequentialGallery(recipientId, type) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const batch = getUnseenImages(recipientId, idsList, 8);
+  const { batch, seenCount, totalCount } = getUnseenImagesWithStats(recipientId, idsList, 8);
   
   // Track current category
   setCurrentCategory(recipientId, type);
   
   for (const id of batch) {
     await sendMessengerImage(recipientId, id);
-    await delay(250);
+    await delay(700);
   }
+
+  // Allow Facebook media delivery pipeline to finish sending all 8 photos before displaying the button block
+  await delay(1200);
+
+  const typeName = type === 'premium' ? '✨ প্রিমিয়াম' : '💚 সাশ্রয়ী';
+  const progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের মধ্যে আপনি ${bngDigits(seenCount)}টি দেখেছেন। 😍\n\nআরও দেখতে 'আরও দেখুন' বাটনে চাপুন। কত পিস লাগবে আপনার? 😊`;
 
   // Dynamic opposite-category switch button
   const switchBtn = type === 'premium'
@@ -440,8 +446,8 @@ async function sendSequentialGallery(recipientId, type, text) {
     { title: "অর্ডার করবো", payload: "BTN_ORDER" }
   ];
 
-  await sendMessengerButtonBlock(recipientId, text, buttons);
-  appendMessage(recipientId, 'bot', text);
+  await sendMessengerButtonBlock(recipientId, progressText, buttons);
+  appendMessage(recipientId, 'bot', progressText);
 }
 
 export default async function handler(req, res) {
@@ -619,11 +625,11 @@ export default async function handler(req, res) {
             }
             // ===== AFFORDABLE COLLECTION =====
             else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')) {
-              await sendSequentialGallery(senderId, 'affordable', "এগুলো আমাদের চমৎকার 💚 সাশ্রয়ী ডিজাইন! 😍\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
+              await sendSequentialGallery(senderId, 'affordable');
             }
             // ===== PREMIUM COLLECTION =====
             else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
-              await sendSequentialGallery(senderId, 'premium', "প্রিমিয়াম কালেকশনের সেরা ডিজাইন! ✨\nআরও দেখতে চাইলে বলুন। কত পিস লাগবে?");
+              await sendSequentialGallery(senderId, 'premium');
             }
             // ===== PRICE — Context-aware single category =====
             else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam/)) {
