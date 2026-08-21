@@ -329,19 +329,18 @@ async function sendMessengerText(recipientId, text) {
   }
 }
 
-// Send 4 Direct Full-Size Card Photo Attachments Sequentially then Buttons!
+// Send 8 Direct Full-Size Card Photo Attachments Sequentially then Buttons!
 async function sendSequentialGallery(recipientId, type, text) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-  const batch = getUnseenImages(recipientId, idsList, 4);
+  const batch = getUnseenImages(recipientId, idsList, 8);
   
   for (const id of batch) {
     await sendMessengerImage(recipientId, id);
-    await delay(300);
+    await delay(250);
   }
 
-  const typeName = type === 'premium' ? 'প্রিমিয়াম' : 'সাশ্রয়ী';
   const buttons = [
-    { title: `আরও ৪টি ${typeName}`, payload: `MORE_${type.toUpperCase()}` },
+    { title: "আরও দেখুন", payload: `MORE_${type.toUpperCase()}` },
     { title: "দাম জানুন", payload: "BTN_PRICE" },
     { title: "অর্ডার করবো", payload: "BTN_ORDER" }
   ];
