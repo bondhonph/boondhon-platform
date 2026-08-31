@@ -1,4 +1,6 @@
 import { appendMessage, getConversation, setHumanTakeover, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory } from '../../lib/chat-store';
+import { VISUAL_CATALOG_RULES } from '../../lib/data';
+import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
 
 const AFFORDABLE_IDS = [
   "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
@@ -179,29 +181,20 @@ async function analyzeCardImage(photoUrl) {
     const mimeType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
 
     const prompt = `You are an expert AI Wedding Card specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
-Your task is to compare the customer's uploaded wedding card photo directly against our Google Drive catalog datasets (Affordable [83 cards] vs Premium [78 cards]):
+Your task is to analyze the customer's uploaded wedding card photo:
 
-GOOGLE DRIVE CATALOG DATASET RULES:
+BUSINESS RULES:
+${VISUAL_CATALOG_RULES.RULES.map(rule => `   - ${rule}`).join('\n')}
 
-1. "PREMIUM" (✨ প্রিমিয়াম / লাক্সারি কালেকশন - ৭৮টি ড্রাইভ ডিজাইন):
-   - বড় ও জ্যাম্বো সাইজের লাক্সারি কার্ড (Large / Jumbo format).
-   - গোল্ড ও রেড ফয়েল লেজার-কাট খিলান/গম্বুজ (Dome/Arch) কাটআউট উইন্ডো ও সাদা রিবন হ্যান্ডেল (যেমন: লাল-সোনালী বা সোনালী খিলান জ্যাকেট ফোল্ডার)।
-   - হার্ট কাটআউট জ্যাকেট যার ভেতর থেকে আলাদা কার্ড বের করতে হয় (Heart die-cut jacket with inner card).
-   - রাজকীয় জালিদার গেইটফোল্ড (Gatefold filigree lace cover), হার্ডবোর্ড বক্স, ভেলভেট, সাটিন ফিতা বা টার্সেল।
-
-2. "AFFORDABLE" (💚 সাশ্রয়ী কালেকশন - ৮৩টি ড্রাইভ ডিজাইন):
-   - ছোট ও কমপ্যাক্ট সাইজের কার্ড (Small / Compact standard format).
-   - ময়ূর (Peacock) প্রিন্টেড ফ্লোরাল বর্ডার কার্ড, সিঙ্গেল শিট ফ্ল্যাট কার্ড, সাধারণ ২-ফোল্ড আর্ট কার্ড।
-   - আর্ট পেপারের উপর সাধারণ প্রিন্ট বা ফ্ল্যাট ফয়েল ডিজাইন (যেখানে আলাদা লেজার-কাট জ্যাকেট বা উইন্ডো হ্যান্ডেল নেই)।
-
-TASK:
-- If the card matches a design in our Premium catalog -> "PREMIUM".
-- If the card matches a design in our Affordable catalog -> "AFFORDABLE".
-- If external -> determine which catalog style it is closest to.
+DIAGNOSTIC PROCESS:
+- Check if the uploaded image represents a wedding card design belonging to the "BOONDHON" catalog.
+- Since designs and materials are identical in both categories (Affordable vs Premium) and size cannot be judged from the photo, you do not need to guess the category size. Focus on whether this style matches our catalog (laser-cut khilan/arch dome cutouts, peacock/floral printed art cards, ribbon handles, hardboard gatefolds) vs an external design.
+- If it is our design, set "isExternal" to false.
+- If it is a design from another manufacturer (Pinterest, competitors), set "isExternal" to true.
 
 Respond in strict JSON:
 {
-  "category": "PREMIUM" | "AFFORDABLE",
+  "category": "MATCH",
   "isExternal": false | true,
   "confidence": 0.95,
   "reason": "ড্রাইভ ক্যাটালগের সাথে ম্যাচিংয়ের কারণ"
@@ -262,6 +255,7 @@ Respond in strict JSON:
       return {
         category: (parsed.category || '').toUpperCase().includes('PREM') ? 'PREMIUM' : 'AFFORDABLE',
         isExternal: Boolean(parsed.isExternal),
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.90,
         reason: parsed.reason || ''
       };
     }
@@ -283,14 +277,14 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
 🎯 তোমার মূল লক্ষ্য: কাস্টমারের সাথে বন্ধুত্বপূর্ণ কথা বলে তাদের অর্ডার কনফার্ম করানো (সেল ক্লোজ)।
 
 📦 প্রোডাক্ট ক্যাটালগ:
-১. 💚 Affordable (সাশ্রয়ী) কালেকশন:
-   - সিম্পল, সুন্দর ডিজাইন। সিঙ্গেল শিট/ফোল্ড কার্ড।
+⚠️ গুরুত্বপূর্ণ: দুটো ক্যাটাগরির ডিজাইন ও মেটেরিয়াল হুবহু এক (লেজার কাট, ফয়েল, রিবন সবই থাকতে পারে), শুধু ফিজিক্যাল সাইজ আলাদা।
+
+১. 💚 Affordable (সাশ্রয়ী) — ছোট সাইজ:
    - ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)
    - ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)
    - ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ফ্রি নিকাহনামা 🎁)
 
-২. ✨ Premium (প্রিমিয়াম/লাক্সারি) কালেকশন:
-   - লেজার কাট, গোল্ড ফয়েল, হার্ডবোর্ড জ্যাকেট, রিবন।
+২. ✨ Premium (প্রিমিয়াম/লাক্সারি) — বড় সাইজ:
    - ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)
    - ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)
    - ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ফ্রি নিকাহনামা 🎁)
@@ -639,26 +633,39 @@ export default async function handler(req, res) {
               }
             }
 
-            // ===== PHOTO UPLOADED — SMART CARD ANALYSIS =====
+            // ===== PHOTO UPLOADED — CATALOG EMBEDDING MATCH =====
             if (isPhoto && photoUrl) {
-              const analysis = await analyzeCardImage(photoUrl);
-              const category = analysis ? (analysis.category === 'PREMIUM' ? 'premium' : 'affordable') : 'affordable';
-              const isExternal = analysis ? analysis.isExternal : false;
-              
-              // Track current category context
-              setCurrentCategory(senderId, category);
+              let matchResult = null;
 
-              const oppositeBtn = category === 'premium'
-                ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
-                : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+              // Try embedding-based matching if catalog index is ready
+              if (isCatalogIndexReady()) {
+                try {
+                  const imgRes = await fetch(photoUrl);
+                  if (imgRes.ok) {
+                    const arrayBuffer = await imgRes.arrayBuffer();
+                    const base64Data = Buffer.from(arrayBuffer).toString('base64');
+                    const mimeType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
+                    matchResult = await findCatalogMatch(base64Data, mimeType);
+                  }
+                } catch (matchErr) {
+                  console.error('Catalog match error:', matchErr.message);
+                }
+              }
 
-              if (!isExternal) {
-                // ===== OUR DESIGN — Single category price only =====
+              if (matchResult && matchResult.isMatch) {
+                // ===== EXACT CATALOG MATCH FOUND =====
+                const category = matchResult.category;
+                const matchCode = matchResult.code;
+                setCurrentCategory(senderId, category);
+
                 const priceTable = getFullPriceTable(category);
                 const emoji = category === 'premium' ? '✨' : '💚';
                 const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                
-                const reply = `দারুণ পছন্দ! এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড। 😍\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন? 😊`;
+                const oppositeBtn = category === 'premium'
+                  ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+                  : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+
+                const reply = `সুন্দর পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                   oppositeBtn,
@@ -666,25 +673,21 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // ===== NOT OUR DESIGN — Suggest closest matches from detected category =====
-                const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                const idsList = category === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
-                
-                const reply = `আপনার পাঠানো ডিজাইনটি আমাদের কালেকশনের নয়। 🤔\nতবে এর স্টাইলের সাথে কাছাকাছি আমাদের ${catName} কালেকশনের কয়েকটি ডিজাইন আছে।\n\nনিচে দেখুন: 👇`;
+                // ===== NO EXACT MATCH — Show both collections =====
+                const reply = `সুন্দর ডিজাইন! 😍 এই ধরনের কার্ড আমাদের কাছেও আছে।\nআমাদের কালেকশন দেখুন — আপনার পছন্দের ডিজাইন পেয়ে যাবেন! 😊`;
                 await sendMessengerText(senderId, reply);
                 appendMessage(senderId, 'bot', reply);
 
-                // Send 3 closest unseen sample images
-                const sampleImages = getUnseenImages(senderId, idsList, 3);
+                const sampleImages = getUnseenImages(senderId, AFFORDABLE_IDS, 3);
                 for (const imgId of sampleImages) {
                   await sendMessengerImage(senderId, imgId);
                   await delay(250);
                 }
 
-                const followUp = "এই ডিজাইনগুলো কেমন লাগলো? আরও দেখতে চাইলে বলুন! 😊";
+                const followUp = "এগুলো আমাদের জনপ্রিয় কিছু ডিজাইন! আরও দেখতে চাইলে বলুন। 😊";
                 await sendMessengerButtonBlock(senderId, followUp, [
-                  { title: "আরও দেখুন", payload: `MORE_${category.toUpperCase()}_0` },
-                  oppositeBtn,
+                  { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                  { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
                   { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
                 appendMessage(senderId, 'bot', followUp);

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <title>বন্ডহন প্রিন্টিং হাউস - এআই বট ম্যানুয়াল ও গাইড</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
+    
+    body {
+      font-family: 'Hind Siliguri', Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+      border: 1px solid #e2e8f0;
+    }
+    
+    .header {
+      text-align: center;
+      border-bottom: 3px solid #0284c7;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      color: #0369a1;
+      margin: 0 0 10px 0;
+      font-size: 28px;
+    }
+    
+    .header p {
+      color: #64748b;
+      margin: 0;
+      font-size: 16px;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #e0f2fe;
+      color: #0369a1;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+    }
+    
+    .section h2 {
+      color: #0f172a;
+      font-size: 20px;
+      border-left: 4px solid #0284c7;
+      padding-left: 12px;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    
+    .stat-card {
+      background: #f1f5f9;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #cbd5e1;
+    }
+    
+    .stat-card .number {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0369a1;
+    }
+    
+    .stat-card .label {
+      font-size: 14px;
+      color: #475569;
+    }
+    
+    code, pre {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 12px 16px;
+      border-radius: 6px;
+      display: block;
+      overflow-x: auto;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+    
+    .step-list {
+      padding-left: 20px;
+    }
+    
+    .step-list li {
+      margin-bottom: 12px;
+    }
+    
+    .alert-box {
+      background: #fffbebf8;
+      border-left: 4px solid #f59e0b;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      font-size: 14px;
+      color: #78350f;
+    }
+    
+    .print-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: #0284c7;
+      color: white;
+      text-align: center;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 30px;
+      transition: background 0.2s;
+    }
+    
+    .print-btn:hover {
+      background: #0369a1;
+    }
+    
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 0; }
+      .print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <h1>🌸 বন্ধন প্রিন্টিং হাউস (BOONDHON)</h1>
+      <p>Facebook Messenger AI Bot — সম্পূর্ণ পরিচালনা ও ক্যাটালগ আপডেট নির্দেশিকা</p>
+      <span class="badge">ডকুমেন্ট সংস্করণ: ১.০ (২০২৬)</span>
+    </div>
+
+    <!-- 1. ক্যাটালগ পরিসংখ্যান -->
+    <div class="section">
+      <h2>📊 ১. বর্তমান ক্যাটালগ পরিচিতি ও পরিসংখ্যান</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="number">১৬১টি</div>
+          <div class="label">মোট ক্যাটালগ কার্ড</div>
+        </div>
+        <div class="stat-card">
+          <div class="number">৮৩টি</div>
+          <div class="label">💚 Affordable (সাশ্রয়ী)</div>
+        </div>
+        <div class="stat-card">
+          <div class="number">৭৮টি</div>
+          <div class="label">✨ Premium (প্রিমিয়াম)</div>
+        </div>
+      </div>
+      <p><strong>মূল বৈশিষ্ট্য:</strong> বন্ডহনের সাশ্রয়ী ও প্রিমিয়াম কার্ডের ডিজাইন ও উপাদান সম্পূর্ণ এক হতে পারে। এদের মধ্যে একমাত্র পার্থক্য হলো <em>ফিজিক্যাল সাইজ</em> (যেটি সমতল ছবি দেখে আলাদা করা যায় না)। তাই সিস্টেমটি AI Visual Embedding Search ব্যবহার করে ক্যাটালগের আসল ছবির সাথে মিলিয়ে সঠিক ক্যাটাগরি চিহ্নিত করে।</p>
+    </div>
+
+    <!-- 2. ট্রেন ও ইনডেক্সিং -->
+    <div class="section">
+      <h2>🚀 ২. বট ট্রেনিং / ক্যাটালগ ইনডেক্সিং করার নিয়ম</h2>
+      <p>বটকে আপনার Google Drive-এর সব ছবি শেখানোর জন্য টার্মিনালে নিচের কমান্ড দুটি চালান:</p>
+
+      <p><strong>PowerShell-এ চালান:</strong></p>
+      <code>cd H:\Data\boondhon-git
+$env:GEMINI_API_KEY="আপনার_গুগল_এপিআই_কী"
+node scripts/build-catalog-index.js</code>
+
+      <div class="alert-box">
+        💡 <strong>নোট:</strong> কমান্ডটি সফলভাবে চললে <code>lib/catalog-embeddings.json</code> নামে একটি ভেক্টর মেমরি ফাইল তৈরি হবে যা কাস্টমারের ছবির সাথে ম্যাচিং করার কাজে ব্যবহৃত হয়।
+      </div>
+    </div>
+
+    <!-- 3. নতুন ছবি যোগ করার নিয়ম -->
+    <div class="section">
+      <h2>🔄 ৩. ভবিষ্যতে নতুন ছবি যোগ বা আপডেট করার নিয়ম</h2>
+      <ol class="step-list">
+        <li><strong>গুগল ড্রাইভে আপলোড:</strong> নতুন কার্ডের ছবি ড্রাইভে আপলোড করে ছবিটির <code>File ID</code> নিন।</li>
+        <li><strong><code>lib/data.js</code> ফাইল আপডেট:</strong>
+          <ul>
+            <li>সাশ্রয়ী কার্ড হলে <code>AFFORDABLE_IDS</code> অ্যারেরে শেষে ফাইল আইডি যুক্ত করুন।</li>
+            <li>প্রিমিয়াম কার্ড হলে <code>PREMIUM_IDS</code> অ্যারেরে শেষে ফাইল আইডি যুক্ত করুন।</li>
+          </ul>
+        </li>
+        <li><strong>ইনডেক্স রি-রান:</strong> টার্মিনালে আবার চালান:
+          <code>node scripts/build-catalog-index.js</code>
+          <em>(এটি আগের ছবিগুলো স্কিপ করে কেবল নতুন ছবির মেমরি ২-৩ সেকেন্ডে আপডেট করে নেবে!)</em>
+        </li>
+        <li><strong>পাবলিশ/লাইভ:</strong> ভিএস কোড থেকে Git Commit ও Push করলেই নতুন কার্ড লাইভ বটে কাজ শুরু করবে।</li>
+      </ol>
+    </div>
+
+    <!-- 4. ব্যবসায়িক তথ্য -->
+    <div class="section">
+      <h2>📞 ৪. জরুরী ব্যবসা সম্পর্কিত তথ্য</h2>
+      <ul>
+        <li><strong>অফিসিয়াল হটলাইন / হোয়াটসঅ্যাপ:</strong> <code>01701016826</code></li>
+        <li><strong>অ্যাডভান্স পেমেন্ট নম্বর (বিকাশ/নগদ/রকেট):</strong> <code>01682588856</code> (৩০% অ্যাডভান্স)</li>
+        <li><strong>কারখানা/অফিস অবস্থান:</strong> মানিকগঞ্জ, ঢাকা।</li>
+      </ul>
+    </div>
+
+    <button class="print-btn" onclick="window.print()">🖨️ PDF হিসেবে সেভ করুন / প্রিন্ট করুন</button>
+  </div>
+
+</body>
+</html>
