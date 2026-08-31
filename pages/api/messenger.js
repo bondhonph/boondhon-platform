@@ -832,12 +832,30 @@ export default async function handler(req, res) {
               await sendMessengerText(senderId, ORDER_RULES_MSG);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             }
+            // ===== ACKNOWLEDGEMENTS ("ok", "okay", "ঠিক আছে", "জি", "আচ্ছা", "হুম", "ধন্যবাদ") =====
+            else if (txt.match(/^(ok|okay|ওকে|ঠিক আছে|জি|আচ্ছা|accha|acha|হুম|hum|thik ase|thik|হয়তো|থাক)$/i)) {
+              const reply = "জি ধন্যবাদ! 😊 আমাদের বিয়ের কার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন!";
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            else if (txt.match(/^(thanks|thank you|ধন্যবাদ|ধন্যবাদ।)$/i)) {
+              const reply = "আপনাকেও অনেক ধন্যবাদ! 🌸 বিয়ের কার্ড সংক্রান্ত যেকোনো দরকারে আমাদের জানাতে পারেন।";
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
             // ===== DEFAULT — Welcome or fallback =====
             else {
               const isGreeting = txt.match(/^(hi|hello|hey|হাই|হ্যালো|আসসালামু|assalamu|get started|start|শুরু)$/i);
-              const isFirstTime = !existingConv || !existingConv.messages || existingConv.messages.length <= 1;
 
-              if (isGreeting || isFirstTime || isButtonClick) {
+              if (isGreeting || isButtonClick) {
                 // Welcome message
                 const reply = "আসসালামু আলাইকুম! 🌸\nবন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
                 await sendMessengerButtonBlock(senderId, reply, [
