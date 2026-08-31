@@ -832,6 +832,55 @@ export default async function handler(req, res) {
               await sendMessengerText(senderId, ORDER_RULES_MSG);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             }
+            // ===== DIRECT CARD CODE QUERY (e.g. AFF-012, PREM-005, AFF 12) =====
+            else if (txt.match(/\b(aff|prem)[-_\s]*(\d{1,3})\b/i)) {
+              const codeMatch = txt.match(/\b(aff|prem)[-_\s]*(\d{1,3})\b/i);
+              const prefix = codeMatch[1].toLowerCase() === 'prem' ? 'PREM' : 'AFF';
+              const num = String(parseInt(codeMatch[2], 10)).padStart(3, '0');
+              const cardCode = prefix + '-' + num;
+              const category = prefix === 'PREM' ? 'premium' : 'affordable';
+              setCurrentCategory(senderId, category);
+
+              const priceTable = getFullPriceTable(category);
+              const emoji = category === 'premium' ? '✨' : '💚';
+              const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+
+                            const reply = `আমাদের ${emoji} ${catName} কালেকশনের কার্ড (${cardCode}):\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" },
+                { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== NIKAHNAMA GIFT QUERY =====
+            else if (txt.match(/nikahnama|নিকাহনামা|নিকাহ নামা|gift|উপহার/i)) {
+              const reply = `🎁 ফ্রি নিকাহনামা অফার:
+
+আমাদের ২০০ পিস বা তার বেশি যেকোনো কার্ড অর্ডার করলেই ১টি আকর্ষণীয় ফ্রি নিকাহনামা উপহার পাবেন! 😍
+
+অর্ডার করতে চাইলে নিচের বাটনে চাপুন! 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== CUSTOM DESIGN / PROOFING QUERY =====
+            else if (txt.match(/custom|কাস্টম|ডিজাইন চেঞ্জ|ডিজাইনার|লেখা/i)) {
+              const reply = `🎨 কাস্টম ডিজাইন সুবিধা:
+
+অর্ডার কনফার্ম (৩০% অ্যাডভান্স) করার পর আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে হোয়াটসঅ্যাপ/মেসেঞ্জারে চেক করাবে।
+
+আপনার পছন্দ ও ওকে হওয়ার পরই প্রিন্ট শুরু হবে! 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
             // ===== LOCATION / ADDRESS =====
             else if (txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom|কারখানা|karkhana/i)) {
               const reply = `📍 আমাদের অফিস ও ঠিকানার তথ্য:\n\n🏢 অফিস: মানিকগঞ্জ।\n🏭 কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)।\n\n🛒 অর্ডার প্রক্রিয়া:\nঅনলাইনে অথবা মানিকগঞ্জ অফিসে সরাসরি এসে অর্ডার করতে পারবেন।\n\n📦 প্রোডাক্ট ডেলিভারি/সংগ্রহ:\n• কুরিয়ারের মাধ্যমে (সারাদেশে)\n• মানিকগঞ্জ অফিসে সরাসরি\n• অথবা কার্ডের ধরন অনুযায়ী ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন!\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
