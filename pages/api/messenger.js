@@ -833,8 +833,8 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
             }
             // ===== LOCATION / ADDRESS =====
-            else if (txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom/i)) {
-              const reply = `📍 আমাদের অফিস ও ঠিকানা:\nবন্ধন প্রিন্টিং হাউস, মানিকগঞ্জ, ঢাকা।\n(মানিকগঞ্জ অফিসে এসে সরাসরি ভিজিট করতে পারবেন অথবা জেলা শহরের ভেতরে ক্যাশ অন ডেলিভারিতে অর্ডার নিতে পারবেন!)\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
+            else if (txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom|কারখানা|karkhana/i)) {
+              const reply = `📍 আমাদের অফিস ও ঠিকানার তথ্য:\n\n🏢 অফিস: মানিকগঞ্জ।\n🏭 কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)।\n\n🛒 অর্ডার প্রক্রিয়া:\nঅনলাইনে অথবা মানিকগঞ্জ অফিসে সরাসরি এসে অর্ডার করতে পারবেন।\n\n📦 প্রোডাক্ট ডেলিভারি/সংগ্রহ:\n• কুরিয়ারের মাধ্যমে (সারাদেশে)\n• মানিকগঞ্জ অফিসে সরাসরি\n• অথবা কার্ডের ধরন অনুযায়ী ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন!\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                 { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
