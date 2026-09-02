@@ -323,7 +323,8 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
 - রোবটের মতো দীর্ঘ প্যারা লিখবে না, ১-৩ লাইনে উত্তর দাও
 - কাস্টমার "অল্প লাগবে" বা "কম পিস" বললে ১-৪৯ পিসের প্রাইসিং বুঝিয়ে বলো
 - বিয়ের শুভেচ্ছা জানাও, তাদের পছন্দের ডিজাইন দেখতে সাহায্য করো
-- কাস্টমার নিজের পছন্দ বা কাস্টম ডিজাইন চাইলে বলো অ্যাডভান্সের পর আমাদের ডিজাইনার হোয়াটসঅ্যাপে ডিজাইন প্রুফ তৈরি করে দেখাবে।`;
+- কাস্টমার নিজের পছন্দ বা কাস্টম ডিজাইন চাইলে বলো অ্যাডভান্সের পর আমাদের ডিজাইনার হোয়াটসঅ্যাপে ডিজাইন প্রুফ তৈরি করে দেখাবে।
+- কাস্টমার দাম কমাতে বা ডিসকাউন্ট চাইলে বলো: "আমাদের দামগুলো সেরা মেটেরিয়াল ও পাইকারি রেটে নির্ধারিত। তবে ২০০+ পিস নিলে প্রতি পিসের দাম অনেক কমে আসবে এবং ফ্রি নিকাহনামা উপহার পাবেন!"`;
 
   try {
     // Build conversation context (last 10 messages)
@@ -490,6 +491,23 @@ function isDuplicateEvent(eventId) {
   return false;
 }
 
+// User-level Debounce Lock (prevents rapid duplicate webhook triggers per user)
+const userLastMsgMap = new Map();
+function isUserDebounced(senderId, isPhoto) {
+  const now = Date.now();
+  const lastTime = userLastMsgMap.get(senderId) || 0;
+  if (isPhoto) {
+    userLastMsgMap.set(senderId, now);
+    return false; // Always process photo
+  }
+  if (now - lastTime < 2000) {
+    console.log(`⏩ Debouncing rapid webhook event for ${senderId} (${now - lastTime}ms since last event)`);
+    return true;
+  }
+  userLastMsgMap.set(senderId, now);
+  return false;
+}
+
 // Send 8 Direct Full-Size Card Photos sequentially using guaranteed offset tracking
 async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
@@ -558,8 +576,8 @@ export default async function handler(req, res) {
         const entries = body.entry || [];
 
         for (const entry of entries) {
-          const webhookEvent = entry.messaging?.[0];
-          if (webhookEvent) {
+          const messagingEvents = entry.messaging || [];
+          for (const webhookEvent of messagingEvents) {
             if (webhookEvent.delivery || webhookEvent.read) continue;
 
             // ===== ECHO DETECTION: Admin manual reply → auto-takeover =====
@@ -632,6 +650,17 @@ export default async function handler(req, res) {
                 isPhoto = true;
                 photoUrl = imgAtt.payload?.url;
               }
+            }
+
+            // If user event is debounced (within 2s of previous event), skip
+            if (isUserDebounced(senderId, isPhoto)) {
+              continue;
+            }
+
+            // If sending a photo, clear text & payload to prevent text/price triggers
+            if (isPhoto) {
+              payload = '';
+              text = '';
             }
 
             // Check if this is a button click (postback) or free-text
@@ -878,6 +907,16 @@ export default async function handler(req, res) {
                 { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                 { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
                 { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== BARGAINING / DISCOUNT QUERY =====
+            else if (txt.match(/discount|ডিসকাউন্ট|ছাড়|ছাড়|কম রাখা|কমান|কিছু কম|একটু কম|কম হবে|kom hobe|kom dhen|kom rakh/i)) {
+              const reply = `আমাদের দামগুলো সেরা মেটেরিয়াল ও কোয়ালিটি নিশ্চিত করে পাইকারি রেটে নির্ধারিত। 😊\n\n💡 তবে আপনার জন্য পরামর্শ:\n২০০ পিস বা তার বেশি অর্ডার করলে পিস প্রতি দাম অনেক কমে আসবে (Affordable: ৩৫৳, Premium: ৪৫৳) এবং সাথে ১টি চমৎকার ফ্রি নিকাহনামা উপহার পাবেন! 🎁\n\nআপনি কত পিস নিতে চাচ্ছেন বলুন, সেরা হিসাব করে দিচ্ছি! 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "২০০ পিস অর্ডার", payload: "QTY_200" },
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
