@@ -145,7 +145,7 @@ function getCategoryPrice(qty, category) {
   }
 
   const total = qty * perPiece;
-  const freeGift = qty >= 200 ? "\n🎁 ২০০+ পিসে ১টি ফ্রি নিকাহনামা!" : "";
+  const freeGift = "";
   const label = isAffordable ? "💚 সাশ্রয়ী (Affordable)" : "✨ প্রিমিয়াম (Premium)";
 
   return `${label} কালেকশন:\n${bngDigits(qty)} পিসের দাম: ${bngDigits(total.toLocaleString('en-IN').replace(/,/g, ','))}৳ (পিস প্রতি ${bngDigits(perPiece)}৳)${freeGift}`;
@@ -172,9 +172,9 @@ function getFullPriceTable(category) {
   const label = isAffordable ? "💚 সাশ্রয়ী (Affordable)" : "✨ প্রিমিয়াম (Premium)";
   
   if (isAffordable) {
-    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)`;
+    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)`;
   } else {
-    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)`;
+    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)`;
   }
 }
 
@@ -297,12 +297,12 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
 ১. 💚 Affordable (সাশ্রয়ী) — ছোট সাইজ:
    - ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)
    - ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)
-   - ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)
+   - ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)
 
 ২. ✨ Premium (প্রিমিয়াম/লাক্সারি) — বড় সাইজ:
    - ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)
    - ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)
-   - ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস + ১টি ফ্রি নিকাহনামা 🎁)
+   - ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)
 
 ৩. 🔹 অল্প পরিমাণের বিশেষ প্রাইসিং (১ - ৪৯ পিস):
    - ১-৫ পিস: ১,০০০৳ সর্বমোট (ফিক্সড মেকিং ও ডাইস চার্জ সহ)
@@ -324,7 +324,7 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
 - কাস্টমার "অল্প লাগবে" বা "কম পিস" বললে ১-৪৯ পিসের প্রাইসিং বুঝিয়ে বলো
 - বিয়ের শুভেচ্ছা জানাও, তাদের পছন্দের ডিজাইন দেখতে সাহায্য করো
 - কাস্টমার নিজের পছন্দ বা কাস্টম ডিজাইন চাইলে বলো অ্যাডভান্সের পর আমাদের ডিজাইনার হোয়াটসঅ্যাপে ডিজাইন প্রুফ তৈরি করে দেখাবে।
-- কাস্টমার দাম কমাতে বা ডিসকাউন্ট চাইলে বলো: "আমাদের দামগুলো সেরা মেটেরিয়াল ও পাইকারি রেটে নির্ধারিত। তবে ২০০+ পিস নিলে প্রতি পিসের দাম অনেক কমে আসবে এবং ফ্রি নিকাহনামা উপহার পাবেন!"`;
+- কাস্টমার দাম কমাতে বা ডিসকাউন্ট চাইলে বলো: "আমাদের দামগুলো সেরা মেটেরিয়াল ও পাইকারি রেটে নির্ধারিত। তবে ২০০+ পিস নিলে প্রতি পিসের দাম অনেক কমে আসবে !"`;
 
   try {
     // Build conversation context (last 10 messages)
@@ -882,17 +882,13 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== NIKAHNAMA GIFT QUERY =====
-            else if (txt.match(/nikahnama|নিকাহনামা|নিকাহ নামা|gift|উপহার/i)) {
-              const reply = `🎁 ফ্রি নিকাহনামা অফার:
-
-আমাদের ২০০ পিস বা তার বেশি যেকোনো কার্ড অর্ডার করলেই ১টি আকর্ষণীয় ফ্রি নিকাহনামা উপহার পাবেন! 😍
-
-অর্ডার করতে চাইলে নিচের বাটনে চাপুন! 😊`;
+            // ===== NIKAHNAMA QUERY =====
+            else if (txt.match(/nikahnama|নিকাহনামা|নিকাহ নামা/i)) {
+              const reply = `📜 নিকাহনামা তথ্য:\n\nনিকাহনামা সার্ভিস সম্পর্কে জানতে বা আলাদাভাবে নিকাহনামা প্রিন্ট করতে আমাদের হটলাইনে কল বা হোয়াটসঅ্যাপ করুন! 😊\n\n📞 হটলাইন: 01701016826`;
               await sendMessengerButtonBlock(senderId, reply, [
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -912,7 +908,7 @@ export default async function handler(req, res) {
             }
             // ===== BARGAINING / DISCOUNT QUERY =====
             else if (txt.match(/discount|ডিসকাউন্ট|ছাড়|ছাড়|কম রাখা|কমান|কিছু কম|একটু কম|কম হবে|kom hobe|kom dhen|kom rakh/i)) {
-              const reply = `আমাদের দামগুলো সেরা মেটেরিয়াল ও কোয়ালিটি নিশ্চিত করে পাইকারি রেটে নির্ধারিত। 😊\n\n💡 তবে আপনার জন্য পরামর্শ:\n২০০ পিস বা তার বেশি অর্ডার করলে পিস প্রতি দাম অনেক কমে আসবে (Affordable: ৩৫৳, Premium: ৪৫৳) এবং সাথে ১টি চমৎকার ফ্রি নিকাহনামা উপহার পাবেন! 🎁\n\nআপনি কত পিস নিতে চাচ্ছেন বলুন, সেরা হিসাব করে দিচ্ছি! 😊`;
+              const reply = `আমাদের দামগুলো সেরা মেটেরিয়াল ও কোয়ালিটি নিশ্চিত করে পাইকারি রেটে নির্ধারিত। 😊\n\n💡 তবে আপনার জন্য পরামর্শ:\n২০০ পিস বা তার বেশি অর্ডার করলে পিস প্রতি দাম অনেক কমে আসবে (Affordable: ৩৫৳, Premium: ৪৫৳)\n\nআপনি কত পিস নিতে চাচ্ছেন বলুন, সেরা হিসাব করে দিচ্ছি! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "২০০ পিস অর্ডার", payload: "QTY_200" },
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
