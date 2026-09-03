@@ -117,6 +117,12 @@ const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের �
 // Delay helper for sequential sending
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
+// Helper to convert Bengali digits to English digits
+function normalizeBengaliDigits(str) {
+  if (!str) return '';
+  return str.toString().replace(/[০-৯]/g, d => "০১২৩৪৫৬৭৮৯".indexOf(d));
+}
+
 // Helper to convert English digits to Bengali digits
 const bngDigits = (num) => num.toString().replace(/\d/g, d => '০১২৩৪৫৬৭৮৯'[d]);
 
