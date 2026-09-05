@@ -70,99 +70,103 @@ const ORDER_RULES_MSG = `📋 অর্ডার করার সহজ নি�
 ৩. আমাদের অভিজ্ঞ ডিজাইনার কার্ড ডিজাইন তৈরি করে আপনাকে প্রুফ চেক করাবে।
 ৪. আপনার চূড়ান্ত অনুমোদনের পর প্রিন্ট করে জেলা শহরে ক্যাশ অন ডেলিভারিতে পাঠানো হবে (৫-৭ কর্মদিবস)।`;
 
-const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
+const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ড তৈরির অর্ডার ফর্ম (বাংলা): 🌸
+(ফর্মটি কপি করে তথ্যগুলো লিখে আমাদের পাঠিয়ে দিন)
 
-📦 কার্ডের পরিমাণ (কত পিস): 
-🎨 পছন্দের কার্ড কোড (যদি থাকে): 
+📦 কার্ডের পরিমাণ (কত পিস লাগবে): 
+🎨 পছন্দের কার্ড কোড/মডেল (যদি থাকে): 
 
-বর-
-নামঃ
-পিতাঃ
-মাতাঃ
-ঠিকানাঃ
+🤵 বর সম্পর্কিত তথ্য:
+• বরের পূর্ণ নাম: 
+• পিতার নাম: 
+• মাতার নাম: 
+• বর্তমান/স্থায়ী ঠিকানা (গ্রাম/রোড, থানা, জেলা): 
 
-কনে-
-নামঃ
-পিতাঃ
-মাতাঃ
-ঠিকানাঃ
+👰 কনে সম্পর্কিত তথ্য:
+• কনের পূর্ণ নাম: 
+• পিতার নাম: 
+• মাতার নাম: 
+• বর্তমান/স্থায়ী ঠিকানা (গ্রাম/রোড, থানা, জেলা): 
 
-গায়ে হলুদ-
-তারিখ (ইংরেজি):
-তারিখ (বাংলা):
-রোজঃ
-সময়ঃ
-স্থানঃ
+📅 অনুষ্ঠানসূচী (যেগুলো কার্ডে থাকবে):
+১. গায়ে হলুদ:
+   - তারিখ: (ইংরেজি ও বাংলা)
+   - বার / রোজ: 
+   - সময়: 
+   - স্থান / ভেন্যু: 
 
-শুভ বিবাহ-
-তারিখ (ইংরেজি):
-তারিখ (বাংলা):
-রোজঃ
-সময়ঃ
-স্থানঃ
+২. শুভ বিবাহ / আকদ:
+   - তারিখ: (ইংরেজি ও বাংলা)
+   - বার / রোজ: 
+   - সময়: 
+   - স্থান / ভেন্যু: 
 
-বৌ-ভাত-
-তারিখ (ইংরেজি):
-তারিখ (বাংলা):
-রোজঃ
-সময়ঃ
-স্থানঃ
+৩. বৌ-ভাত / ওলিমা:
+   - তারিখ: (ইংরেজি ও বাংলা)
+   - বার / রোজ: 
+   - সময়: 
+   - স্থান / ভেন্যু: 
 
-অভ্যর্থনায়-
-(ছোট বাচ্চাদের নাম):
-প্রয়োজনে (ফোন):
-শুভেচ্ছান্তে নামঃ
+💌 আমন্ত্রণে ও সৌজন্যে:
+• অভ্যর্থনায় (ছোটদের নাম): 
+• শুভেচ্ছান্তে (বড়দের নাম/পরিবারবর্গ): 
+• প্রয়োজনে যোগাযোগ (মোবাইল নম্বর): 
 
-🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):
+🚚 হোম ডেলিভারির জন্য কুরিয়ার তথ্য:
+• প্রাপকের নাম: 
+• সচল মোবাইল নম্বর: 
+• ডেলিভারির পূর্ণ ঠিকানা (থানা ও জেলা সহ): 
 
-(ফর্মটি কপি করে পূরণ করে পাঠান! 🥰)`;
+💡 (ফর্মটি পূরণ করে পাঠালে আমাদের ডিজাইনার ডিজাইন রেডি করে আপনাকে প্রুফ দেখাবে! 🥰)`;
 
-const ENGLISH_ORDER_FORM_TEXT = `📝 Wedding Card English Form: ✨
+const ENGLISH_ORDER_FORM_TEXT = `📝 Wedding Card Order Form (English): ✨
+(Please copy this form, fill in your details and send it back to us)
 
 📦 Card Quantity (How many pcs): 
-🎨 Preferred Card Code (If any): 
+🎨 Preferred Card Code/Model (If any): 
 
-Groom-
-Name:
-Father:
-Mother:
-Address:
+🤵 Groom's Details:
+• Groom's Full Name: 
+• Father's Name: 
+• Mother's Name: 
+• Address (City/District): 
 
-Bride-
-Name:
-Father:
-Mother:
-Address:
+👰 Bride's Details:
+• Bride's Full Name: 
+• Father's Name: 
+• Mother's Name: 
+• Address (City/District): 
 
-Holud-
-Date (English):
-Date (Bangla):
-Day:
-Time:
-Venue:
+📅 Event Schedule:
+1. Gaye Holud / Turmeric Ceremony:
+   - Date: 
+   - Day: 
+   - Time: 
+   - Venue: 
 
-Wedding-
-Date (English):
-Date (Bangla):
-Day:
-Time:
-Venue:
+2. Wedding Ceremony / Nikah:
+   - Date: 
+   - Day: 
+   - Time: 
+   - Venue: 
 
-Reception / Bou-Bhat-
-Date (English):
-Date (Bangla):
-Day:
-Time:
-Venue:
+3. Reception / Walima:
+   - Date: 
+   - Day: 
+   - Time: 
+   - Venue: 
 
-RSVP / Reception-
-Children Names:
-Contact Phone:
-Regards:
+💌 RSVP & Compliments:
+• RSVP / Best Compliments: 
+• Little Ones / Cordially Invited by: 
+• Contact Phone: 
 
-🚚 Courier Info (Name, Mobile, Address):
+🚚 Courier Delivery Details:
+• Receiver Name: 
+• Active Mobile Number: 
+• Full Delivery Address (with District & Thana): 
 
-(Please copy the form, fill it up and send here! 🥰)`;
+💡 (Once you send the filled form, our designer will draft your card proof for your review! 🥰)`;
 
 // Delay helper for sequential sending
 const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -987,40 +991,79 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', followUp);
             }
-            // ===== ORDER FORM - LANGUAGE SELECTION =====
-            else if (payload === 'BTN_FORM' || (!isFormSubmission && (txt.match(/^(ফর্ম|form|অর্ডার ফর্ম|order form|ফরম|ফর্ম দিন|ফর্মটা দেন|ফর্ম পাঠান)$/i) || (txt.match(/ফর্ম|form|ফরম/i) && !txt.match(/বাংলা|bangla|english|ইংরেজি|ইংলিশ/i))))) {
-              const askMsg = "আপনার বিয়ের কার্ডটি কি বাংলায় হবে নাকি ইংরেজিতে? 🌸\nনিচের বাটন থেকে আপনার পছন্দের ফর্মটি বেছে নিন: 👇";
-              await sendMessengerButtonBlock(senderId, askMsg, [
-                { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
-                { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" }
+            // ===== BOTH FORMS / ORDER FORM & INFORMATION REQUEST =====
+            else if (payload === 'BTN_BOTH_FORMS' || (!isFormSubmission && (
+              txt.match(/bangla\s*(and|&|\+|,|o|\s+)\s*english\s*form/i) ||
+              txt.match(/english\s*(and|&|\+|,|o|\s+)\s*bangla\s*form/i) ||
+              txt.match(/বাংলা\s*(এবং|ও|আর|\+|,)\s*(ইংরেজি|ইংলিশ)\s*(ফর্ম|ফরম)/i) ||
+              txt.match(/(ইংরেজি|ইংলিশ)\s*(এবং|ও|আর|\+|,)\s*বাংলা\s*(ফর্ম|ফরম)/i) ||
+              txt.match(/দুটো\s*ফর্ম|দুইটা\s*ফর্ম|উভয়\s*ফর্ম|both\s*forms?/i)
+            ))) {
+              // Send Bangla Form first, then English Form, followed by options
+              await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
+              appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
+              await delay(300);
+
+              await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT);
+              appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
+              await delay(300);
+
+              const bothTipMsg = "উপরে বাংলা ও ইংরেজি দুটি ফর্মই দেওয়া হলো। 🌸\nযেকোনো একটি ফর্ম কপি করে আপনার কার্ডের তথ্য ও পরিমাণ (কত পিস লাগবে) লিখে পাঠিয়ে দিন! 🥰";
+              await sendMessengerButtonBlock(senderId, bothTipMsg, [
+                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
               ]);
-              appendMessage(senderId, 'bot', askMsg);
+              appendMessage(senderId, 'bot', bothTipMsg);
             }
             // ===== BANGLA ORDER FORM =====
-            else if (payload === 'BTN_FORM_BN' || (!isFormSubmission && (txt.match(/bangla form|বাংলা ফর্ম|বাংলা ফরম/i) || (txt.match(/বাংলা|bangla/i) && txt.match(/ফর্ম|form|ফরম/i)) || txt === 'বাংলা' || txt === 'বাংলায়' || txt === 'bangla' || txt === 'banglay'))) {
+            else if (payload === 'BTN_FORM_BN' || (!isFormSubmission && (
+              txt.match(/bangla\s*form|বাংলা\s*ফর্ম|বাংলা\s*ফরম/i) ||
+              (txt.match(/বাংলা|bangla/i) && txt.match(/ফর্ম|form|ফরম/i)) ||
+              txt === 'বাংলা' || txt === 'বাংলায়' || txt === 'bangla' || txt === 'banglay' ||
+              txt.match(/^(bangla\s*hobe|বাংলা\s*হবে|বাংলাতে)$/i)
+            ))) {
               await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
 
               const tipMsg = "উপরের ফর্মটি কপি করে তথ্য ও কার্ডের পরিমাণ (কত পিস লাগবে) লিখে পাঠিয়ে দিন! 🥰";
               await sendMessengerButtonBlock(senderId, tipMsg, [
                 { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
                 { title: "দাম জানুন", payload: "BTN_PRICE" }
               ]);
               appendMessage(senderId, 'bot', tipMsg);
             }
             // ===== ENGLISH ORDER FORM =====
-            else if (payload === 'BTN_FORM_EN' || (!isFormSubmission && (txt.match(/english form|ইংরেজি ফর্ম|ইংলিশ ফর্ম|ইংরেজি ফরম|ইংলিশ ফরম/i) || (txt.match(/english|ইংরেজি|ইংলিশ/i) && txt.match(/ফর্ম|form|ফরম/i)) || txt === 'english' || txt === 'ইংরেজি' || txt === 'ইংলিশ' || txt === 'ইংরেজিতে'))) {
+            else if (payload === 'BTN_FORM_EN' || (!isFormSubmission && (
+              txt.match(/english\s*form|ইংরেজি\s*ফর্ম|ইংলিশ\s*ফর্ম|ইংরেজি\s*ফরম|ইংলিশ\s*ফরম/i) ||
+              (txt.match(/english|ইংরেজি|ইংলিশ/i) && txt.match(/ফর্ম|form|ফরম/i)) ||
+              txt === 'english' || txt === 'ইংরেজি' || txt === 'ইংলিশ' || txt === 'ইংরেজিতে' ||
+              txt.match(/^(english\s*hobe|ইংরেজিতে\s*হবে|ইংলিশে\s*হবে)$/i)
+            ))) {
               await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
 
               const tipMsgEn = "Please copy the form above, fill in the details & quantity, and send it here! 🥰";
               await sendMessengerButtonBlock(senderId, tipMsgEn, [
                 { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
                 { title: "দাম জানুন", payload: "BTN_PRICE" }
               ]);
               appendMessage(senderId, 'bot', tipMsgEn);
+            }
+            // ===== GENERAL FORM OR INFORMATION CHECKLIST QUERY =====
+            else if (payload === 'BTN_FORM' || (!isFormSubmission && (
+              txt.match(/ফর্ম|form|ফরম/i) ||
+              txt.match(/তথ্য|information|info|ডিটেইলস|details|কি\s*কি\s*লাগবে|কী\s*কী\s*লাগবে|কি\s*লাগবে|কী\s*লাগবে|কি\s*তথ্য|কী\s*তথ্য|তথ্য\s*লাগবে|info\s*lagbe|information\s*lagbe/i)
+            ))) {
+              const infoNotice = `📋 বিয়ের কার্ড তৈরিতে যেসব তথ্য প্রয়োজন হয়:\n\n১. 📦 কার্ডের পরিমাণ (কত পিস লাগবে)\n২. 🤵 বরের নাম, পিতা, মাতা ও ঠিকানা\n৩. 👰 কনের নাম, পিতা, মাতা ও ঠিকানা\n৪. 📅 অনুষ্ঠানসূচী (হলুদ, বিবাহ, বৌ-ভাত: তারিখ, সময় ও স্থান)\n৫. 💌 আমন্ত্রণে (ছোটদের নাম, যোগাযোগ নম্বর)\n৬. 🚚 কুরিয়ার ডেলিভারি ঠিকানা ও মোবাইল\n\nআপনার কার্ডটি কি বাংলায় করবেন নাকি ইংরেজিতে? নিচের বাটন থেকে ফর্ম সিলেক্ট করুন: 👇`;
+              await sendMessengerButtonBlock(senderId, infoNotice, [
+                { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
+                { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" },
+                { title: "উভয় ফর্ম দেখুন", payload: "BTN_BOTH_FORMS" }
+              ]);
+              appendMessage(senderId, 'bot', infoNotice);
             }
             else if (payload === 'BTN_POLICY' || txt.match(/পলিসি|policy|ডেলিভারি|delivery|কুরিয়ার/)) {
               await sendMessengerText(senderId, ORDER_RULES_MSG);
