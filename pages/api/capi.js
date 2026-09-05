@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const { eventName, value, currency, orderId, phone, email, url, testCode } = req.body;
 
   const pixelId = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID || '7392242574211491';
-  const accessToken = process.env.FB_CAPI_ACCESS_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
+  const accessToken = (process.env.FB_CAPI_ACCESS_TOKEN || process.env.FB_PAGE_ACCESS_TOKEN || "").trim();
 
   // Get user client details
   const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;

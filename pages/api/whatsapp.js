@@ -17,7 +17,7 @@ const PREMIUM_IDS = [
 
 const driveUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
 
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD";
+const WHATSAPP_TOKEN = (process.env.WHATSAPP_TOKEN || "").trim();
 
 const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাবলী:
 ১. অ্যাডভান্স পেমেন্ট:
@@ -292,7 +292,7 @@ export default async function handler(req, res) {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
-    const verifyToken = process.env.VERIFY_TOKEN || "BOONDHON_SECRET_2026";
+    const verifyToken = (process.env.VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || "").trim();
 
     if (mode && token) {
       if (mode === 'subscribe' && token === verifyToken) {

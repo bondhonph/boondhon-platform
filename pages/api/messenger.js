@@ -62,7 +62,7 @@ const PREMIUM_IDS = [
   "1MX7rnQG2F0H8UX5ofGazO53knl7SUNE1","148EhK2GqvlP8Z-X-pK4Cp-Zb_sXqBLAu","1EuLjjvKMWIMkgbnK5PKOsKC5kHEG5H11"
 ];
 
-const PAGE_ACCESS_TOKEN = (process.env.FB_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || "EAAWBQvtCODwBSLtk2AdCyKeIbTeiDuAEkxFrTjpIYOQnkmilCq1SbVZBFENCe70nXBXikgTm6lrNRvtpiDXoUrkuMEdCoYUy7ZAPoXgRZBVmKhLpuauaaw53c2VpwZAW9KjJwPm1OCLOv210ZAlQjxw4tp43p2zqCdquXoAQTEkALMxLvAH9gy8IS2svVg7dE9zMyNW4EpoZBr0hKSF7HbGTcwZBgAUun65syHH7sRTmJfZATPE8Dx8VqypsSnh9ucSQ0XFJO4emHih5a8bYUGaAZAZBbqcAZDZD").trim();
+const PAGE_ACCESS_TOKEN = (process.env.FB_PAGE_ACCESS_TOKEN || "").trim();
 
 const ORDER_RULES_MSG = `📋 অর্ডার করার সহজ নিয়মাবলী:
 ১. কার্ডের তথ্য পাঠাতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন।
@@ -258,51 +258,56 @@ Respond in strict JSON:
   "reason": "ড্রাইভ ক্যাটালগের সাথে ম্যাচিংয়ের কারণ"
 }`;
 
-    const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
-    let textOut = '';
+    const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    for (const modelName of modelsToTry) {
-      try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
-        const geminiRes = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { text: prompt },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Data
-                    }
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+      const geminiRes = await fetch(geminiUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data
                   }
-                ]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 300,
-              responseMimeType: "application/json"
+                }
+              ]
             }
-          })
-        });
-
-        if (geminiRes.ok) {
-          const data = await geminiRes.json();
-          textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          if (textOut) {
-            console.log(`Gemini Vision succeeded with model: ${modelName}`);
-            break;
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 300,
+            responseMimeType: "application/json"
           }
-        } else {
-          console.warn(`Vision model ${modelName} failed (${geminiRes.status}):`, await geminiRes.text());
+        })
+      });
+
+      if (geminiRes.ok) {
+        const data = await geminiRes.json();
+        textOut = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (textOut) {
+          console.log(`Gemini Vision succeeded with model: ${GEMINI_MODEL}`);
         }
-      } catch (callErr) {
-        console.warn(`Vision model ${modelName} call exception:`, callErr.message);
+      } else {
+        console.warn(`Vision model ${GEMINI_MODEL} failed (${geminiRes.status}):`, await geminiRes.text());
       }
+    } catch (callErr) {
+      if (callErr.name === 'AbortError') {
+        console.warn(`Vision model ${GEMINI_MODEL} timed out after 8 seconds`);
+      } else {
+        console.warn(`Vision model ${GEMINI_MODEL} call exception:`, callErr.message);
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
     
     // Robust JSON extraction
@@ -380,28 +385,38 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
     // Add current message
     recentMsgs.push({ role: 'user', parts: [{ text: customerMessage }] });
 
-    const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-1.5-flash'];
-    for (const modelName of modelsToTry) {
-      try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
-        const geminiRes = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: recentMsgs,
-            generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
-          })
-        });
+    const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-        if (geminiRes.ok) {
-          const data = await geminiRes.json();
-          const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (reply) return reply;
-        }
-      } catch (mErr) {
-        console.warn(`Sales brain model ${modelName} error:`, mErr.message);
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+      const geminiRes = await fetch(geminiUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: recentMsgs,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
+        })
+      });
+
+      if (geminiRes.ok) {
+        const data = await geminiRes.json();
+        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (reply) return reply;
+      } else {
+        console.warn(`Sales brain model ${GEMINI_MODEL} failed (${geminiRes.status}):`, await geminiRes.text());
       }
+    } catch (callErr) {
+      if (callErr.name === 'AbortError') {
+        console.warn(`Sales brain model ${GEMINI_MODEL} timed out after 8 seconds`);
+      } else {
+        console.warn(`Sales brain model ${GEMINI_MODEL} error:`, callErr.message);
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
     return null;
   } catch (err) {
@@ -603,7 +618,7 @@ export default async function handler(req, res) {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
-    const verifyToken = process.env.VERIFY_TOKEN || "BOONDHON_SECRET_2026";
+    const verifyToken = (process.env.VERIFY_TOKEN || "").trim();
 
     if (mode && token === verifyToken) {
       console.log('Messenger Webhook Verified!');
