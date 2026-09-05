@@ -39,6 +39,9 @@ const ORDER_RULES_MSG = `📋 অর্ডার করার নিয়মাব
 
 const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
 
+📦 কার্ডের পরিমাণ (কত পিস): 
+🎨 পছন্দের কার্ড কোড (যদি থাকে): 
+
 বর-
 নামঃ
 পিতাঃ
@@ -80,6 +83,53 @@ const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের �
 🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):
 
 (ফর্মটি কপি করে পূরণ করে পাঠান! 🥰)`;
+
+const ENGLISH_ORDER_FORM_TEXT = `📝 Wedding Card English Form: ✨
+
+📦 Card Quantity (How many pcs): 
+🎨 Preferred Card Code (If any): 
+
+Groom-
+Name:
+Father:
+Mother:
+Address:
+
+Bride-
+Name:
+Father:
+Mother:
+Address:
+
+Holud-
+Date (English):
+Date (Bangla):
+Day:
+Time:
+Venue:
+
+Wedding-
+Date (English):
+Date (Bangla):
+Day:
+Time:
+Venue:
+
+Reception / Bou-Bhat-
+Date (English):
+Date (Bangla):
+Day:
+Time:
+Venue:
+
+RSVP / Welcome-
+Children Names:
+Contact Phone:
+Regards:
+
+🚚 Courier Info (Name, Mobile, Address):
+
+(Please copy the form, fill it up and send here! 🥰)`;
 
 // Helper to send single image with caption
 async function sendWhatsAppImage(phoneId, to, imageUrl, caption) {
@@ -208,20 +258,33 @@ async function send8CardGallery(phoneId, to, type, offset = 0) {
   appendMessage(to, 'bot', text);
 }
 
-// Send the exact text order form template from user's screenshot
-async function sendTextOrderForm(phoneId, to) {
+// Ask user whether they want Bangla or English Order Form
+async function askWhatsAppFormLanguage(phoneId, to) {
+  const text = `আপনার বিয়ের কার্ডটি কি বাংলায় হবে নাকি ইংরেজিতে? 🌸\nনিচের বাটন থেকে আপনার পছন্দের ফর্মটি বেছে নিন:`;
+  const buttons = [
+    { id: 'btn_form_bn', title: '🇧🇩 বাংলা ফর্ম' },
+    { id: 'btn_form_en', title: '🇬🇧 English Form' }
+  ];
+  await sendWhatsAppInteractive(phoneId, to, text, buttons);
+  appendMessage(to, 'bot', text);
+}
+
+// Send the exact text order form template based on selected language
+async function sendWhatsAppForm(phoneId, to, lang = 'bn') {
+  const formText = lang === 'en' ? ENGLISH_ORDER_FORM_TEXT : BANGLA_ORDER_FORM_TEXT;
   await sendWhatsAppMessage(phoneId, to, ORDER_RULES_MSG);
-  await sendWhatsAppMessage(phoneId, to, BANGLA_ORDER_FORM_TEXT);
+  await sendWhatsAppMessage(phoneId, to, formText);
 
   const buttonText = `অথবা সরাসরি ডিজিটাল ফর্মে তথ্য পূরণ করতে আমাদের ওয়েবসাইটে ভিসিট করুন:\n👉 https://boondhon-platform-qr9a.vercel.app/order`;
   const buttons = [
+    { id: lang === 'en' ? 'btn_form_bn' : 'btn_form_en', title: lang === 'en' ? '🇧🇩 বাংলা ফর্ম' : '🇬🇧 English Form' },
     { id: 'btn_affordable', title: '💚 Affordable' },
     { id: 'btn_premium', title: '✨ Premium' }
   ];
   await sendWhatsAppInteractive(phoneId, to, buttonText, buttons);
 
   appendMessage(to, 'bot', ORDER_RULES_MSG);
-  appendMessage(to, 'bot', BANGLA_ORDER_FORM_TEXT);
+  appendMessage(to, 'bot', formText);
 }
 
 export default async function handler(req, res) {
@@ -295,8 +358,14 @@ export default async function handler(req, res) {
             else if (txt.includes('premium') || txt.includes('প্রিমিয়াম') || btnId === 'btn_premium') {
               await send8CardGallery(phoneId, from, 'premium', 0);
             }
+            else if (btnId === 'btn_form_bn' || txt.includes('bangla form') || (txt.includes('বাংলা') && (txt.includes('ফর্ম') || txt.includes('form')))) {
+              await sendWhatsAppForm(phoneId, from, 'bn');
+            }
+            else if (btnId === 'btn_form_en' || txt.includes('english form') || ((txt.includes('english') || txt.includes('ইংরেজি') || txt.includes('ইংলিশ')) && (txt.includes('ফর্ম') || txt.includes('form')))) {
+              await sendWhatsAppForm(phoneId, from, 'en');
+            }
             else if (btnId === 'btn_order' || txt.includes('অর্ডার') || txt.includes('order') || txt.includes('ফর্ম') || txt.includes('form')) {
-              await sendTextOrderForm(phoneId, from);
+              await askWhatsAppFormLanguage(phoneId, from);
             }
             else if (txt.includes('policy') || txt.includes('পলিসি') || txt.includes('ঠিকানা') || btnId === 'btn_policy' || txt.includes('অফিস')) {
               await sendWhatsAppMessage(phoneId, from, ORDER_RULES_MSG);

@@ -5,6 +5,9 @@ import { MessageCircle, X, Send, Minimize2, Phone, Image as ImageIcon, Copy, Che
 
 const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
 
+📦 কার্ডের পরিমাণ (কত পিস): 
+🎨 পছন্দের কার্ড কোড (যদি থাকে): 
+
 বর-
 নামঃ
 পিতাঃ
@@ -46,6 +49,9 @@ const BANGLA_FORM_TEXT = `📝 বিয়ের কার্ডের বা�
 (ফর্মটি কপি করে পূরণ করে পাঠান) 🥰`;
 
 const ENGLISH_FORM_TEXT = `📝 Wedding Card English Form: ✨
+
+📦 Card Quantity (How many pcs): 
+🎨 Preferred Card Code (If any): 
 
 Groom Name:
 Father Name:
@@ -168,8 +174,26 @@ export default function Chatbot() {
         return;
       }
 
-      // 4. Bangla Order Form Request
-      if (lower.includes('বাংলা অর্ডার') || lower.includes('bangla form')) {
+      // 4. Generic Order Form Request (Ask language preference)
+      if (
+        lower === 'ফর্ম' || lower === 'form' || lower === 'অর্ডার ফর্ম' || lower === 'order form' || lower === 'ফরম' ||
+        (['ফর্ম', 'form', 'ফরম'].some(w => lower.includes(w)) && !lower.includes('বাংলা') && !lower.includes('english') && !lower.includes('ইংরেজি') && !lower.includes('ইংলিশ'))
+      ) {
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'bot',
+            type: 'text',
+            content: `আপনার বিয়ের কার্ডটি কি বাংলায় হবে নাকি ইংরেজিতে? 🌸\nনিচের বাটন চেপে আপনার পছন্দের ফর্মটি বেছে নিন:`
+          },
+          { role: 'bot', type: 'form_choice' }
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      // 5. Bangla Order Form Request
+      if (lower.includes('বাংলা') && (lower.includes('ফর্ম') || lower.includes('form') || lower.includes('ফরম') || lower.includes('অর্ডার') || lower.includes('কার্ড'))) {
         setMessages(prev => [
           ...prev,
           { role: 'bot', type: 'form', title: '📝 বিয়ের কার্ডের বাংলা ফর্ম', formText: BANGLA_FORM_TEXT, id: 'bn_form' }
@@ -178,8 +202,8 @@ export default function Chatbot() {
         return;
       }
 
-      // 5. English Order Form Request
-      if (lower.includes('english form') || lower.includes('ইংরেজি অর্ডার')) {
+      // 6. English Order Form Request
+      if ((lower.includes('english') || lower.includes('ইংরেজি') || lower.includes('ইংলিশ')) && (lower.includes('ফর্ম') || lower.includes('form') || lower.includes('ফরম') || lower.includes('অর্ডার') || lower.includes('কার্ড'))) {
         setMessages(prev => [
           ...prev,
           { role: 'bot', type: 'form', title: '📝 Wedding Card English Form', formText: ENGLISH_FORM_TEXT, id: 'en_form' }
@@ -318,6 +342,25 @@ export default function Chatbot() {
                   </div>
                 )}
 
+                {/* Form Choice Bubble */}
+                {m.type === 'form_choice' && (
+                  <div className="max-w-[90%] bg-white text-slate-900 rounded-2xl p-3.5 shadow-md border border-brand-blue/20 space-y-2">
+                    <p className="text-xs font-medium text-slate-700">কোন ভাষার ফর্মটি কপি করতে চান?</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => sendUserMessage('বাংলা অর্ডার ফর্ম')}
+                        className="flex-1 bg-brand-blue text-white py-2 px-3 rounded-xl text-xs font-bold hover:opacity-90 shadow-sm transition-all">
+                        🇧🇩 বাংলা ফর্ম
+                      </button>
+                      <button
+                        onClick={() => sendUserMessage('English Order Form')}
+                        className="flex-1 bg-slate-800 text-white py-2 px-3 rounded-xl text-xs font-bold hover:bg-slate-700 shadow-sm transition-all">
+                        🇬🇧 English Form
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
             ))}
 
@@ -350,7 +393,10 @@ export default function Chatbot() {
               🚚 পলিসি ও ঠিকানা
             </button>
             <button onClick={() => sendUserMessage('বাংলা অর্ডার ফর্ম')} className="text-xs bg-white/10 text-gray-300 border border-white/15 px-2.5 py-1 rounded-full font-semibold hover:bg-white/20 transition-all">
-              📝 বাংলা অর্ডার ফর্ম
+              🇧🇩 বাংলা ফর্ম
+            </button>
+            <button onClick={() => sendUserMessage('English Order Form')} className="text-xs bg-white/10 text-gray-300 border border-white/15 px-2.5 py-1 rounded-full font-semibold hover:bg-white/20 transition-all">
+              🇬🇧 English Form
             </button>
           </div>
 

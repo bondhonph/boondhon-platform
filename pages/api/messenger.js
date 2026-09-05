@@ -72,6 +72,9 @@ const ORDER_RULES_MSG = `📋 অর্ডার করার সহজ নি�
 
 const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের বাংলা ফর্ম: 🌸
 
+📦 কার্ডের পরিমাণ (কত পিস): 
+🎨 পছন্দের কার্ড কোড (যদি থাকে): 
+
 বর-
 নামঃ
 পিতাঃ
@@ -113,6 +116,53 @@ const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ডের �
 🚚 কুরিয়ার ইনফো (নাম, মোবাইল, ঠিকানা):
 
 (ফর্মটি কপি করে পূরণ করে পাঠান! 🥰)`;
+
+const ENGLISH_ORDER_FORM_TEXT = `📝 Wedding Card English Form: ✨
+
+📦 Card Quantity (How many pcs): 
+🎨 Preferred Card Code (If any): 
+
+Groom-
+Name:
+Father:
+Mother:
+Address:
+
+Bride-
+Name:
+Father:
+Mother:
+Address:
+
+Holud-
+Date (English):
+Date (Bangla):
+Day:
+Time:
+Venue:
+
+Wedding-
+Date (English):
+Date (Bangla):
+Day:
+Time:
+Venue:
+
+Reception / Bou-Bhat-
+Date (English):
+Date (Bangla):
+Day:
+Time:
+Venue:
+
+RSVP / Reception-
+Children Names:
+Contact Phone:
+Regards:
+
+🚚 Courier Info (Name, Mobile, Address):
+
+(Please copy the form, fill it up and send here! 🥰)`;
 
 // Delay helper for sequential sending
 const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -316,6 +366,7 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
 - রোবটের মতো দীর্ঘ প্যারা লিখবে না, ১-৩ লাইনে উত্তর দাও
 - কাস্টমার "অল্প লাগবে" বা "কম পিস" বললে ১-৪৯ পিসের প্রাইসিং বুঝিয়ে বলো
 - বিয়ের শুভেচ্ছা জানাও, তাদের পছন্দের ডিজাইন দেখতে সাহায্য করো
+- কাস্টমার অর্ডার করতে চাইলে বা ফর্ম চাইলে: আগে জিজ্ঞেস করো কার্ডটি বাংলায় হবে নাকি ইংরেজিতে (আমাদের বাংলা ও ইংরেজি উভয় ফর্মই রয়েছে) এবং ফর্মে কার্ডের পরিমাণ (কত পিস) উল্লেখ করতে বলো।
 - কাস্টমার নিজের পছন্দ বা কাস্টম ডিজাইন চাইলে বলো অ্যাডভান্সের পর আমাদের ডিজাইনার হোয়াটসঅ্যাপে ডিজাইন প্রুফ তৈরি করে দেখাবে।
 - কাস্টমার দাম কমাতে বা ডিসকাউন্ট চাইলে বলো: "আমাদের দামগুলো সেরা মেটেরিয়াল ও পাইকারি রেটে নির্ধারিত। তবে ২০০+ পিস নিলে প্রতি পিসের দাম অনেক কমে আসবে !"`;
 
@@ -637,11 +688,16 @@ export default async function handler(req, res) {
             const attachments = message?.attachments;
             let isPhoto = false;
             let photoUrl = null;
+            let isLinkOrShare = false;
             if (attachments && attachments.length > 0) {
               const imgAtt = attachments.find(att => att.type === 'image');
               if (imgAtt) {
                 isPhoto = true;
                 photoUrl = imgAtt.payload?.url;
+              }
+              const nonImgAtt = attachments.find(att => att.type === 'fallback' || att.type === 'video' || att.type === 'share' || att.type === 'template');
+              if (nonImgAtt) {
+                isLinkOrShare = true;
               }
             }
 
@@ -660,18 +716,31 @@ export default async function handler(req, res) {
             const isButtonClick = !!(payload || postbackPayload || quickReplyPayload);
 
             const normalizedTxt = normalizeBengaliDigits(text).toLowerCase();
+            if (normalizedTxt.includes('facebook.com') || normalizedTxt.includes('fb.watch') || normalizedTxt.includes('/reel/') || normalizedTxt.includes('/videos/') || normalizedTxt.includes('fb.me')) {
+              isLinkOrShare = true;
+            }
 
             // Detect if this message is a filled wedding card order form
             const isFormSubmission = (
               (text.includes('বর') && text.includes('কনে')) ||
               (text.includes('নামঃ') && text.includes('পিতাঃ')) ||
               (text.includes('অনুষ্ঠানসূচী') || text.includes('ওয়ালিমা') || text.includes('গায়ে হলুদ') || text.includes('বউ-ভাত') || text.includes('কনের বাড়ি')) ||
-              (text.includes('প্রিন্ট কার্ডের সংখ্যা') || text.includes('কার্ডের সংখ্যা'))
+              (text.includes('প্রিন্ট কার্ডের সংখ্যা') || text.includes('কার্ডের সংখ্যা') || text.includes('কার্ডের পরিমাণ')) ||
+              ((normalizedTxt.includes('groom') || normalizedTxt.includes('bride')) && (normalizedTxt.includes('father') || normalizedTxt.includes('wedding') || normalizedTxt.includes('courier'))) ||
+              (normalizedTxt.includes('wedding card') && (normalizedTxt.includes('courier') || normalizedTxt.includes('quantity'))) ||
+              (normalizedTxt.includes('card quantity') || normalizedTxt.includes('how many pcs'))
             );
 
             let quantity = null;
             if (payload.startsWith('QTY_')) {
               quantity = parseInt(payload.replace('QTY_', ''), 10);
+            } else if (isFormSubmission) {
+              const formQtyMatch = normalizedTxt.match(/(?:কার্ডের\s*(?:পরিমাণ|সংখ্যা)|card\s*quantity|quantity|কত\s*পিস)\s*[:ঃ]?\s*(\d{1,5})/i) ||
+                                  normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)\b/i);
+              if (formQtyMatch) {
+                const num = parseInt(formQtyMatch[1], 10);
+                if (num > 0 && num < 10000) quantity = num;
+              }
             } else {
               const numMatch = normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
               if (numMatch) {
@@ -700,7 +769,7 @@ export default async function handler(req, res) {
               }
 
               if (matchResult && matchResult.isMatch) {
-                // ===== EXACT CATALOG MATCH FOUND =====
+                // ===== EXACT / STRONG CATALOG MATCH (>= 70%) =====
                 const category = matchResult.category;
                 const matchCode = matchResult.code;
                 setCurrentCategory(senderId, category);
@@ -708,20 +777,37 @@ export default async function handler(req, res) {
                 const priceTable = getFullPriceTable(category);
                 const emoji = category === 'premium' ? '✨' : '💚';
                 const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                const oppositeBtn = category === 'premium'
-                  ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
-                  : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+                const altCat = category === 'premium' ? 'affordable' : 'premium';
+                const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
 
                 const reply = `সুন্দর পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                  oppositeBtn,
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                  { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+                  { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
+              } else if (matchResult && matchResult.similarity >= 0.58) {
+                // ===== CLOSE MATCH (>= 58%, e.g. Screenshot of FB post / Reel) =====
+                const category = matchResult.category;
+                setCurrentCategory(senderId, category);
+
+                const priceTable = getFullPriceTable(category);
+                const emoji = category === 'premium' ? '✨' : '💚';
+                const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+                const altCat = category === 'premium' ? 'affordable' : 'premium';
+                const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+
+                const reply = `চমৎকার পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের একটি আকর্ষণীয় কার্ড।\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                  { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+                  { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // ===== NO EXACT MATCH — Show both collections =====
-                const reply = `সুন্দর ডিজাইন! 😍 এই ধরনের কার্ড আমাদের কাছেও আছে।\nআমাদের কালেকশন দেখুন — আপনার পছন্দের ডিজাইন পেয়ে যাবেন! 😊`;
+                // ===== NO MATCH — Show prices of both collections + sample cards =====
+                const reply = `সুন্দর ডিজাইন! 😍 আমাদের কাছে এই ধরনের চমৎকার কার্ড রয়েছে।\n\nআমাদের কার্ডের রেট:\n💚 Affordable: ৫০ পিস ২,৭৫০৳ (৫৫৳/পিস)\n✨ Premium: ৫০ পিস ৩,২৫০৳ (৬৫৳/পিস)\n\nআপনার কত পিস লাগবে বলুন! 😊`;
                 await sendMessengerText(senderId, reply);
                 appendMessage(senderId, 'bot', reply);
 
@@ -731,20 +817,32 @@ export default async function handler(req, res) {
                   await delay(250);
                 }
 
-                const followUp = "এগুলো আমাদের জনপ্রিয় কিছু ডিজাইন! আরও দেখতে চাইলে বলুন। 😊";
+                const followUp = "এগুলো আমাদের জনপ্রিয় কিছু ডিজাইন! কোন কালেকশন দেখতে চান? 😊";
                 await sendMessengerButtonBlock(senderId, followUp, [
                   { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                   { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
                 ]);
                 appendMessage(senderId, 'bot', followUp);
               }
+            }
+            // ===== SHARED REEL / VIDEO / POST FROM PAGE =====
+            else if (isLinkOrShare) {
+              const reply = `আমাদের ভিডিও/পোস্টের ডিজাইনটি পছন্দ করার জন্য ধন্যবাদ! 😍🌸\n\nএই কার্ডটির দামের হিসাব:\n💚 Affordable (সাশ্রয়ী): ৫০ পিস ২,৭৫০৳ (৫৫৳/পিস)\n✨ Premium (লাক্সারি): ৫০ পিস ৩,২৫০৳ (৬৫৳/পিস)\n\n(১-৪৯ পিস অল্প পরিমাণেও নিতে পারবেন!)\nআপনার কত পিস কার্ড লাগবে বলুন, সঠিক হিসাব জানিয়ে দিচ্ছি! 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
             }
             // ===== ORDER FORM SUBMITTED BY CUSTOMER =====
             else if (isFormSubmission) {
               let qtyNote = '';
               if (quantity) {
-                qtyNote = `\n📦 আপনার উল্লেখিত কার্ড সংখ্যা: ${bngDigits(quantity)} পিস।`;
+                qtyNote = `\n📦 আপনার উল্লেখিত কার্ডের পরিমাণ: ${bngDigits(quantity)} পিস।`;
+              } else {
+                qtyNote = `\n💡 আপনার মোট কত পিস কার্ড লাগবে তা দয়া করে জানিয়ে দিন (যেমন: ১০০ পিস বা ১৫০ পিস)।`;
               }
 
               const reply = `আলহামদুলিল্লাহ! আপনার কার্ডের তথ্যগুলো আমরা সুন্দরভাবে পেয়েছি। 🌸${qtyNote}\n\nঅর্ডারটি কনফার্ম করে ডিজাইনের কাজ শুরু করার নিয়ম:\n১. ৩০% অ্যাডভান্স পেমেন্ট পাঠান:\n   📲 বিকাশ / নগদ / রকেট (পার্সোনাল): 01682588856\n২. পেমেন্ট সম্পন্ন করে লাস্ট ৪ ডিজিট বা স্ক্রিনশট এখানে পাঠিয়ে দিন।\n\nআমাদের অভিজ্ঞ ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে। আপনার ফাইনাল অনুমোদনের পরই কেবল প্রিন্ট হবে! 😊`;
@@ -812,32 +910,30 @@ export default async function handler(req, res) {
               }
               await sendSequentialGallery(senderId, 'premium', offset);
             }
-            // ===== PRICE — Context-aware single category =====
-            else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam/)) {
+            // ===== PRICE — Context-aware or complete price table (NO LOOPS!) =====
+            else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam|eita koto/i)) {
               const currentCat = getCurrentCategory(senderId);
               
               if (currentCat) {
-                // Show price for current active category only
                 const priceTable = getFullPriceTable(currentCat);
-                const reply = priceTable + "\n\nকত পিস লাগবে বলুন, সাথে সাথে হিসাব দিয়ে দিচ্ছি! 😊";
-                
-                const oppositeBtn = currentCat === 'premium'
-                  ? { title: "💚 Affordable দাম", payload: "BTN_AFFORDABLE_PRICE" }
-                  : { title: "✨ Premium দাম", payload: "BTN_PREMIUM_PRICE" };
+                const altCat = currentCat === 'premium' ? 'affordable' : 'premium';
+                const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+                const reply = `${priceTable}\n\n💡 (${altName} কালেকশনের দামও দেখতে পারেন)\nকত পিস লাগবে বলুন! 😊`;
                 
                 await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                  oppositeBtn,
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                  { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+                  { title: "কার্ড দেখুন", payload: currentCat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" },
+                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // No category selected yet — ask which one
-                const reply = "কোন কালেকশনের দাম জানতে চান? 😊";
+                // Show BOTH categories clearly — NO AMBIGUITY, ZERO LOOPS!
+                const reply = `আমাদের বিয়ের কার্ডের দামের তালিকা: 🌸\n\n💚 সাশ্রয়ী (Affordable):\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)\n\n✨ প্রিমিয়াম (Premium):\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)\n\n(১-৪৯ পিস অল্প পরিমাণেও নিতে পারবেন!)\nআপনার কত পিস লাগবে বলুন? 😊`;
+                
                 await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "💚 Affordable", payload: "BTN_AFFORDABLE_PRICE" },
-                  { title: "✨ Premium", payload: "BTN_PREMIUM_PRICE" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                  { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                  { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               }
@@ -849,7 +945,7 @@ export default async function handler(req, res) {
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                 { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "✨ Premium দাম", payload: "BTN_PREMIUM_PRICE" }
+                { title: "✨ Premium রেট", payload: "BTN_PREMIUM_PRICE" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -859,7 +955,7 @@ export default async function handler(req, res) {
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
                 { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "💚 Affordable দাম", payload: "BTN_AFFORDABLE_PRICE" }
+                { title: "💚 Affordable রেট", payload: "BTN_AFFORDABLE_PRICE" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -876,9 +972,40 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', followUp);
             }
-            else if (payload === 'BTN_FORM' || txt.match(/ফর্ম|form/)) {
+            // ===== ORDER FORM - LANGUAGE SELECTION =====
+            else if (payload === 'BTN_FORM' || (!isFormSubmission && (txt.match(/^(ফর্ম|form|অর্ডার ফর্ম|order form|ফরম|ফর্ম দিন|ফর্মটা দেন|ফর্ম পাঠান)$/i) || (txt.match(/ফর্ম|form|ফরম/i) && !txt.match(/বাংলা|bangla|english|ইংরেজি|ইংলিশ/i))))) {
+              const askMsg = "আপনার বিয়ের কার্ডটি কি বাংলায় হবে নাকি ইংরেজিতে? 🌸\nনিচের বাটন থেকে আপনার পছন্দের ফর্মটি বেছে নিন: 👇";
+              await sendMessengerButtonBlock(senderId, askMsg, [
+                { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
+                { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" }
+              ]);
+              appendMessage(senderId, 'bot', askMsg);
+            }
+            // ===== BANGLA ORDER FORM =====
+            else if (payload === 'BTN_FORM_BN' || (!isFormSubmission && (txt.match(/bangla form|বাংলা ফর্ম|বাংলা ফরম/i) || (txt.match(/বাংলা|bangla/i) && txt.match(/ফর্ম|form|ফরম/i)) || txt === 'বাংলা' || txt === 'বাংলায়' || txt === 'bangla' || txt === 'banglay'))) {
               await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
               appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
+
+              const tipMsg = "উপরের ফর্মটি কপি করে তথ্য ও কার্ডের পরিমাণ (কত পিস লাগবে) লিখে পাঠিয়ে দিন! 🥰";
+              await sendMessengerButtonBlock(senderId, tipMsg, [
+                { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" },
+                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', tipMsg);
+            }
+            // ===== ENGLISH ORDER FORM =====
+            else if (payload === 'BTN_FORM_EN' || (!isFormSubmission && (txt.match(/english form|ইংরেজি ফর্ম|ইংলিশ ফর্ম|ইংরেজি ফরম|ইংলিশ ফরম/i) || (txt.match(/english|ইংরেজি|ইংলিশ/i) && txt.match(/ফর্ম|form|ফরম/i)) || txt === 'english' || txt === 'ইংরেজি' || txt === 'ইংলিশ' || txt === 'ইংরেজিতে'))) {
+              await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT);
+              appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
+
+              const tipMsgEn = "Please copy the form above, fill in the details & quantity, and send it here! 🥰";
+              await sendMessengerButtonBlock(senderId, tipMsgEn, [
+                { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
+                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', tipMsgEn);
             }
             else if (payload === 'BTN_POLICY' || txt.match(/পলিসি|policy|ডেলিভারি|delivery|কুরিয়ার/)) {
               await sendMessengerText(senderId, ORDER_RULES_MSG);
