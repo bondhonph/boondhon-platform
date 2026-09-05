@@ -362,13 +362,13 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
    - ১১-৪৯ পিস: পিস প্রতি ৭৫৳ (যেমন ২৫ পিস = ১,৮৭৫৳)
 
 📍 ঠিকানা ও কারখানা:
-- অফিস: মানিকগঞ্জ (সরাসরি দেখা করে বা কুরিয়ারে ক্যাশ অন ডেলিভারিতে অর্ডার নেওয়া যাবে)
+- অফিস: ২/১-২, ভূমি অফিস লেন, মানিকগঞ্জ, ঢাকা (সরাসরি দেখা করে বা কুরিয়ারে ক্যাশ অন ডেলিভারিতে অর্ডার নেওয়া যাবে)
 - কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)
 - গুগল ম্যাপ লিংক: https://maps.app.goo.gl/CnyRST5KxHjWDAtd9
 
 💳 পেমেন্ট ও কন্টাক্ট:
 - ৩০% অ্যাডভান্স পেমেন্ট নম্বর: 01682588856 (বিকাশ, নগদ, রকেট পার্সোনাল)
-- কল/হোয়াটসঅ্যাপ হটলাইন: 01701016826
+- কল/হোয়াটসঅ্যাপ হটলাইন: 01701016826 (বন্ধন হটলাইন)
 
 🗣️ কথা বলার নিয়ম (মানুষের মতো স্বাভাবিক রিঅ্যাকশন):
 - বাংলায় কথা বলো, ইমোজি ব্যবহার করো
@@ -750,6 +750,13 @@ export default async function handler(req, res) {
               (normalizedTxt.includes('card quantity') || normalizedTxt.includes('how many pcs'))
             );
 
+            // Detect if this message is payment confirmation / transaction info (e.g. "লাস্ট ডিজিট হলো : ১২১৩", "last 4 digit 1234", "trxid 9XYZ...")
+            const isPaymentInfoSubmission = (
+              normalizedTxt.match(/লাস্ট\s*(?:৪|4)?\s*ডিজিট|last\s*(?:4|৪)?\s*digit|ডিজিট\s*(?:হলো|হল|হচ্ছে|দিলাম|ঃ|:)|বিকাশ\s*লাস্ট|নগদ\s*লাস্ট|রকেট\s*লাস্ট|trx\s*id|transaction\s*id|ট্রানজেকশন|লাস্ট\s*নম্বর|পেমেন্ট\s*কোড|টাকা\s*পাঠাইছি|টাকা\s*পাঠিয়েছি/i) !== null ||
+              (normalizedTxt.match(/(?:লাস্ট|last|digit|ডিজিট)[\s:ঃ]*\d{3,6}/i) !== null && !normalizedTxt.match(/পিস|pcs?|piece/i)) ||
+              (normalizedTxt.match(/^(?:last\s*digit\s*)?(?:[:ঃ\s]*)?\d{3,6}$/i) !== null && !normalizedTxt.match(/পিস|pcs?|piece/i) && (existingConv?.messages?.slice(-4)?.some(m => m.text?.includes('লাস্ট ৪ ডিজিট') || m.text?.includes('পেমেন্ট'))))
+            );
+
             let quantity = null;
             if (payload.startsWith('QTY_')) {
               quantity = parseInt(payload.replace('QTY_', ''), 10);
@@ -760,7 +767,7 @@ export default async function handler(req, res) {
                 const num = parseInt(formQtyMatch[1], 10);
                 if (num > 0 && num < 10000) quantity = num;
               }
-            } else {
+            } else if (!isPaymentInfoSubmission) {
               const numMatch = normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
               if (numMatch) {
                 const num = parseInt(numMatch[1], 10);
@@ -1092,7 +1099,7 @@ export default async function handler(req, res) {
             }
             // ===== NIKAHNAMA QUERY =====
             else if (txt.match(/nikahnama|নিকাহনামা|নিকাহ নামা/i)) {
-              const reply = `📜 নিকাহনামা তথ্য:\n\nনিকাহনামা সার্ভিস সম্পর্কে জানতে বা আলাদাভাবে নিকাহনামা প্রিন্ট করতে আমাদের হটলাইনে কল বা হোয়াটসঅ্যাপ করুন! 😊\n\n📞 হটলাইন: 01701016826`;
+              const reply = `📜 নিকাহনামা তথ্য:\n\nনিকাহনামা সার্ভিস সম্পর্কে জানতে বা আলাদাভাবে নিকাহনামা প্রিন্ট করতে আমাদের হটলাইনে কল বা হোয়াটসঅ্যাপ করুন! 😊\n\n📞 হটলাইন: 01701016826 (বন্ধন হটলাইন)`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                 { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
@@ -1125,8 +1132,8 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', reply);
             }
             // ===== LOCATION / ADDRESS =====
-            else if (txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom|কারখানা|karkhana/i)) {
-              const reply = `📍 আমাদের অফিস ও ঠিকানার তথ্য:\n\n🏢 অফিস: মানিকগঞ্জ।\n🏭 কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)।\n\n🛒 অর্ডার প্রক্রিয়া:\nঅনলাইনে অথবা মানিকগঞ্জ অফিসে সরাসরি এসে অর্ডার করতে পারবেন।\n\n📦 প্রোডাক্ট ডেলিভারি/সংগ্রহ:\n• কুরিয়ারের মাধ্যমে (সারাদেশে)\n• মানিকগঞ্জ অফিসে সরাসরি\n• অথবা কার্ডের ধরন অনুযায়ী ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন!\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
+            else if (payload === 'BTN_LOCATION' || txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom|কারখানা|karkhana/i)) {
+              const reply = `📍 আমাদের অফিস ও ঠিকানার তথ্য:\n\n🏢 অফিস: ২/১-২, ভূমি অফিস লেন, মানিকগঞ্জ, ঢাকা।\n🏭 কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)।\n\n🛒 অর্ডার প্রক্রিয়া:\nঅনলাইনে অথবা মানিকগঞ্জ অফিসে সরাসরি এসে অর্ডার করতে পারবেন।\n\n📦 প্রোডাক্ট ডেলিভারি/সংগ্রহ:\n• কুরিয়ারের মাধ্যমে (সারাদেশে হোম ডেলিভারি)\n• মানিকগঞ্জ অফিসে সরাসরি\n• অথবা কার্ডের ধরন অনুযায়ী ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন!\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                 { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
@@ -1134,15 +1141,27 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== PAYMENT CONFIRMATION BY USER =====
-            else if (payload === 'BTN_PAID' || txt.match(/পেমেন্ট করেছি|টাকা পাঠিয়েছি|টাকা পাঠাইছি|paid|advance paid/i)) {
+            // ===== PAYMENT LAST DIGITS / CONFIRMATION SUBMITTED BY USER =====
+            else if (isPaymentInfoSubmission) {
+              const digitsMatch = normalizedTxt.match(/\b\d{3,6}\b/);
+              const digitsText = digitsMatch ? ` (${bngDigits(digitsMatch[0])})` : '';
+              const reply = `আলহামদুলিল্লাহ! আপনার পেমেন্টের লাস্ট ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nআমাদের অ্যাকাউন্টস টিম পেমেন্টটি যাচাই করে দ্রুত অর্ডারটি কনফার্ম করবে এবং আমাদের অভিজ্ঞ ডিজাইনার আপনার কার্ডের ডিজাইন তৈরি করে আপনাকে প্রুফ চেক করাবে।\n\nআপনার চূড়ান্ত অনুমোদনের পরই প্রিন্ট করা হবে! 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+                { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== PAYMENT CONFIRMATION BUTTON / QUERY =====
+            else if (payload === 'BTN_PAID' || txt.match(/^(পেমেন্ট করেছি|টাকা পাঠিয়েছি|টাকা পাঠাইছি|paid|advance paid)$/i)) {
               const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের স্ক্রিনশট বা বিকাশ/নগদ লাস্ট ৪ ডিজিট এখানে লিখে দিন। 😊\nআমাদের টিম দ্রুত যাচাই করে আপনার অর্ডারটি নিশ্চিত করবে এবং ডিজাইনার কাজ শুরু করবে! 🌸`;
               await sendMessengerText(senderId, reply);
               appendMessage(senderId, 'bot', reply);
             }
             // ===== HOTLINE BUTTON =====
             else if (payload === 'BTN_HOTLINE') {
-              const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ডহন হটলাইন)\n\nআমরা সার্বক্ষণিক সহায়তায় আছি! 😊`;
+              const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ধন হটলাইন)\n\nআমরা সার্বক্ষণিক সহায়তায় আছি! 😊`;
               await sendMessengerText(senderId, reply);
               appendMessage(senderId, 'bot', reply);
             }
@@ -1158,7 +1177,7 @@ export default async function handler(req, res) {
             }
             // ===== CONTACT / PHONE / HOTLINE =====
             else if (txt.match(/phone|mobile|ফোন|মোবাইল|contact|যোগাযোগ|hotline|whatsapp|হোয়াটসঅ্যাপ|কথা বলব|call/i)) {
-              const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ডহন হটলাইন)\n\nআপনার যেকোনো প্রশ্নের জন্য আমরা রেডি আছি! 😊`;
+              const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ধন হটলাইন)\n\nআপনার যেকোনো প্রশ্নের জন্য আমরা রেডি আছি! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
                 { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
