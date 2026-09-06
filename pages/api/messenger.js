@@ -1,4 +1,4 @@
-import { appendMessage, getConversation, setHumanTakeover, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory, recordSentCardMessage, getSentCardByMid } from '../../lib/chat-store';
+import { appendMessage, getConversation, setHumanTakeover, setOrderStatus, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory, recordSentCardMessage, getSentCardByMid, setUserAwaitingPayment, isUserAwaitingPayment } from '../../lib/chat-store';
 import { VISUAL_CATALOG_RULES } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
 
@@ -665,6 +665,21 @@ function getSentCardInfo(phone, mid) {
   return getSentCardByMid(phone, mid);
 }
 
+// In-memory set for tracking users who clicked "পেমেন্ট করেছি" and are about to send last 4 digits
+const awaitingPaymentSet = new Set();
+function setCustomerAwaitingPayment(senderId, status) {
+  if (status) {
+    awaitingPaymentSet.add(senderId);
+  } else {
+    awaitingPaymentSet.delete(senderId);
+  }
+  setUserAwaitingPayment(senderId, status);
+}
+function checkCustomerAwaitingPayment(senderId) {
+  if (awaitingPaymentSet.has(senderId)) return true;
+  return isUserAwaitingPayment(senderId);
+}
+
 // Send Direct Full-Size Image Attachment with Message ID Tracking
 async function sendMessengerImage(recipientId, id, category = null) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
@@ -1033,11 +1048,24 @@ export default async function handler(req, res) {
               (normalizedTxt.includes('card quantity') || normalizedTxt.includes('how many pcs'))
             );
 
-            // Detect if this message is payment confirmation / transaction info (e.g. "লাস্ট ডিজিট হলো : ১২১৩", "last 4 digit 1234", "trxid 9XYZ...")
-            const isPaymentInfoSubmission = (
+            // Standard card quantities (50, 100, 150, 200, 250, 300, etc.)
+            const isStandardCardQty = (num) => {
+              if (!num || num < 50) return false;
+              return [50, 60, 70, 75, 80, 100, 120, 150, 200, 250, 300, 350, 400, 500, 600, 700, 750, 800, 900, 1000, 1500, 2000].includes(num);
+            };
+
+            const hasQtyUnit = /\b(pcs?|piece|পিস|পিসি|পিচ|টি|টা|কপি|copy|copies)\b/i.test(normalizedTxt);
+            const pureDigitsMatch = normalizedTxt.trim().match(/^(\d{3,6})$/);
+            const pureDigitsNum = pureDigitsMatch ? parseInt(pureDigitsMatch[1], 10) : null;
+            const awaitingPayment = checkCustomerAwaitingPayment(senderId);
+
+            // Detect if this message is payment confirmation / transaction info (e.g. "লাস্ট ডিজিট হলো : ১২১৩", "last 4 digit 1234", "4532", "trxid 9XYZ...")
+            const isPaymentInfoSubmission = !hasQtyUnit && (
               normalizedTxt.match(/লাস্ট\s*(?:৪|4)?\s*ডিজিট|last\s*(?:4|৪)?\s*digit|ডিজিট\s*(?:হলো|হল|হচ্ছে|দিলাম|ঃ|:)|বিকাশ\s*লাস্ট|নগদ\s*লাস্ট|রকেট\s*লাস্ট|trx\s*id|transaction\s*id|ট্রানজেকশন|লাস্ট\s*নম্বর|পেমেন্ট\s*কোড|টাকা\s*পাঠাইছি|টাকা\s*পাঠিয়েছি/i) !== null ||
-              (normalizedTxt.match(/(?:লাস্ট|last|digit|ডিজিট)[\s:ঃ]*\d{3,6}/i) !== null && !normalizedTxt.match(/পিস|pcs?|piece/i)) ||
-              (normalizedTxt.match(/^(?:last\s*digit\s*)?(?:[:ঃ\s]*)?\d{3,6}$/i) !== null && !normalizedTxt.match(/পিস|pcs?|piece/i) && (existingConv?.messages?.slice(-4)?.some(m => m.text?.includes('লাস্ট ৪ ডিজিট') || m.text?.includes('পেমেন্ট'))))
+              normalizedTxt.match(/(?:লাস্ট|last|digit|ডিজিট)[\s:ঃ]*\d{3,6}/i) !== null ||
+              (awaitingPayment && pureDigitsMatch !== null) ||
+              (pureDigitsMatch !== null && (pureDigitsMatch[1].length === 4 || !isStandardCardQty(pureDigitsNum))) ||
+              (normalizedTxt.match(/^(?:last\s*digit\s*)?(?:[:ঃ\s]*)?\d{3,6}$/i) !== null && (existingConv?.messages?.slice(-4)?.some(m => m.text?.includes('লাস্ট ৪ ডিজিট') || m.text?.includes('পেমেন্ট'))))
             );
 
             // Detect if message is a price objection, competitor comparison, or discount request
@@ -1061,10 +1089,12 @@ export default async function handler(req, res) {
                 if (num > 0 && num < 10000) quantity = num;
               }
             } else if (!isPaymentInfoSubmission) {
-              const numMatch = normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
-              if (numMatch) {
-                const num = parseInt(numMatch[1], 10);
+              const explicitQtyMatch = normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ|টি|টা)\b/i);
+              if (explicitQtyMatch) {
+                const num = parseInt(explicitQtyMatch[1], 10);
                 if (num > 0 && num < 10000) quantity = num;
+              } else if (pureDigitsNum !== null && (isStandardCardQty(pureDigitsNum) || pureDigitsNum < 50)) {
+                quantity = pureDigitsNum;
               }
             }
 
@@ -1309,6 +1339,23 @@ export default async function handler(req, res) {
                 { title: "৫ পিস (১০০০৳)", payload: "QTY_5" },
                 { title: "১০ পিস (১৫০০৳)", payload: "QTY_10" },
                 { title: "২৫ পিস (১৮৭৫৳)", payload: "QTY_25" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== PAYMENT LAST DIGITS / CONFIRMATION SUBMITTED BY USER =====
+            else if (isPaymentInfoSubmission) {
+              const digitsMatch = normalizedTxt.match(/\b\d{3,6}\b/);
+              const digits = digitsMatch ? digitsMatch[0] : '';
+              const digitsText = digits ? ` (${bngDigits(digits)})` : '';
+
+              setCustomerAwaitingPayment(senderId, false);
+              setOrderStatus(senderId, 'Payment_Submitted');
+
+              const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের লাস্ট ৪ ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।\n\nপেমেন্ট নিশ্চিত হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের কাজ শুরু করে দেবে! 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+                { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
@@ -1566,20 +1613,9 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== PAYMENT LAST DIGITS / CONFIRMATION SUBMITTED BY USER =====
-            else if (isPaymentInfoSubmission) {
-              const digitsMatch = normalizedTxt.match(/\b\d{3,6}\b/);
-              const digitsText = digitsMatch ? ` (${bngDigits(digitsMatch[0])})` : '';
-              const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের লাস্ট ৪ ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।\n\nপেমেন্ট নিশ্চিত হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের কাজ শুরু করে দেবে! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
-                { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
-                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
             // ===== PAYMENT CONFIRMATION BUTTON / QUERY =====
             else if (payload === 'BTN_PAID' || txt.match(/^(পেমেন্ট করেছি|টাকা পাঠিয়েছি|টাকা পাঠাইছি|paid|advance paid)$/i)) {
+              setCustomerAwaitingPayment(senderId, true);
               const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের স্ক্রিনশট বা বিকাশ/নগদ লাস্ট ৪ ডিজিট এখানে লিখে দিন। 😊\nআমাদের টিম দ্রুত যাচাই করে আপনার অর্ডারটি নিশ্চিত করবে এবং ডিজাইনার কাজ শুরু করবে! 🌸`;
               await sendMessengerText(senderId, reply);
               appendMessage(senderId, 'bot', reply);
