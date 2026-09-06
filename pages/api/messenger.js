@@ -1,4 +1,4 @@
-import { appendMessage, getConversation, setHumanTakeover, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory } from '../../lib/chat-store';
+import { appendMessage, getConversation, setHumanTakeover, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory, recordSentCardMessage, getSentCardByMid } from '../../lib/chat-store';
 import { VISUAL_CATALOG_RULES } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
 
@@ -644,8 +644,29 @@ async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   }
 }
 
-// Send Direct Full-Size Image Attachment
-async function sendMessengerImage(recipientId, id) {
+// In-memory cache for sent card lookups by Facebook message ID (mid)
+const sentCardsCache = new Map();
+function cacheSentCard(mid, cardId, category, url) {
+  if (!mid) return;
+  sentCardsCache.set(mid, { cardId, category, url, timestamp: Date.now() });
+  if (sentCardsCache.size > 1000) {
+    const firstKey = sentCardsCache.keys().next().value;
+    sentCardsCache.delete(firstKey);
+  }
+}
+function getCachedSentCard(mid) {
+  if (!mid) return null;
+  return sentCardsCache.get(mid) || null;
+}
+function getSentCardInfo(phone, mid) {
+  if (!mid) return null;
+  const mem = getCachedSentCard(mid);
+  if (mem) return mem;
+  return getSentCardByMid(phone, mid);
+}
+
+// Send Direct Full-Size Image Attachment with Message ID Tracking
+async function sendMessengerImage(recipientId, id, category = null) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
   
   const primaryUrl = `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`;
@@ -667,11 +688,14 @@ async function sendMessengerImage(recipientId, id) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!res.ok) {
-      const data = await res.json();
+    const data = await res.json();
+    if (res.ok && data?.message_id) {
+      cacheSentCard(data.message_id, id, category, primaryUrl);
+      recordSentCardMessage(recipientId, data.message_id, id, category, primaryUrl);
+    } else {
       console.error('Messenger Image Direct Send Primary Error:', JSON.stringify(data));
 
-      await fetch(url, {
+      const fbRes = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -684,6 +708,11 @@ async function sendMessengerImage(recipientId, id) {
           }
         })
       });
+      const fbData = await fbRes.json();
+      if (fbRes.ok && fbData?.message_id) {
+        cacheSentCard(fbData.message_id, id, category, fallbackUrl);
+        recordSentCardMessage(recipientId, fbData.message_id, id, category, fallbackUrl);
+      }
     }
   } catch (err) {
     console.error('Error sending image:', err);
@@ -776,7 +805,7 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   setCurrentCategory(recipientId, type);
   
   for (const id of batch) {
-    await sendMessengerImage(recipientId, id);
+    await sendMessengerImage(recipientId, id, type);
     await delay(180);
   }
 
@@ -902,6 +931,58 @@ export default async function handler(req, res) {
             let photoUrl = null;
             let isLinkOrShare = false;
 
+            const replyTo = message?.reply_to;
+            const isQuotedReply = !!replyTo;
+            let quotedCard = null;
+
+            if (replyTo) {
+              // 1. Direct image attachment in reply_to object
+              if (replyTo.attachments && Array.isArray(replyTo.attachments)) {
+                const qImg = replyTo.attachments.find(att => (att.type === 'image' || att.image_data) && !att.payload?.sticker_id);
+                if (qImg?.payload?.url) {
+                  photoUrl = qImg.payload.url;
+                  isPhoto = true;
+                } else if (qImg?.image_data?.url) {
+                  photoUrl = qImg.image_data.url;
+                  isPhoto = true;
+                }
+              }
+
+              // 2. Check if reply_to.mid matches a card sent by our bot
+              if (replyTo.mid) {
+                quotedCard = getSentCardInfo(senderId, replyTo.mid);
+                if (quotedCard) {
+                  if (quotedCard.url && !photoUrl) {
+                    photoUrl = quotedCard.url;
+                  }
+                  isPhoto = true;
+                }
+              }
+
+              // 3. If still no image and we have reply_to.mid, try querying Meta Graph API
+              if (!isPhoto && replyTo.mid && PAGE_ACCESS_TOKEN) {
+                try {
+                  const graphMidUrl = `https://graph.facebook.com/v20.0/${replyTo.mid}?fields=attachments,message&access_token=${PAGE_ACCESS_TOKEN}`;
+                  const midRes = await fetch(graphMidUrl, {
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(2000)
+                  });
+                  if (midRes.ok) {
+                    const midData = await midRes.json();
+                    const atts = midData?.attachments?.data || midData?.attachments || [];
+                    const foundImg = Array.isArray(atts) ? atts.find(a => a.image_data?.url || a.file_url || (a.type === 'image' && a.payload?.url)) : null;
+                    const fetchedUrl = foundImg?.image_data?.url || foundImg?.file_url || foundImg?.payload?.url;
+                    if (fetchedUrl) {
+                      photoUrl = fetchedUrl;
+                      isPhoto = true;
+                    }
+                  }
+                } catch (e) {
+                  console.warn('Could not fetch reply_to message from Graph API:', e.message);
+                }
+              }
+            }
+
             const referral = webhookEvent.referral || webhookEvent.message?.referral || null;
             const isAdReferral = !!(referral && (referral.source === 'ADS' || referral.ad_id || referral.ads_context_data)) ||
               (text && (text.includes('গোল্ড ফয়েল') || text.includes('হ্যান্ড-ফিনিশড ডিজাইন') || text.includes('#WeddingCard') || (text.includes('WhatsApp:') && text.includes('01701016826'))));
@@ -926,7 +1007,7 @@ export default async function handler(req, res) {
               continue;
             }
 
-            // If sending a photo, preserve caption before clearing text & payload
+            // If sending a photo or replying to a card, preserve caption/text
             const customerPhotoCaption = isPhoto ? (text || '').trim() : '';
             if (isPhoto) {
               payload = '';
@@ -987,41 +1068,12 @@ export default async function handler(req, res) {
               }
             }
 
-            // ===== PHOTO UPLOADED — SMART DRIVE CATALOG & VISION MATCHING =====
-            if (isPhoto && photoUrl) {
-              let photoBase64 = null;
-              let photoMime = 'image/jpeg';
-              try {
-                const imgRes = await fetch(photoUrl, {
-                  headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                  }
-                });
-                if (imgRes.ok) {
-                  const arrayBuffer = await imgRes.arrayBuffer();
-                  photoBase64 = Buffer.from(arrayBuffer).toString('base64');
-                  photoMime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
-                } else {
-                  console.error('Failed to fetch photo from Messenger:', imgRes.status);
-                }
-              } catch (fetchErr) {
-                console.error('Error fetching photo from Messenger:', fetchErr.message);
-              }
-
-              let matchResult = null;
-              if (photoBase64 && isCatalogIndexReady()) {
-                try {
-                  matchResult = await findCatalogMatch(photoBase64, photoMime);
-                } catch (matchErr) {
-                  console.error('Catalog match error:', matchErr.message);
-                }
-              }
-
-              // Check if catalog match is confident (>= 0.70 similarity with a Drive catalog card)
-              if (matchResult && matchResult.similarity >= 0.70) {
-                const category = matchResult.category;
-                const matchCode = matchResult.code;
-                setCurrentCategory(senderId, category); // Save category so "eita koto" knows!
+            // ===== PHOTO UPLOADED OR QUOTED CARD REPLY =====
+            if (isPhoto && (photoUrl || quotedCard)) {
+              // Case 1: Exact card already identified via quoted/swiped message
+              if (quotedCard) {
+                const category = quotedCard.category || 'affordable';
+                setCurrentCategory(senderId, category);
 
                 const priceTable = getFullPriceTable(category);
                 const emoji = category === 'premium' ? '✨' : '💚';
@@ -1029,14 +1081,14 @@ export default async function handler(req, res) {
                 const altCat = category === 'premium' ? 'affordable' : 'premium';
                 const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
 
-                let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ড্রাইভ ক্যাটালগের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
+                let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
 
                 if (customerPhotoCaption) {
                   const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
                   if (capQtyMatch) {
                     const q = parseInt(capQtyMatch[1], 10);
                     if (q >= 50 && q < 10000) {
-                      reply = `দারুণ পছন্দ! 😍 এটি আমাদের ড্রাইভ ক্যাটালগের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                      reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
                     }
                   }
                 }
@@ -1048,51 +1100,155 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // Low similarity (< 0.48) or external card — Gemini 3.6 Vision analyzes the image + candidate
-                const visionRes = await analyzeCardImage({
-                  photoUrl,
-                  base64Data: photoBase64,
-                  mimeType: photoMime,
-                  customerCaption: customerPhotoCaption,
-                  topCandidate: matchResult
-                });
+                // Case 2: photoUrl available (fresh upload or external quote)
+                let photoBase64 = null;
+                let photoMime = 'image/jpeg';
+                try {
+                  const imgRes = await fetch(photoUrl, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                  });
+                  if (imgRes.ok) {
+                    const arrayBuffer = await imgRes.arrayBuffer();
+                    photoBase64 = Buffer.from(arrayBuffer).toString('base64');
+                    photoMime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
+                  } else {
+                    console.error('Failed to fetch photo from Messenger:', imgRes.status);
+                  }
+                } catch (fetchErr) {
+                  console.error('Error fetching photo from Messenger:', fetchErr.message);
+                }
 
-                if (visionRes?.type === 'PAYMENT_RECEIPT') {
-                  const reply = visionRes.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।`;
-                  await sendMessengerButtonBlock(senderId, reply, [
-                    { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
-                    { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
-                    { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
-                  ]);
-                  appendMessage(senderId, 'bot', reply);
-                } else if (visionRes?.type === 'OTHER') {
-                  const reply = visionRes.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড তৈরি করতে চাইছেন? আমাদের কালেকশন দেখতে পারেন অথবা আপনার পছন্দের কার্ডের ছবি বা কত পিস লাগবে জানাতে পারেন!`;
-                  await sendMessengerButtonBlock(senderId, reply, [
-                    { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                    { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                    { title: "দাম জানুন", payload: "BTN_PRICE" }
-                  ]);
-                  appendMessage(senderId, 'bot', reply);
-                } else {
-                  // Wedding Card — Category identified by Vision
-                  const detectedCat = (visionRes?.detectedCategory || matchResult?.category || 'affordable').toLowerCase().includes('prem') ? 'premium' : 'affordable';
-                  setCurrentCategory(senderId, detectedCat); // Save so future questions know the category!
+                let matchResult = null;
+                if (photoBase64 && isCatalogIndexReady()) {
+                  try {
+                    matchResult = await findCatalogMatch(photoBase64, photoMime);
+                  } catch (matchErr) {
+                    console.error('Catalog match error:', matchErr.message);
+                  }
+                }
 
-                  const emoji = detectedCat === 'premium' ? '✨' : '💚';
-                  const catName = detectedCat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                  const altCat = detectedCat === 'premium' ? 'affordable' : 'premium';
+                // Check if catalog match is confident (>= 0.70 similarity with a Drive catalog card)
+                if (matchResult && matchResult.similarity >= 0.70) {
+                  const category = matchResult.category;
+                  const matchCode = matchResult.code;
+                  setCurrentCategory(senderId, category); // Save category so "eita koto" knows!
+
+                  const priceTable = getFullPriceTable(category);
+                  const emoji = category === 'premium' ? '✨' : '💚';
+                  const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+                  const altCat = category === 'premium' ? 'affordable' : 'premium';
                   const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
 
-                  const reply = visionRes?.reply || `অনেক সুন্দর একটি ডিজাইন পছন্দ করেছেন! 😍 এটি আমাদের ${emoji} ${catName} ক্যাটাগরির সাথে মানানসই।\n\n${getFullPriceTable(detectedCat)}\n\nআপনার মোট কত পিস কার্ড লাগবে বলুন! 😊`;
+                  let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ড্রাইভ ক্যাটালগের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
+
+                  if (customerPhotoCaption) {
+                    const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
+                    if (capQtyMatch) {
+                      const q = parseInt(capQtyMatch[1], 10);
+                      if (q >= 50 && q < 10000) {
+                        reply = `দারুণ পছন্দ! 😍 এটি আমাদের ড্রাইভ ক্যাটালগের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                      }
+                    }
+                  }
 
                   await sendMessengerButtonBlock(senderId, reply, [
                     { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                     { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-                    { title: "কার্ড দেখুন", payload: detectedCat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+                    { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
                   ]);
                   appendMessage(senderId, 'bot', reply);
+                } else {
+                  // Low similarity (< 0.70) or external card — Gemini 3.6 Vision analyzes the image + candidate
+                  const visionRes = await analyzeCardImage({
+                    photoUrl,
+                    base64Data: photoBase64,
+                    mimeType: photoMime,
+                    customerCaption: customerPhotoCaption,
+                    topCandidate: matchResult
+                  });
+
+                  if (visionRes?.type === 'PAYMENT_RECEIPT') {
+                    const reply = visionRes.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।`;
+                    await sendMessengerButtonBlock(senderId, reply, [
+                      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+                      { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+                      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+                    ]);
+                    appendMessage(senderId, 'bot', reply);
+                  } else if (visionRes?.type === 'OTHER') {
+                    const reply = visionRes.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড তৈরি করতে চাইছেন? আমাদের কালেকশন দেখতে পারেন অথবা আপনার পছন্দের কার্ডের ছবি বা কত পিস লাগবে জানাতে পারেন!`;
+                    await sendMessengerButtonBlock(senderId, reply, [
+                      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                      { title: "দাম জানুন", payload: "BTN_PRICE" }
+                    ]);
+                    appendMessage(senderId, 'bot', reply);
+                  } else {
+                    // Wedding Card — Category identified by Vision
+                    const detectedCat = (visionRes?.detectedCategory || matchResult?.category || 'affordable').toLowerCase().includes('prem') ? 'premium' : 'affordable';
+                    setCurrentCategory(senderId, detectedCat); // Save so future questions know the category!
+
+                    const emoji = detectedCat === 'premium' ? '✨' : '💚';
+                    const catName = detectedCat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+                    const altCat = detectedCat === 'premium' ? 'affordable' : 'premium';
+                    const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+
+                    // Strictly quote ONLY that specific category's price table
+                    let reply = `অনেক সুন্দর একটি ডিজাইন পছন্দ করেছেন! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের সাথে মানানসই।\n\n${getFullPriceTable(detectedCat)}\n\nআপনার মোট কত পিস কার্ড লাগবে বলুন! 😊`;
+
+                    if (customerPhotoCaption) {
+                      const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
+                      if (capQtyMatch) {
+                        const q = parseInt(capQtyMatch[1], 10);
+                        if (q >= 50 && q < 10000) {
+                          reply = `অনেক সুন্দর একটি ডিজাইন পছন্দ করেছেন! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, detectedCat)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                        }
+                      }
+                    }
+
+                    await sendMessengerButtonBlock(senderId, reply, [
+                      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                      { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+                      { title: "কার্ড দেখুন", payload: detectedCat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+                    ]);
+                    appendMessage(senderId, 'bot', reply);
+                  }
                 }
               }
+            }
+            // ===== QUOTED/SWIPED CARD REPLY (FALLBACK IF NO DIRECT IMAGE URL ATTACHED) =====
+            else if (isQuotedReply && (
+              normalizedTxt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto)\b/i) ||
+              normalizedTxt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস|eita|aita|etar|eitar/i) ||
+              normalizedTxt === 'pp' || normalizedTxt === 'pp?' || normalizedTxt === 'p?'
+            )) {
+              const cat = getCurrentCategory(senderId) || 'affordable';
+              setCurrentCategory(senderId, cat);
+
+              const priceTable = getFullPriceTable(cat);
+              const emoji = cat === 'premium' ? '✨' : '💚';
+              const catName = cat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+              const altCat = cat === 'premium' ? 'affordable' : 'premium';
+              const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+
+              let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
+
+              const qtyMatch = normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
+              if (qtyMatch) {
+                const q = parseInt(qtyMatch[1], 10);
+                if (q >= 50 && q < 10000) {
+                  reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, cat)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                }
+              }
+
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+                { title: "কার্ড দেখুন", payload: cat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
             }
             // ===== FACEBOOK AD / POST REFERRAL ENTRY =====
             else if (isAdReferral && (!payload || payload === '' || payload === 'BTN_AD_ENTRY' || !text || text.includes('গোল্ড ফয়েল') || text.includes('WhatsApp:'))) {
@@ -1211,7 +1367,12 @@ export default async function handler(req, res) {
               await sendSequentialGallery(senderId, 'premium', offset);
             }
             // ===== PRICE — Context-aware or complete price table (NO LOOPS!) =====
-            else if ((payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam|eita koto/i)) && !isPriceObjectionOrDiscount) {
+            else if ((
+              payload === 'BTN_PRICE' ||
+              txt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto|koto\s*tk)\b/i) ||
+              txt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
+              txt === 'pp' || txt === 'pp?' || txt === 'p?' || txt === 'দাম' || txt === 'দাম?' || txt === 'কত?' || txt === 'কতো?'
+            ) && !isPriceObjectionOrDiscount) {
               const currentCat = getCurrentCategory(senderId);
               
               if (currentCat) {
