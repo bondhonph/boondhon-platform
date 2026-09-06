@@ -225,6 +225,95 @@ function getFullPriceTable(category) {
   }
 }
 
+// Evaluate customer bargaining offers and 50/100 tk discount requests (Owner authorized)
+function evaluateBargain(rawText, category = 'affordable') {
+  if (!rawText) return null;
+  const norm = normalizeBengaliDigits(rawText).toLowerCase().replace(/,/g, '');
+  
+  const getBasePrice = (q, cat) => {
+    if (cat === 'premium') {
+      if (q >= 200) return q * 45;
+      if (q >= 100) return q * 55;
+      if (q >= 50) return 3250;
+      return 1500;
+    } else {
+      if (q >= 200) return q * 35;
+      if (q >= 100) return q * 45;
+      if (q >= 50) return 2750;
+      return 1000;
+    }
+  };
+
+  const isBargainIntent = /(?:raikhen|rakhen|rakhben|rakhle|রাখেন|রাইখেন|রাখবেন|হবে|hobe|diben|দিবেন|দেন|den|কম|kom|ছাড়|ছাড়|char|chaar|discount|কমান|koman|nibo|নেব|নেবো|নিবো|নেওয়ার|নেয়ার)/i.test(norm);
+  if (!isBargainIntent) return null;
+
+  const numbers = (norm.match(/\d+/g) || []).map(Number);
+  if (numbers.length === 0) return null;
+
+  // Extract quantity
+  let qty = null;
+  const qtyMatch = norm.match(/(\d{2,4})\s*(?:pcs?|piece|পিস|পিসি|পিচ|টি|টা)?/i);
+  if (qtyMatch) {
+    const qCandidate = parseInt(qtyMatch[1], 10);
+    if ([50, 100, 150, 200, 250, 300, 400, 500].includes(qCandidate)) {
+      qty = qCandidate;
+    }
+  }
+
+  // Look for offered price (typically >= 1000 and != qty)
+  let offeredPrice = null;
+  for (const n of numbers) {
+    if (n >= 1000 && n <= 50000 && n !== qty) {
+      offeredPrice = n;
+      break;
+    }
+  }
+
+  // Check direct 50/100 tk discount request
+  const direct50or100Match = norm.match(/(?:50|100)\s*(?:টাকা|tk|taka)?\s*(?:কম|kom|ছাড়|ছাড়|char|chaar|discount|কমান|koman|কমিয়ে)/i) ||
+                             norm.match(/(?:কম|kom|ছাড়|ছাড়|char|chaar|discount|কমান|koman)\s*(?:হবে\s*)?(?:50|100)/i);
+  let directDiscount = null;
+  if (direct50or100Match) {
+    directDiscount = direct50or100Match[0].includes('100') ? 100 : 50;
+  }
+
+  if (!qty) qty = 50; // Default to 50 pcs
+
+  const basePrice = getBasePrice(qty, category);
+
+  let finalAcceptedPrice = null;
+  let discountAmount = 0;
+
+  if (offeredPrice) {
+    const diff = basePrice - offeredPrice;
+    if (diff > 0 && diff <= 150) { // Allowed 50 to 150 tk concession
+      finalAcceptedPrice = offeredPrice;
+      discountAmount = diff;
+    } else if (diff === 0) {
+      finalAcceptedPrice = basePrice;
+      discountAmount = 0;
+    }
+  } else if (directDiscount) {
+    discountAmount = directDiscount;
+    finalAcceptedPrice = basePrice - discountAmount;
+  }
+
+  if (finalAcceptedPrice) {
+    const advance30 = Math.round((finalAcceptedPrice * 0.3) / 10) * 10;
+    return {
+      accepted: true,
+      qty,
+      category,
+      basePrice,
+      finalPrice: finalAcceptedPrice,
+      discountAmount,
+      advance30
+    };
+  }
+
+  return null;
+}
+
 // Gemini Vision Analysis for Customer-Uploaded Images
 async function analyzeCardImage({ photoUrl, base64Data, mimeType, customerCaption = '', topCandidate = null }) {
   const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
@@ -416,8 +505,8 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
      - আন্তরিকতার সাথে বলো যে প্রিমিয়াম মেটেরিয়াল ও মেকিং কস্ট ফিক্সড থাকায় ফ্ল্যাট ডিসকাউন্ট সম্ভব না (দুঃখ প্রকাশসহ)।
      - কিন্তু বেশি পরিমাণ (যেমন: ১০০ পিস বা ২০০+ পিস) নিলে যে প্রতি পিসের রেট অনেক কমে যায় (যেমন: ৫০ পিসে ৫৫৳/৬৫৳ থেকে কমে ১০০ পিসে ৪৫৳/৫৫৳ এবং ২০০ পিসে ৩৫৳/৪৫৳ ও ফ্রি নিকাহনামা), সেদিকে আলোচনা শিফট করো। ফ্ল্যাট পার্সেন্টেজ ডিসকাউন্ট কখনো নিজে থেকে অফার করবে না।
    • ⚠️ অত্যন্ত জরুরি নিয়ম (Strict Pricing & Discount Rule):
-     - AI কখনো নিজে থেকে কোনো টাকার অংক কমিয়ে বা ফ্ল্যাট পার্সেন্টেজ ডিসকাউন্ট বলবে না। শুধুমাত্র existing pricing tier ও quantity-based rate-এর মধ্যেই আলোচনা করবে।
-     - বিশেষ ছাড় দেওয়ার সিদ্ধান্ত সবসময় ওনার/human handoff-এর জন্য রাখা থাকবে। AI শুধু কোয়ালিটি, ভ্যালু, স্বচ্ছতা ও পরিমাণের সাশ্রয়ী রেট দিয়ে কাস্টমারকে সন্তুষ্ট করার চেষ্টা করবে।
+     - ওনারের বিশেষ নির্দেশনা: কাস্টমার যদি অর্ডার করতে চায় এবং ৫০ বা ১০০ টাকা কম রাখতে বলে (যেমন: "৫০ পিস নিবো, ২৭০০ রাইখেন", "১০০ টাকা কম রাখেন", "৫০ টাকা ছাড় দেন"): তুমি সানন্দে কাস্টমারের সম্মানে সেই ৫০/১০০৳ ছাড় মেনে নেবে এবং সাথে সাথে ৩০% অগ্রিম নিয়ে অর্ডার কনফার্ম করতে বলবে!
+     - কিন্তু কাস্টমার যদি কোনো সুনির্দিষ্ট প্রস্তাব ছাড়া অনির্দিষ্ট বা খুব বড় ছাড় (যেমন ২০০-১০০০ টাকা) চায়, তবে নিজে থেকে বড় ছাড় দেবে না, কোয়ালিটি ও বেশি কোয়ান্টিটি নেওয়ার সাশ্রয়ী রেট বোঝাবে।
 ৭. কঠোর আউটপুট নিয়ম (STRICT Output Rules):
    - সবসময় খাঁটি, সাবলীল ও আন্তরিক বাংলায় (১-৩ লাইন) উত্তর দেবে।
    - কোনো অবস্থাতেই ইংরেজি শিরোনাম, সিস্টেম নির্দেশনা, চিন্তা ভাবনা বা মেটা-প্ল্যানিং টেক্সট (যেমন: Provide a Simple Sales Logic, Explain why, Thought, Here is the response ইত্যাদি) উত্তরে লিখবে না। শুধুমাত্র কাস্টমারকে সরাসরি পাঠানোর চূড়ান্ত মেসেজটি লিখবে।
@@ -841,8 +930,11 @@ export default async function handler(req, res) {
             const isPriceObjectionOrDiscount = (
               /(?:দাম|dam|price|rate).*?(?:বেশি|beshi|besi|high)|(?:বেশি|beshi|besi|high).*?(?:দাম|dam|price)|eto\s*da+m|এত\s*দাম|খুব\s*বেশি|khub\s*besi|অনেক\s*দাম|onek\s*da+m/i.test(normalizedTxt) ||
               /(?:অন্য|onno|other).*?(?:পেজ|page|জায়গা|জায়গা|jayga|jaiga|দোকান|shop|কম|kom)|অন্যত্র\s*কম/i.test(normalizedTxt) ||
-              /discount|ডিসকাউন্ট|ছাড়|ছাড়|\bchar\b|\bchaar\b|কম\s*রাখা|কমান|কিছু\s*কম|একটু\s*কম|কম\s*হবে|kom\s*hobe|kom\s*dhen|kom\s*rakh|komano/i.test(normalizedTxt)
+              /discount|ডিসকাউন্ট|ছাড়|ছাড়|\bchar\b|\bchaar\b|কম\s*রাখা|কমান|কিছু\s*কম|একটু\s*কম|কম\s*হবে|kom\s*hobe|kom\s*dhen|kom\s*rakh|komano|raikhen|rakhen|rakhben|রাইখেন|রাখেন|রাখলে/i.test(normalizedTxt)
             );
+
+            // Check if customer is making an acceptable 50-100 tk bargain offer
+            const bargainOffer = evaluateBargain(text, getCurrentCategory(senderId) || 'affordable');
 
             let quantity = null;
             if (payload.startsWith('QTY_')) {
@@ -1008,6 +1100,18 @@ export default async function handler(req, res) {
                 { title: "৫ পিস (১০০০৳)", payload: "QTY_5" },
                 { title: "১০ পিস (১৫০০৳)", payload: "QTY_10" },
                 { title: "২৫ পিস (১৮৭৫৳)", payload: "QTY_25" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== 50/100 TK CONCESSION / BARGAIN ACCEPTANCE (OWNER AUTHORIZED) =====
+            else if (bargainOffer && bargainOffer.accepted) {
+              const diffText = bargainOffer.discountAmount > 0 ? `${bngDigits(bargainOffer.discountAmount)}৳ কমিয়ে ` : '';
+              const reply = `জি ঠিক আছে ভাইয়া! আপনার সম্মানে আমরা ${diffText}${bngDigits(bargainOffer.finalPrice)}৳-তেই রাখছি! 🎉🤝\n\nতাহলে আপনার ${bngDigits(bargainOffer.qty)} পিস কার্ডের অর্ডারটি কনফার্ম করে দিচ্ছি।\n\nঅর্ডার নিশ্চিত করতে ৩০% অ্যাডভান্স (${bngDigits(bargainOffer.advance30)}৳) পাঠিয়ে দিন:\n📲 বিকাশ / নগদ / রকেট (পার্সোনাল): 01682588856\n\nটাকা পাঠিয়ে লাস্ট ৪ ডিজিট দিলেই আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন শুরু করে দেবে! 😊`;
+
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "পেমেন্ট করেছি", payload: "BTN_PAID" },
+                { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
+                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
               ]);
               appendMessage(senderId, 'bot', reply);
             }
