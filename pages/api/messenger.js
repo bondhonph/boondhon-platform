@@ -745,13 +745,32 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   const totalCount = idsList.length;
   
   let offset = requestedOffset !== null ? parseInt(requestedOffset, 10) : 0;
-  if (isNaN(offset) || offset >= totalCount || offset < 0) {
+  if (isNaN(offset) || offset < 0) {
     offset = 0;
   }
 
+  const typeName = type === 'premium' ? '✨ প্রিমিয়াম' : '💚 সাশ্রয়ী';
+  const altTypeName = type === 'premium' ? '💚 সাশ্রয়ী (Affordable)' : '✨ প্রিমিয়াম (Premium)';
+  const switchBtn = type === 'premium'
+    ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+    : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+
+  // If customer has ALREADY seen all cards in this category, DO NOT LOOP!
+  if (offset >= totalCount) {
+    const finishMsg = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের সবকটি আপনি ইতিমধ্যে দেখে ফেলেছেন! 🎉😍\n\nকোন কার্ডটি আপনার সবচেয়ে পছন্দ হয়েছে? কত পিস লাগবে বলুন, সুন্দরভাবে বানিয়ে দেবো! 😊\n(অথবা ${altTypeName} কালেকশন দেখতে পারেন)`;
+    await sendMessengerButtonBlock(recipientId, finishMsg, [
+      switchBtn,
+      { title: "দাম জানুন", payload: "BTN_PRICE" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    appendMessage(recipientId, 'bot', finishMsg);
+    return;
+  }
+
   const batch = idsList.slice(offset, offset + 8);
-  const nextOffset = (offset + 8 >= totalCount) ? 0 : (offset + 8);
   const seenCount = Math.min(offset + batch.length, totalCount);
+  const isFinished = seenCount >= totalCount;
+  const nextOffset = offset + batch.length;
 
   // Track current category
   setCurrentCategory(recipientId, type);
@@ -763,23 +782,29 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
 
   await delay(400);
 
-  const typeName = type === 'premium' ? '✨ প্রিমিয়াম' : '💚 সাশ্রয়ী';
-  const progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের মধ্যে আপনি ${bngDigits(seenCount)}টি দেখেছেন। 😍\n\nআরও দেখতে 'আরও দেখুন' বাটনে চাপুন। কত পিস লাগবে আপনার? 😊`;
+  let progressText = '';
+  let buttons = [];
 
-  // Dynamic opposite-category switch button (starts at offset 0)
-  const switchBtn = type === 'premium'
-    ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
-    : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+  if (isFinished) {
+    // All cards in this collection have been shown! NO LOOP! NO "আরও দেখুন" BUTTON!
+    progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের সবকটি আপনি দেখে ফেলেছেন! 🎉😍\n\nকোন কার্ডটি আপনার সবচেয়ে পছন্দ হয়েছে? কত পিস লাগবে বলুন, নিখুঁতভাবে বানিয়ে দেবো! 😊\n(অথবা ${altTypeName} কালেকশন দেখতে পারেন)`;
 
-  // Guaranteed sequential payload carrying nextOffset
-  const morePayload = `MORE_${type.toUpperCase()}_${nextOffset}`;
+    buttons = [
+      switchBtn,
+      { title: "দাম জানুন", payload: "BTN_PRICE" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ];
+  } else {
+    // Still more cards remaining
+    progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের মধ্যে আপনি ${bngDigits(seenCount)}টি দেখেছেন। 😍\n\nআরও দেখতে 'আরও দেখুন' বাটনে চাপুন। কত পিস লাগবে আপনার? 😊`;
+    const morePayload = `MORE_${type.toUpperCase()}_${nextOffset}`;
 
-  // Meta allows max 3 buttons per template
-  const buttons = [
-    { title: "আরও দেখুন", payload: morePayload },
-    switchBtn,
-    { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-  ];
+    buttons = [
+      { title: "আরও দেখুন", payload: morePayload },
+      switchBtn,
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ];
+  }
 
   await sendMessengerButtonBlock(recipientId, progressText, buttons);
   appendMessage(recipientId, 'bot', progressText);
