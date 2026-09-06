@@ -901,8 +901,16 @@ export default async function handler(req, res) {
             let isPhoto = false;
             let photoUrl = null;
             let isLinkOrShare = false;
-            if (attachments && attachments.length > 0) {
-              const imgAtt = attachments.find(att => att.type === 'image');
+
+            const referral = webhookEvent.referral || webhookEvent.message?.referral || null;
+            const isAdReferral = !!(referral && (referral.source === 'ADS' || referral.ad_id || referral.ads_context_data)) ||
+              (text && (text.includes('গোল্ড ফয়েল') || text.includes('হ্যান্ড-ফিনিশড ডিজাইন') || text.includes('#WeddingCard') || (text.includes('WhatsApp:') && text.includes('01701016826'))));
+
+            const isSticker = !!(message?.sticker_id || (attachments && attachments.some(att => att.payload?.sticker_id)));
+            const isLikeThumbsUp = isSticker || /^(👍|👍🏻|👍🏼|👍🏽|👍🏾|👍🏿|\(like\)|like)$/i.test(text.trim());
+
+            if (attachments && attachments.length > 0 && !isSticker && !isLikeThumbsUp && !isAdReferral) {
+              const imgAtt = attachments.find(att => att.type === 'image' && !att.payload?.sticker_id);
               if (imgAtt) {
                 isPhoto = true;
                 photoUrl = imgAtt.payload?.url;
@@ -1009,8 +1017,8 @@ export default async function handler(req, res) {
                 }
               }
 
-              // Check if catalog match is confident (>= 0.48 similarity with a Drive catalog card)
-              if (matchResult && matchResult.similarity >= 0.48) {
+              // Check if catalog match is confident (>= 0.70 similarity with a Drive catalog card)
+              if (matchResult && matchResult.similarity >= 0.70) {
                 const category = matchResult.category;
                 const matchCode = matchResult.code;
                 setCurrentCategory(senderId, category); // Save category so "eita koto" knows!
@@ -1085,6 +1093,26 @@ export default async function handler(req, res) {
                   appendMessage(senderId, 'bot', reply);
                 }
               }
+            }
+            // ===== FACEBOOK AD / POST REFERRAL ENTRY =====
+            else if (isAdReferral && (!payload || payload === '' || payload === 'BTN_AD_ENTRY' || !text || text.includes('গোল্ড ফয়েল') || text.includes('WhatsApp:'))) {
+              const reply = `আসসালামু আলাইকুম! 🌸 বন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআমাদের গোল্ড ফয়েল ও প্রিমিয়াম বিয়ের কার্ডের বিজ্ঞাপনটি দেখে যোগাযোগ করার জন্য ধন্যবাদ! আপনি কি এই ধরনের কার্ডের কালেকশন দেখতে চাইছেন?`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== LIKE / THUMBS UP STICKER OR EMOJI =====
+            else if (isLikeThumbsUp) {
+              const reply = `লাইক দেওয়ার জন্য অনেক ধন্যবাদ! 🌸😊\nবন্ধন প্রিন্টিং হাউসে স্বাগতম। আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড দেখতে চাইছেন?`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
             }
             // ===== SHARED REEL / VIDEO / POST FROM PAGE =====
             else if (isLinkOrShare) {
