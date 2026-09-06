@@ -1350,6 +1350,7 @@ export default async function handler(req, res) {
 
               setCustomerAwaitingPayment(senderId, false);
               setOrderStatus(senderId, 'Payment_Submitted');
+              setHumanTakeover(senderId, true); // Hand over to human agent for manual check
 
               const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের লাস্ট ৪ ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।\n\nপেমেন্ট নিশ্চিত হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের কাজ শুরু করে দেবে! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
