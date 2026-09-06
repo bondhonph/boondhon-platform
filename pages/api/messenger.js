@@ -837,6 +837,13 @@ export default async function handler(req, res) {
               (normalizedTxt.match(/^(?:last\s*digit\s*)?(?:[:ঃ\s]*)?\d{3,6}$/i) !== null && !normalizedTxt.match(/পিস|pcs?|piece/i) && (existingConv?.messages?.slice(-4)?.some(m => m.text?.includes('লাস্ট ৪ ডিজিট') || m.text?.includes('পেমেন্ট'))))
             );
 
+            // Detect if message is a price objection, competitor comparison, or discount request
+            const isPriceObjectionOrDiscount = (
+              /(?:দাম|dam|price|rate).*?(?:বেশি|beshi|besi|high)|(?:বেশি|beshi|besi|high).*?(?:দাম|dam|price)|eto\s*da+m|এত\s*দাম|খুব\s*বেশি|khub\s*besi|অনেক\s*দাম|onek\s*da+m/i.test(normalizedTxt) ||
+              /(?:অন্য|onno|other).*?(?:পেজ|page|জায়গা|জায়গা|jayga|jaiga|দোকান|shop|কম|kom)|অন্যত্র\s*কম/i.test(normalizedTxt) ||
+              /discount|ডিসকাউন্ট|ছাড়|ছাড়|\bchar\b|\bchaar\b|কম\s*রাখা|কমান|কিছু\s*কম|একটু\s*কম|কম\s*হবে|kom\s*hobe|kom\s*dhen|kom\s*rakh|komano/i.test(normalizedTxt)
+            );
+
             let quantity = null;
             if (payload.startsWith('QTY_')) {
               quantity = parseInt(payload.replace('QTY_', ''), 10);
@@ -1005,7 +1012,7 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', reply);
             }
             // ===== QUANTITY — Show price for CURRENT category or Min 50 Pcs Warning =====
-            else if (quantity) {
+            else if (quantity && !isPriceObjectionOrDiscount) {
               if (quantity < 50) {
                 const reply = getLowQtyPrice(quantity);
                 await sendMessengerButtonBlock(senderId, reply, [
@@ -1047,7 +1054,7 @@ export default async function handler(req, res) {
               await sendSequentialGallery(senderId, 'premium', offset);
             }
             // ===== PRICE — Context-aware or complete price table (NO LOOPS!) =====
-            else if (payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam|eita koto/i)) {
+            else if ((payload === 'BTN_PRICE' || txt.match(/price|দাম|কত|কতো|মূল্য|rate|koto|cost|dam|daam|eita koto/i)) && !isPriceObjectionOrDiscount) {
               const currentCat = getCurrentCategory(senderId);
               
               if (currentCat) {
@@ -1231,16 +1238,6 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== BARGAINING / DISCOUNT QUERY =====
-            else if (txt.match(/discount|ডিসকাউন্ট|ছাড়|ছাড়|কম রাখা|কমান|কিছু কম|একটু কম|কম হবে|kom hobe|kom dhen|kom rakh/i)) {
-              const reply = `আমাদের দামগুলো সেরা মেটেরিয়াল ও কোয়ালিটি নিশ্চিত করে পাইকারি রেটে নির্ধারিত। 😊\n\n💡 তবে আপনার জন্য পরামর্শ:\n২০০ পিস বা তার বেশি অর্ডার করলে পিস প্রতি দাম অনেক কমে আসবে (Affordable: ৩৫৳, Premium: ৪৫৳)\n\nআপনি কত পিস নিতে চাচ্ছেন বলুন, সেরা হিসাব করে দিচ্ছি! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "২০০ পিস অর্ডার", payload: "QTY_200" },
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
             // ===== LOCATION / ADDRESS =====
             else if (payload === 'BTN_LOCATION' || txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom|কারখানা|karkhana/i)) {
               const reply = `📍 আমাদের অফিস ও ঠিকানার তথ্য:\n\n🏢 অফিস: ২/১-২, ভূমি অফিস লেন, মানিকগঞ্জ, ঢাকা।\n🏭 কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)।\n\n🛒 অর্ডার প্রক্রিয়া:\nঅনলাইনে অথবা মানিকগঞ্জ অফিসে সরাসরি এসে অর্ডার করতে পারবেন।\n\n📦 প্রোডাক্ট ডেলিভারি/সংগ্রহ:\n• কুরিয়ারের মাধ্যমে (সারাদেশে হোম ডেলিভারি)\n• মানিকগঞ্জ অফিসে সরাসরি\n• অথবা কার্ডের ধরন অনুযায়ী ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন!\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
@@ -1340,7 +1337,11 @@ export default async function handler(req, res) {
                 const convHistory = existingConv?.messages || [];
                 const aiReply = await generateAISalesResponse(senderId, text, convHistory);
                 
-                const reply = aiReply || "ধন্যবাদ! 😊 আমাদের কালেকশন দেখতে নিচের বাটনে ক্লিক করুন!";
+                let fallbackMsg = "ধন্যবাদ! 😊 আমাদের কালেকশন দেখতে নিচের বাটনে ক্লিক করুন!";
+                if (isPriceObjectionOrDiscount) {
+                  fallbackMsg = "আপনার বাজেট ও দিকটা বুঝতে পারছি। আমাদের কার্ডগুলোতে প্রিমিয়াম মেটেরিয়াল ও নিখুঁত ফিনিশিং নিশ্চিত করা হয়। আপনি মোট কত পিস নিতে চাইছেন আর কেমন বাজেট ভাবছেন জানালে, সেরা অপশনটি বের করে দিচ্ছি! 😊";
+                }
+                const reply = aiReply || fallbackMsg;
                 await sendMessengerButtonBlock(senderId, reply, [
                   catBtn,
                   { title: "দাম জানুন", payload: "BTN_PRICE" },
