@@ -225,47 +225,70 @@ function getFullPriceTable(category) {
   }
 }
 
-// Gemini Vision Analysis for Card Recognition
-async function analyzeCardImage(photoUrl) {
+// Gemini Vision Analysis for Customer-Uploaded Images
+async function analyzeCardImage({ photoUrl, base64Data, mimeType, customerCaption = '' }) {
   const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
   if (!GEMINI_API_KEY) {
     console.error('GEMINI_API_KEY is not configured in environment variables');
     return null;
   }
   try {
-    const imgRes = await fetch(photoUrl);
-    if (!imgRes.ok) {
-      console.error('Failed to fetch photoUrl from Messenger:', imgRes.status);
-      return null;
+    let imgBase64 = base64Data;
+    let imgMime = mimeType || 'image/jpeg';
+
+    if (!imgBase64 && photoUrl) {
+      const imgRes = await fetch(photoUrl);
+      if (!imgRes.ok) {
+        console.error('Failed to fetch photoUrl from Messenger:', imgRes.status);
+        return null;
+      }
+      const arrayBuffer = await imgRes.arrayBuffer();
+      imgBase64 = Buffer.from(arrayBuffer).toString('base64');
+      imgMime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
     }
-    const arrayBuffer = await imgRes.arrayBuffer();
-    const base64Data = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
 
-    const prompt = `You are an expert AI Wedding Card specialist for "BOONDHON Printing House" (বন্ধন প্রিন্টিং হাউস), Manikganj, Bangladesh.
-Your task is to analyze the customer's uploaded wedding card photo:
+    if (!imgBase64) return null;
 
-BUSINESS RULES:
-${VISUAL_CATALOG_RULES.RULES.map(rule => `   - ${rule}`).join('\n')}
+    const captionContext = customerCaption && customerCaption.trim().length > 0
+      ? `কাস্টমার ছবির সাথে এই টেক্সট/ক্যাপশন লিখেছে: "${customerCaption.trim()}"`
+      : `কাস্টমার ছবির সাথে কোনো অতিরিক্ত টেক্সট লেখেনি।`;
 
-DIAGNOSTIC PROCESS:
-- Check if the uploaded image represents a wedding card design belonging to the "BOONDHON" catalog.
-- Since designs and materials are identical in both categories (Affordable vs Premium) and size cannot be judged from the photo, you do not need to guess the category size. Focus on whether this style matches our catalog (laser-cut khilan/arch dome cutouts, peacock/floral printed art cards, ribbon handles, hardboard gatefolds) vs an external design.
-- If it is our design, set "isExternal" to false.
-- If it is a design from another manufacturer (Pinterest, competitors), set "isExternal" to true.
+    const prompt = `তুমি "বন্ধন প্রিন্টিং হাউস" (BOONDHON Printing House, Manikganj & Dhaka)-এর একজন অত্যন্ত অভিজ্ঞ, অমায়িক ও সিনিয়র সেলস কনসালট্যান্ট "অনন্যা"।
+কাস্টমার মেসেঞ্জারে এই ছবিটি পাঠিয়েছে।
+${captionContext}
 
-Respond in strict JSON:
+তোমার কাজ:
+১. ছবিটি মনোযোগ দিয়ে দেখো:
+   - এটি কি কোনো বিয়ের কার্ড বা ইনভিটেশন কার্ডের ডিজাইন/ছবি? (লেজার কাট, খিলান, ফ্লোরাল, ক্যালিগ্রাফি, আর্ট কার্ড, বক্স কার্ড ইত্যাদি)
+   - নাকি টাকা পাঠানোর স্ক্রিনশট / রিসিট? (bKash / Nagad / Rocket / ব্যাংক স্টেটমেন্ট ইত্যাদি)
+   - নাকি বিয়ের কার্ডের সাথে অপ্রাসঙ্গিক কোনো ছবি? (ব্যক্তিগত ছবি, সেলফি, সাধারণ ছবি ইত্যাদি)
+
+২. একজন দক্ষ, অমায়িক সেলস এক্সপার্টের মতো বাংলায় সংক্ষিপ্ত (১-৩ লাইন) স্বাভাবিক উত্তর তৈরি করো:
+   - যদি বিয়ের কার্ড হয়:
+     * ডিজাইনটির সুন্দর ও আন্তরিক প্রশংসা করো (যেমন: "অনেক সুন্দর একটি ডিজাইন পছন্দ করেছেন! 😍")।
+     * আশ্বস্ত করো যে আমাদের নিজস্ব আধুনিক ফ্যাক্টরি ও অভিজ্ঞ ডিজাইনার দিয়ে এমন বা এর কাছাকাছি কার্ড নিখুঁতভাবে কাস্টমাইজ করে তৈরি করা সম্ভব।
+     * যদি কাস্টমার ক্যাপশনে কোনো প্রশ্ন করে থাকে (যেমন দাম কত, এত পিস হবে কিনা), সরাসরি সেই প্রশ্নের উত্তর দাও।
+     * সাইজ ও রেটের তথ্য সংক্ষেপে উল্লেখ করো:
+       - 💚 Affordable (সাশ্রয়ী - ছোট সাইজ): ৫০ পিস ২,৭৫০৳, ১০০ পিস ৪,৫০০৳, ২০০ পিস ৭,০০০৳
+       - ✨ Premium (লাক্সারি - বড় সাইজ): ৫০ পিস ৩,২৫০৳, ১০০ পিস ৫,৫০০৳, ২০০ পিস ৯,০০০৳
+       - (১-৪৯ পিস অল্প পরিমাণেও নেওয়া যায়)
+     * কাস্টমারকে মিষ্টি প্রশ্ন করো: তার মোট কত পিস কার্ড লাগতে পারে।
+   - যদি পেমেন্ট স্ক্রিনশট হয়:
+     * আন্তরিক ধন্যবাদ জানিয়ে বলো: "অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸 অনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।"
+   - যদি অপ্রাসঙ্গিক ছবি হয়:
+     * ভদ্রভাবে ধন্যবাদ দিয়ে জানতে চাও তিনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড খুঁজছেন বা দেখতে চাইছেন কিনা।
+
+Respond in STRICT JSON format:
 {
-  "category": "MATCH",
-  "isExternal": false | true,
-  "confidence": 0.95,
-  "reason": "ড্রাইভ ক্যাটালগের সাথে ম্যাচিংয়ের কারণ"
+  "type": "WEDDING_CARD" | "PAYMENT_RECEIPT" | "OTHER",
+  "reply": "বাংলায় তোমার ১-৩ লাইনের মানবসুলভ সেলস প্রতিক্রিয়া"
 }`;
 
-    const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+    const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
+    let textOut = '';
     try {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
       const geminiRes = await fetch(geminiUrl, {
@@ -280,16 +303,16 @@ Respond in strict JSON:
                 { text: prompt },
                 {
                   inline_data: {
-                    mime_type: mimeType,
-                    data: base64Data
+                    mime_type: imgMime,
+                    data: imgBase64
                   }
                 }
               ]
             }
           ],
           generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 300,
+            temperature: 0.3,
+            maxOutputTokens: 350,
             responseMimeType: "application/json"
           }
         })
@@ -313,18 +336,16 @@ Respond in strict JSON:
     } finally {
       clearTimeout(timeoutId);
     }
-    
-    // Robust JSON extraction
-    const jsonMatch = textOut.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      console.log('Card Vision Analysis Result:', JSON.stringify(parsed));
-      return {
-        category: (parsed.category || '').toUpperCase().includes('PREM') ? 'PREMIUM' : 'AFFORDABLE',
-        isExternal: Boolean(parsed.isExternal),
-        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.90,
-        reason: parsed.reason || ''
-      };
+
+    if (textOut) {
+      const jsonMatch = textOut.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          type: parsed.type || 'WEDDING_CARD',
+          reply: parsed.reply || ''
+        };
+      }
     }
     return null;
   } catch (err) {
@@ -380,7 +401,7 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
     // Add current message
     recentMsgs.push({ role: 'user', parts: [{ text: customerMessage }] });
 
-    const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+    const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -716,7 +737,8 @@ export default async function handler(req, res) {
               continue;
             }
 
-            // If sending a photo, clear text & payload to prevent text/price triggers
+            // If sending a photo, preserve caption before clearing text & payload
+            const customerPhotoCaption = isPhoto ? (text || '').trim() : '';
             if (isPhoto) {
               payload = '';
               text = '';
@@ -766,20 +788,25 @@ export default async function handler(req, res) {
               }
             }
 
-            // ===== PHOTO UPLOADED — CATALOG EMBEDDING MATCH =====
+            // ===== PHOTO UPLOADED — SMART VISION & CATALOG RECOGNITION =====
             if (isPhoto && photoUrl) {
-              let matchResult = null;
+              let photoBase64 = null;
+              let photoMime = 'image/jpeg';
+              try {
+                const imgRes = await fetch(photoUrl);
+                if (imgRes.ok) {
+                  const arrayBuffer = await imgRes.arrayBuffer();
+                  photoBase64 = Buffer.from(arrayBuffer).toString('base64');
+                  photoMime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
+                }
+              } catch (fetchErr) {
+                console.error('Error fetching photo from Messenger:', fetchErr.message);
+              }
 
-              // Try embedding-based matching if catalog index is ready
-              if (isCatalogIndexReady()) {
+              let matchResult = null;
+              if (photoBase64 && isCatalogIndexReady()) {
                 try {
-                  const imgRes = await fetch(photoUrl);
-                  if (imgRes.ok) {
-                    const arrayBuffer = await imgRes.arrayBuffer();
-                    const base64Data = Buffer.from(arrayBuffer).toString('base64');
-                    const mimeType = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
-                    matchResult = await findCatalogMatch(base64Data, mimeType);
-                  }
+                  matchResult = await findCatalogMatch(photoBase64, photoMime);
                 } catch (matchErr) {
                   console.error('Catalog match error:', matchErr.message);
                 }
@@ -797,7 +824,18 @@ export default async function handler(req, res) {
                 const altCat = category === 'premium' ? 'affordable' : 'premium';
                 const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
 
-                const reply = `সুন্দর পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+                let reply = `সুন্দর পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+
+                if (customerPhotoCaption) {
+                  const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
+                  if (capQtyMatch) {
+                    const q = parseInt(capQtyMatch[1], 10);
+                    if (q >= 50 && q < 10000) {
+                      reply = `সুন্দর পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                    }
+                  }
+                }
+
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                   { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
@@ -815,7 +853,18 @@ export default async function handler(req, res) {
                 const altCat = category === 'premium' ? 'affordable' : 'premium';
                 const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
 
-                const reply = `চমৎকার পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের একটি আকর্ষণীয় কার্ড।\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+                let reply = `চমৎকার পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের একটি আকর্ষণীয় কার্ড।\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+
+                if (customerPhotoCaption) {
+                  const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
+                  if (capQtyMatch) {
+                    const q = parseInt(capQtyMatch[1], 10);
+                    if (q >= 50 && q < 10000) {
+                      reply = `চমৎকার পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের একটি আকর্ষণীয় কার্ড।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                    }
+                  }
+                }
+
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                   { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
@@ -823,24 +872,42 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // ===== NO MATCH — Show prices of both collections + sample cards =====
-                const reply = `সুন্দর ডিজাইন! 😍 আমাদের কাছে এই ধরনের চমৎকার কার্ড রয়েছে।\n\nআমাদের কার্ডের রেট:\n💚 Affordable: ৫০ পিস ২,৭৫০৳ (৫৫৳/পিস)\n✨ Premium: ৫০ পিস ৩,২৫০৳ (৬৫৳/পিস)\n\nআপনার কত পিস লাগবে বলুন! 😊`;
-                await sendMessengerText(senderId, reply);
-                appendMessage(senderId, 'bot', reply);
+                // ===== EXTERNAL DESIGN / UNMATCHED PHOTO — CALL GEMINI VISION =====
+                const visionRes = await analyzeCardImage({
+                  photoUrl,
+                  base64Data: photoBase64,
+                  mimeType: photoMime,
+                  customerCaption: customerPhotoCaption
+                });
 
-                const sampleImages = getUnseenImages(senderId, AFFORDABLE_IDS, 3);
-                for (const imgId of sampleImages) {
-                  await sendMessengerImage(senderId, imgId);
-                  await delay(250);
+                if (visionRes?.type === 'PAYMENT_RECEIPT') {
+                  // Customer uploaded a payment screenshot
+                  const reply = visionRes.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।`;
+                  await sendMessengerButtonBlock(senderId, reply, [
+                    { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+                    { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+                    { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+                  ]);
+                  appendMessage(senderId, 'bot', reply);
+                } else if (visionRes?.type === 'OTHER') {
+                  // Non-card image
+                  const reply = visionRes.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড তৈরি করতে চাইছেন? আমাদের কালেকশন দেখতে পারেন অথবা আপনার পছন্দের কার্ডের ছবি বা কত পিস লাগবে জানাতে পারেন!`;
+                  await sendMessengerButtonBlock(senderId, reply, [
+                    { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                    { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                    { title: "দাম জানুন", payload: "BTN_PRICE" }
+                  ]);
+                  appendMessage(senderId, 'bot', reply);
+                } else {
+                  // Wedding Card (External design or custom AI analysis)
+                  const reply = visionRes?.reply || `অনেক সুন্দর একটি ডিজাইন পছন্দ করেছেন! 😍 এই ডিজাইনটি আমাদের ক্যাটালগের সরাসরি না হলেও, আমাদের অভিজ্ঞ ডিজাইনার ও আধুনিক ফ্যাক্টরি সেটআপ দিয়ে আমরা এমন বা এর কাছাকাছি কার্ড কাস্টমাইজ করে নিখুঁতভাবে তৈরি করে দিতে পারব! 🌸\n\nআমাদের কাছে Affordable (সাশ্রয়ী) ও Premium (লাক্সারি) দুই সাইজেই এটা প্রিন্ট করা সম্ভব। আপনার মোট কত পিস কার্ড লাগতে পারে বলুন? 😊`;
+                  await sendMessengerButtonBlock(senderId, reply, [
+                    { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                    { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                    { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+                  ]);
+                  appendMessage(senderId, 'bot', reply);
                 }
-
-                const followUp = "এগুলো আমাদের জনপ্রিয় কিছু ডিজাইন! কোন কালেকশন দেখতে চান? 😊";
-                await sendMessengerButtonBlock(senderId, followUp, [
-                  { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                  { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-                ]);
-                appendMessage(senderId, 'bot', followUp);
               }
             }
             // ===== SHARED REEL / VIDEO / POST FROM PAGE =====

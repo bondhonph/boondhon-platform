@@ -11,8 +11,8 @@ export default async function handler(req, res) {
     });
   }
 
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.6-flash'];
-  const embedModels = ['gemini-embedding-2', 'multimodal-embedding-001', 'text-embedding-004'];
+  const models = ['gemini-3.6-flash'];
+  const embedModels = ['gemini-embedding-2'];
   const results = {};
   const embedResults = {};
 
