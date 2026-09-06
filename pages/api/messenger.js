@@ -1136,7 +1136,7 @@ export default async function handler(req, res) {
             else if (isPaymentInfoSubmission) {
               const digitsMatch = normalizedTxt.match(/\b\d{3,6}\b/);
               const digitsText = digitsMatch ? ` (${bngDigits(digitsMatch[0])})` : '';
-              const reply = `আপনার পেমেন্টের তথ্য/লাস্ট ডিজিট${digitsText} আমরা নোট করে রেখেছি। 🌸\n\nআমাদের অ্যাকাউন্টস টিম কিছুক্ষণের মধ্যে স্টেটমেন্টের সাথে পেমেন্টটি মিলিয়ে ম্যানুয়ালি চেক করে দেখবে এবং কনফার্মেশন মেসেজ দেবে।\n\nপেমেন্ট ভেরিফাই হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের ডিজাইন রেডি করে আপনাকে প্রুফ চেক করাবে। ধন্যবাদ! 😊`;
+              const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের লাস্ট ৪ ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।\n\nপেমেন্ট নিশ্চিত হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের কাজ শুরু করে দেবে! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
                 { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
