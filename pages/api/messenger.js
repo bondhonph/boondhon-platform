@@ -332,7 +332,10 @@ STRICT JSON format:
           ],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 350,
+            maxOutputTokens: 400,
+            thinkingConfig: {
+              thinkingBudget: 0
+            },
             responseMimeType: "application/json"
           }
         })
@@ -396,6 +399,12 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
 ৪. তথ্যের স্বাভাবিক উপস্থাপন (Natural Product Blend):
    - প্রাইস, সাইজ, ডেলিভারি বা পেমেন্টের তথ্যগুলো জোর করে পুরো লিস্ট ধরিয়ে না দিয়ে, কাস্টমার যেটুকু জানতে চেয়েছে সেটার সাথে মিলিয়ে প্রাসঙ্গিকভাবে ১-৩ লাইনে বলো।
    - উত্তর সবসময় সংক্ষিপ্ত ও প্রমিত বাংলায় (১-৩ লাইন) রাখবে, যাতে কাস্টমার পড়তে স্বাচ্ছন্দ্যবোধ করে।
+৫. কার্ডের পরিমাণের তারতম্যে দামের যুক্তি (Sales Logic for Quantity):
+   - কাস্টমার যদি প্রশ্ন করে "১টা কার্ডের কমবেশিতে এত পার্থক্য কেন?", "৪৯ আর ৫০ এ এত ব্যবধান কেন?", বা "কম নিলে বেশি রেট কেন?":
+   - কাস্টমারকে সহজ ও মিষ্টি করে বুঝিয়ে বলো: প্রিন্টিং কারখানায় প্রতিটি কার্ডের জন্য কাটিং ডাইস, ফয়েল ব্লক ও স্ক্রিন প্রিন্টিংয়ের প্লেট তৈরির একটি নির্দিষ্ট ফিক্সড সেটআপ খরচ থাকে—যা ১টি কার্ড হলেও করতে হয়, ১০০টি বানালেও একই সেটআপ লাগে। তাই ৫০ বা ১০০ পিস বানালে সেই সেটআপ খরচটি ভাগ হয়ে প্রতি পিসের খরচ অনেক কমে যায় (৫৫৳ বা ৪৫৳)। কিন্তু ১-৪৯ পিসের ক্ষেত্রে ফিক্সড খরচের কারণে প্রতি পিস ৭৫৳ বা ফিক্সড মেকিং চার্জ পড়ে। তাই ৫০ পিস নেওয়া অনেক বেশি লাভজনক ও সাশ্রয়ী!
+৬. কঠোর আউটপুট নিয়ম (STRICT Output Rules):
+   - সবসময় খাঁটি, সাবলীল ও আন্তরিক বাংলায় (১-৩ লাইন) উত্তর দেবে।
+   - কোনো অবস্থাতেই ইংরেজি শিরোনাম, সিস্টেম নির্দেশনা, চিন্তা ভাবনা বা মেটা-প্ল্যানিং টেক্সট (যেমন: Provide a Simple Sales Logic, Explain why, Thought, Here is the response ইত্যাদি) উত্তরে লিখবে না। শুধুমাত্র কাস্টমারকে সরাসরি পাঠানোর চূড়ান্ত মেসেজটি লিখবে।
 
 🏢 বন্ধন প্রিন্টিং হাউসের ব্যবসায়িক তথ্য ও জ্ঞানভাণ্ডার:
 • অবস্থান: মানিকগঞ্জ অফিস (২/১-২, ভূমি অফিস লেন, মানিকগঞ্জ, ঢাকা) এবং ঢাকার কারখানা (ফকিরাপুল, বাবুবাজার, বঙ্গবাজার)।
@@ -435,13 +444,34 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: recentMsgs,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 300 }
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 600,
+            thinkingConfig: {
+              thinkingBudget: 0
+            }
+          }
         })
       });
 
       if (geminiRes.ok) {
         const data = await geminiRes.json();
-        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        const candidate = data?.candidates?.[0];
+        const parts = candidate?.content?.parts || [];
+        
+        // Filter out any parts marked as thought
+        const textParts = parts.filter(p => !p.thought && p.text && typeof p.text === 'string');
+        let reply = (textParts.length > 0 ? textParts.map(p => p.text).join('\n') : (parts[0]?.text || '')).trim();
+
+        // Sanitize reply: strip any leaked thought tags, reasoning prefixes, or meta-labels
+        if (reply) {
+          reply = reply
+            .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+            .replace(/^\*?(?:Provide a Simple Sales Logic|Explain why|Thought|Here is the response|Response):?\*?\s*/gi, '')
+            .replace(/\*(?:Provide a Simple Sales Logic|Explain why|Thought|Response)\*?:?\s*/gi, '')
+            .trim();
+        }
+
         if (reply) return reply;
       } else {
         console.warn(`Sales brain model ${GEMINI_MODEL} failed (${geminiRes.status}):`, await geminiRes.text());
