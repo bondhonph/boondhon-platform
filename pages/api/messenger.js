@@ -1055,17 +1055,29 @@ export default async function handler(req, res) {
             };
 
             const hasQtyUnit = /\b(pcs?|piece|পিস|পিসি|পিচ|টি|টা|কপি|copy|copies)\b/i.test(normalizedTxt);
-            const pureDigitsMatch = normalizedTxt.trim().match(/^(\d{3,6})$/);
+            const anyDigitsMatch = normalizedTxt.match(/\b\d{3,8}\b/);
+            const pureDigitsMatch = normalizedTxt.trim().match(/^(\d{3,8})$/);
             const pureDigitsNum = pureDigitsMatch ? parseInt(pureDigitsMatch[1], 10) : null;
             const awaitingPayment = checkCustomerAwaitingPayment(senderId);
 
-            // Detect if this message is payment confirmation / transaction info (e.g. "লাস্ট ডিজিট হলো : ১২১৩", "last 4 digit 1234", "4532", "trxid 9XYZ...")
+            // Check if user says they already paid / sent money (past tense):
+            const isPaymentDonePhrase = (
+              /(?:পেমেন্ট|টাকা|advance|এডভান্স|payment|paid|bKash|bkash|বিকাশ|nagad|নগদ|rocket|রকেট|taka)\s*(?:করেছি|করছি|দিলাম|দিছি|পাঠালাম|পাঠাইছি|পাঠিয়েছি|দিয়েছি|হয়েছে|হইছে|হলো|done|completed|send|sent|disi|diasi|dilam|pathaisi|pathalam|koresi|korsi|korechi)/i.test(normalizedTxt) ||
+              /\b(paid|payment\s*done|taka\s*send|advance\s*done|payment\s*completed|money\s*sent|advance\s*paid)\b/i.test(normalizedTxt) ||
+              normalizedTxt.match(/^(?:পেমেন্ট\s*করেছি|টাকা\s*পাঠিয়েছি|টাকা\s*পাঠাইছি|paid|advance\s*paid)$/i) !== null
+            );
+
+            // Mentioned last digits / last number / transaction:
+            const mentionsLastDigits = /(?:লাস্ট|last|শেষের|লাস্টের|শেষ|shesh|sesh)\s*(?:৪|4)?\s*(?:ডিজিট|digit|নম্বর|নাম্বার|number|no|num)?/i.test(normalizedTxt) ||
+              /(?:ডিজিট|digit|trx\s*id|transaction\s*id|ট্রানজেকশন|পেমেন্ট\s*কোড|trx)/i.test(normalizedTxt);
+
+            // Detect if this message is payment confirmation / transaction info (e.g. "payment koresi last number 5874", "last 4 digit 1234", "4532", "trxid 9XYZ...")
             const isPaymentInfoSubmission = !hasQtyUnit && (
-              normalizedTxt.match(/লাস্ট\s*(?:৪|4)?\s*ডিজিট|last\s*(?:4|৪)?\s*digit|ডিজিট\s*(?:হলো|হল|হচ্ছে|দিলাম|ঃ|:)|বিকাশ\s*লাস্ট|নগদ\s*লাস্ট|রকেট\s*লাস্ট|trx\s*id|transaction\s*id|ট্রানজেকশন|লাস্ট\s*নম্বর|পেমেন্ট\s*কোড|টাকা\s*পাঠাইছি|টাকা\s*পাঠিয়েছি/i) !== null ||
-              normalizedTxt.match(/(?:লাস্ট|last|digit|ডিজিট)[\s:ঃ]*\d{3,6}/i) !== null ||
-              (awaitingPayment && pureDigitsMatch !== null) ||
+              (mentionsLastDigits && anyDigitsMatch !== null) ||
+              (isPaymentDonePhrase && anyDigitsMatch !== null) ||
+              (awaitingPayment && anyDigitsMatch !== null) ||
               (pureDigitsMatch !== null && (pureDigitsMatch[1].length === 4 || !isStandardCardQty(pureDigitsNum))) ||
-              (normalizedTxt.match(/^(?:last\s*digit\s*)?(?:[:ঃ\s]*)?\d{3,6}$/i) !== null && (existingConv?.messages?.slice(-4)?.some(m => m.text?.includes('লাস্ট ৪ ডিজিট') || m.text?.includes('পেমেন্ট'))))
+              /trx\s*id|transaction\s*id|ট্রানজেকশন|পেমেন্ট\s*কোড/i.test(normalizedTxt)
             );
 
             // Detect if message is a price objection, competitor comparison, or discount request
@@ -1200,6 +1212,8 @@ export default async function handler(req, res) {
                   });
 
                   if (visionRes?.type === 'PAYMENT_RECEIPT') {
+                    setCustomerAwaitingPayment(senderId, true);
+                    setHumanTakeover(senderId, true); // Hand over to human agent for manual check
                     const reply = visionRes.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।`;
                     await sendMessengerButtonBlock(senderId, reply, [
                       { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
@@ -1344,7 +1358,7 @@ export default async function handler(req, res) {
             }
             // ===== PAYMENT LAST DIGITS / CONFIRMATION SUBMITTED BY USER =====
             else if (isPaymentInfoSubmission) {
-              const digitsMatch = normalizedTxt.match(/\b\d{3,6}\b/);
+              const digitsMatch = normalizedTxt.match(/\b\d{3,8}\b/);
               const digits = digitsMatch ? digitsMatch[0] : '';
               const digitsText = digits ? ` (${bngDigits(digits)})` : '';
 
@@ -1358,6 +1372,13 @@ export default async function handler(req, res) {
                 { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
                 { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
               ]);
+              appendMessage(senderId, 'bot', reply);
+            }
+            // ===== PAYMENT CLAIMED (NO DIGITS YET) OR BTN_PAID CLICKED =====
+            else if (payload === 'BTN_PAID' || isPaymentDonePhrase) {
+              setCustomerAwaitingPayment(senderId, true);
+              const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের স্ক্রিনশট বা বিকাশ/নগদ লাস্ট ৪ ডিজিট এখানে লিখে দিন। 😊\nআমাদের টিম দ্রুত যাচাই করে আপনার অর্ডারটি নিশ্চিত করবে এবং ডিজাইনার কাজ শুরু করবে! 🌸`;
+              await sendMessengerText(senderId, reply);
               appendMessage(senderId, 'bot', reply);
             }
             // ===== 50/100 TK CONCESSION / BARGAIN ACCEPTANCE (OWNER AUTHORIZED) =====
@@ -1614,21 +1635,14 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== PAYMENT CONFIRMATION BUTTON / QUERY =====
-            else if (payload === 'BTN_PAID' || txt.match(/^(পেমেন্ট করেছি|টাকা পাঠিয়েছি|টাকা পাঠাইছি|paid|advance paid)$/i)) {
-              setCustomerAwaitingPayment(senderId, true);
-              const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের স্ক্রিনশট বা বিকাশ/নগদ লাস্ট ৪ ডিজিট এখানে লিখে দিন। 😊\nআমাদের টিম দ্রুত যাচাই করে আপনার অর্ডারটি নিশ্চিত করবে এবং ডিজাইনার কাজ শুরু করবে! 🌸`;
-              await sendMessengerText(senderId, reply);
-              appendMessage(senderId, 'bot', reply);
-            }
             // ===== HOTLINE BUTTON =====
             else if (payload === 'BTN_HOTLINE') {
               const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ধন হটলাইন)\n\nআমরা সার্বক্ষণিক সহায়তায় আছি! 😊`;
               await sendMessengerText(senderId, reply);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== PAYMENT / BKASH NUMBER =====
-            else if (txt.match(/bkash|bKash|বিকাশ|nagad|নগদ|rocket|রকেট|payment|পেমেন্ট|এডভান্স|advance/i)) {
+            // ===== PAYMENT / BKASH NUMBER QUERY =====
+            else if (txt.match(/bkash|bKash|বিকাশ|nagad|নগদ|rocket|রকেট|payment|পেমেন্ট|এডভান্স|advance/i) && !isPaymentDonePhrase) {
               const reply = `💳 পেমেন্ট তথ্য:\n\nঅর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স পেমেন্ট করতে হবে।\n\n📲 পেমেন্ট নম্বর (পার্সোনাল):\n01682588856 (বিকাশ / নগদ / রকেট)\n\nপেমেন্ট করার পর এখানে স্ক্রিনশট বা ট্রানজেকশন আইডি পাঠান! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
