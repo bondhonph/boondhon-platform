@@ -62,7 +62,9 @@ export default async function handler(req, res) {
   try {
     const { isCatalogIndexReady, findCatalogMatch } = await import('../../lib/catalog-matcher');
     catalogReady = isCatalogIndexReady();
-    if (req.query.testMatch === '1') {
+    if (req.body?.imageBase64) {
+      sampleMatch = await findCatalogMatch(req.body.imageBase64, req.body.mimeType || 'image/jpeg');
+    } else if (req.query.testMatch === '1') {
       const imgRes = await fetch('https://lh3.googleusercontent.com/d/1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD');
       const buf = Buffer.from(await imgRes.arrayBuffer());
       sampleMatch = await findCatalogMatch(buf.toString('base64'), 'image/jpeg');
