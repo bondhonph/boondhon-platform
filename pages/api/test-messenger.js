@@ -57,6 +57,20 @@ export default async function handler(req, res) {
     }
   }
 
+  let catalogReady = false;
+  let sampleMatch = null;
+  try {
+    const { isCatalogIndexReady, findCatalogMatch } = await import('../../lib/catalog-matcher');
+    catalogReady = isCatalogIndexReady();
+    if (req.query.testMatch === '1') {
+      const imgRes = await fetch('https://lh3.googleusercontent.com/d/1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD');
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      sampleMatch = await findCatalogMatch(buf.toString('base64'), 'image/jpeg');
+    }
+  } catch (cErr) {
+    catalogReady = 'error: ' + cErr.message;
+  }
+
   // Debug Page info call
   try {
     const metaRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${token}`);
@@ -68,6 +82,8 @@ export default async function handler(req, res) {
       geminiKeyPrefix: key ? key.substring(0, 8) + '...' : 'none',
       geminiResults: results,
       embedResults: embedResults,
+      catalogReady,
+      sampleMatch,
       metaResponse: metaData
     });
   } catch (err) {
