@@ -11,8 +11,10 @@ export default async function handler(req, res) {
     });
   }
 
-  const models = ['gemini-3.6-flash', 'gemini-3.1-pro-preview'];
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.6-flash'];
+  const embedModels = ['gemini-embedding-2', 'multimodal-embedding-001', 'text-embedding-004'];
   const results = {};
+  const embedResults = {};
 
   for (const model of models) {
     try {
@@ -34,6 +36,27 @@ export default async function handler(req, res) {
     }
   }
 
+  for (const model of embedModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${key}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: { parts: [{ text: 'wedding card test' }] }
+        })
+      });
+      const data = await response.json();
+      embedResults[model] = {
+        httpStatus: response.status,
+        hasValues: !!data?.embedding?.values,
+        error: data?.error
+      };
+    } catch (err) {
+      embedResults[model] = { error: err.message };
+    }
+  }
+
   // Debug Page info call
   try {
     const metaRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${token}`);
@@ -44,6 +67,7 @@ export default async function handler(req, res) {
       geminiKeyConfigured: Boolean(key),
       geminiKeyPrefix: key ? key.substring(0, 8) + '...' : 'none',
       geminiResults: results,
+      embedResults: embedResults,
       metaResponse: metaData
     });
   } catch (err) {
