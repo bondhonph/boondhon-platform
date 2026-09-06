@@ -59,31 +59,10 @@ export default async function handler(req, res) {
 
   let catalogReady = false;
   let sampleMatch = null;
-  let embedTestResult = null;
   try {
     const { isCatalogIndexReady, findCatalogMatch } = await import('../../lib/catalog-matcher');
     catalogReady = isCatalogIndexReady();
     if (req.body?.imageBase64) {
-      // Direct call to see Google API response
-      const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${key}`;
-      const embedRes = await fetch(testUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: {
-            parts: [{
-              inline_data: {
-                mime_type: req.body.mimeType || 'image/jpeg',
-                data: req.body.imageBase64
-              }
-            }]
-          }
-        })
-      });
-      embedTestResult = {
-        status: embedRes.status,
-        text: await embedRes.text()
-      };
       sampleMatch = await findCatalogMatch(req.body.imageBase64, req.body.mimeType || 'image/jpeg');
     } else if (req.query.testMatch === '1') {
       const imgRes = await fetch('https://lh3.googleusercontent.com/d/1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD');
@@ -107,7 +86,6 @@ export default async function handler(req, res) {
       embedResults: embedResults,
       catalogReady,
       sampleMatch,
-      embedTestResult,
       metaResponse: metaData
     });
   } catch (err) {
