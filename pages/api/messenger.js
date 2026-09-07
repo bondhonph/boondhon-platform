@@ -1607,9 +1607,17 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            else if (payload === 'BTN_POLICY' || txt.match(/পলিসি|policy|ডেলিভারি|delivery|কুরিয়ার/)) {
+            else if (payload === 'BTN_POLICY' || txt.match(/পলিসি|policy|কুরিয়ার/)) {
               await sendMessengerText(senderId, ORDER_RULES_MSG);
               appendMessage(senderId, 'bot', ORDER_RULES_MSG);
+
+              const followUp = "কার্ডের তথ্য পাঠাতে নিচের বাটনে চাপুন: 👇";
+              await sendMessengerButtonBlock(senderId, followUp, [
+                { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', followUp);
             }
             // ===== DIRECT CARD CODE QUERY (e.g. AFF-012, PREM-005, AFF 12) =====
             else if (txt.match(/\b(aff|prem)[-_\s]*(\d{1,3})\b/i)) {
