@@ -78,7 +78,7 @@ const ORDER_RULES_MSG = `📋 বন্ধন-এ অর্ডার করা�
 const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ড তৈরির অর্ডার ফর্ম (বাংলা): 🌸
 (ফর্মটি কপি করে তথ্যগুলো লিখে আমাদের পাঠিয়ে দিন)
 
-🎨 পছন্দের কার্ডের ডিজাইন/কোড: (ইনবক্সে ছবি পাঠিয়েছেন? নাকি কোড যেমন: AFF-001 / PREM-005): 
+📸 পছন্দের কার্ডের ছবি: (ইনবক্সে যে কার্ডটির ছবি পাঠিয়েছেন) 
 📦 কার্ডের পরিমাণ (কত পিস লাগবে): 
 
 🤵 বর সম্পর্কিত তথ্য:
@@ -127,8 +127,8 @@ const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ড তৈ�
 const ENGLISH_ORDER_FORM_TEXT = `📝 Wedding Card Order Form (English): ✨
 (Please copy this form, fill in your details and send it back to us)
 
+📸 Preferred Card: (Card photo sent in inbox) 
 📦 Card Quantity (How many pcs): 
-🎨 Preferred Card Code/Model (If any): 
 
 🤵 Groom's Details:
 • Groom's Full Name: 
@@ -1191,14 +1191,14 @@ export default async function handler(req, res) {
                   const altCat = category === 'premium' ? 'affordable' : 'premium';
                   const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
 
-                  let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ড্রাইভ ক্যাটালগের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
+                  let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
 
                   if (customerPhotoCaption) {
                     const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
                     if (capQtyMatch) {
                       const q = parseInt(capQtyMatch[1], 10);
                       if (q >= 50 && q < 10000) {
-                        reply = `দারুণ পছন্দ! 😍 এটি আমাদের ড্রাইভ ক্যাটালগের ${emoji} ${catName} কালেকশনের কার্ড (${matchCode})।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                        reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
                       }
                     }
                   }
@@ -1519,7 +1519,7 @@ export default async function handler(req, res) {
 
               if (!selectedCard) {
                 // Customer has NOT chosen or sent a card yet! Ask for the card first!
-                const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 কার্ড পছন্দ হয়ে থাকলে: আমাদের পেজ বা পোস্টের কোনো কার্ড পছন্দ হয়ে থাকলে তার ছবি এখানে পাঠান (বা কার্ড কোড লিখুন)।\n👀 কালেকশন দেখতে চাইলে: নিচের বাটন থেকে ডিজাইনগুলো দেখে নিন! 😊`;
+                const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 কার্ড পছন্দ হয়ে থাকলে: আমাদের পেজ বা পোস্টের যে কার্ডটি পছন্দ হয়েছে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন।\n👀 কালেকশন দেখতে চাইলে: নিচের বাটন থেকে ডিজাইনগুলো দেখে নিন! 😊`;
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
                   { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
@@ -1528,14 +1528,13 @@ export default async function handler(req, res) {
                 appendMessage(senderId, 'bot', reply);
               } else {
                 // Card is already known!
-                const cardLabel = selectedCard.code
-                  ? `পছন্দের কার্ড: ${selectedCard.code} (${selectedCard.category === 'premium' ? '✨ Premium' : '💚 Affordable'})`
-                  : `আপনার পাঠানো কার্ডের ছবি (${selectedCard.category === 'premium' ? '✨ Premium' : '💚 Affordable'})`;
+                const catLabel = selectedCard.category === 'premium' ? '✨ Premium' : '💚 Affordable';
+                const cardLabel = `আপনার পছন্দের কার্ডের ছবি (${catLabel})`;
 
                 await sendMessengerText(senderId, ORDER_RULES_MSG);
                 appendMessage(senderId, 'bot', ORDER_RULES_MSG);
 
-                const followUp = `দারুণ! ${cardLabel} আমরা নিশ্চিত করেছি। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
+                const followUp = `দারুণ! ${cardLabel} আমরা সিলেক্ট করেছি। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
                 await sendMessengerButtonBlock(senderId, followUp, [
                   { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
                   { title: "অন্য ডিজাইন দেখুন", payload: "BTN_AFFORDABLE" },
@@ -1665,7 +1664,7 @@ export default async function handler(req, res) {
               const emoji = category === 'premium' ? '✨' : '💚';
               const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
 
-                            const reply = `আমাদের ${emoji} ${catName} কালেকশনের কার্ড (${cardCode}):\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+                            const reply = `আমাদের ${emoji} ${catName} কালেকশনের কার্ড:\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "অর্ডার করবো", payload: "BTN_ORDER" },
                 { title: "দাম জানুন", payload: "BTN_PRICE" },
