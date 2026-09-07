@@ -1608,8 +1608,11 @@ export default async function handler(req, res) {
                 orderCategory = getCurrentCategorySafe(senderId);
               }
 
-              if (!orderCategory) {
-                // Customer has NOT chosen or sent a card yet! Ask for actual photo upload!
+              // If clicked BTN_ORDER button (no category suffix), they already saw prices — proceed anyway!
+              const isButtonClick = payload && payload.startsWith('BTN_ORDER');
+
+              if (!orderCategory && !isButtonClick) {
+                // Customer TYPED "অর্ডার" without prior card interaction — ask for card
                 const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 আমাদের পেজ বা পোস্টের যে কার্ডটি আপনার পছন্দ হয়েছে, দয়া করে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন!\n👀 কালেকশন দেখতে চাইলে নিচের বাটন চাপুন: 😊`;
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
@@ -1618,14 +1621,14 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // Card category is known — proceed to order!
-                const catLabel = orderCategory === 'premium' ? '✨ Premium' : '💚 Affordable';
-                const cardLabel = `আপনার পছন্দের কার্ডের ছবি (${catLabel})`;
+                // Proceed to order! (category known from payload, state, or button click)
+                const catLabel = orderCategory === 'premium' ? '✨ Premium' : (orderCategory === 'affordable' ? '💚 Affordable' : '🌸');
+                const cardDesc = orderCategory ? `(${catLabel})` : '';
 
                 await sendMessengerText(senderId, ORDER_RULES_MSG);
                 appendMessage(senderId, 'bot', ORDER_RULES_MSG);
 
-                const followUp = `দারুণ! ${cardLabel} আমরা সিলেক্ট করেছি। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
+                const followUp = `দারুণ! আপনার পছন্দের কার্ড ${cardDesc} সিলেক্ট হয়েছে। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
                 await sendMessengerButtonBlock(senderId, followUp, [
                   { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
                   { title: "অন্য ডিজাইন দেখুন", payload: "BTN_AFFORDABLE" },
