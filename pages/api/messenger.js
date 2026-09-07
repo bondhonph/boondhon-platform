@@ -1,4 +1,4 @@
-import { appendMessage, getConversation, setHumanTakeover, setOrderStatus, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory, recordSentCardMessage, getSentCardByMid, setUserAwaitingPayment, isUserAwaitingPayment } from '../../lib/chat-store';
+import { appendMessage, getConversation, setHumanTakeover, setOrderStatus, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory, recordSentCardMessage, getSentCardByMid, setUserAwaitingPayment, isUserAwaitingPayment, setSelectedCard, getSelectedCard } from '../../lib/chat-store';
 import { VISUAL_CATALOG_RULES } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
 
@@ -78,8 +78,8 @@ const ORDER_RULES_MSG = `📋 বন্ধন-এ অর্ডার করা�
 const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ড তৈরির অর্ডার ফর্ম (বাংলা): 🌸
 (ফর্মটি কপি করে তথ্যগুলো লিখে আমাদের পাঠিয়ে দিন)
 
+🎨 পছন্দের কার্ডের ডিজাইন/কোড: (ইনবক্সে ছবি পাঠিয়েছেন? নাকি কোড যেমন: AFF-001 / PREM-005): 
 📦 কার্ডের পরিমাণ (কত পিস লাগবে): 
-🎨 পছন্দের কার্ড কোড/মডেল (যদি থাকে): 
 
 🤵 বর সম্পর্কিত তথ্য:
 • বরের পূর্ণ নাম: 
@@ -1122,6 +1122,7 @@ export default async function handler(req, res) {
               if (quotedCard) {
                 const category = quotedCard.category || 'affordable';
                 setCurrentCategory(senderId, category);
+                setSelectedCard(senderId, { category, cardId: quotedCard.cardId, url: quotedCard.url });
 
                 const priceTable = getFullPriceTable(category);
                 const emoji = category === 'premium' ? '✨' : '💚';
@@ -1182,6 +1183,7 @@ export default async function handler(req, res) {
                   const category = matchResult.category;
                   const matchCode = matchResult.code;
                   setCurrentCategory(senderId, category); // Save category so "eita koto" knows!
+                  setSelectedCard(senderId, { category, code: matchCode, url: photoUrl });
 
                   const priceTable = getFullPriceTable(category);
                   const emoji = category === 'premium' ? '✨' : '💚';
@@ -1239,6 +1241,7 @@ export default async function handler(req, res) {
                     // Wedding Card — Category identified by Vision
                     const detectedCat = (visionRes?.detectedCategory || matchResult?.category || 'affordable').toLowerCase().includes('prem') ? 'premium' : 'affordable';
                     setCurrentCategory(senderId, detectedCat); // Save so future questions know the category!
+                    setSelectedCard(senderId, { category: detectedCat, code: 'Customer Photo', url: photoUrl });
 
                     const emoji = detectedCat === 'premium' ? '✨' : '💚';
                     const catName = detectedCat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
@@ -1510,18 +1513,47 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== ORDER =====
+            // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
             else if (payload === 'BTN_ORDER' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
-              await sendMessengerText(senderId, ORDER_RULES_MSG);
-              appendMessage(senderId, 'bot', ORDER_RULES_MSG);
+              const selectedCard = getSelectedCard(senderId);
 
-              const followUp = "কার্ডের তথ্য পাঠাতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇";
-              await sendMessengerButtonBlock(senderId, followUp, [
+              if (!selectedCard) {
+                // Customer has NOT chosen or sent a card yet! Ask for the card first!
+                const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 কার্ড পছন্দ হয়ে থাকলে: আমাদের পেজ বা পোস্টের কোনো কার্ড পছন্দ হয়ে থাকলে তার ছবি এখানে পাঠান (বা কার্ড কোড লিখুন)।\n👀 কালেকশন দেখতে চাইলে: নিচের বাটন থেকে ডিজাইনগুলো দেখে নিন! 😊`;
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
+                  { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
+                  { title: "কার্ডের ছবি দিয়েছি", payload: "BTN_HAS_PHOTO" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
+              } else {
+                // Card is already known!
+                const cardLabel = selectedCard.code
+                  ? `পছন্দের কার্ড: ${selectedCard.code} (${selectedCard.category === 'premium' ? '✨ Premium' : '💚 Affordable'})`
+                  : `আপনার পাঠানো কার্ডের ছবি (${selectedCard.category === 'premium' ? '✨ Premium' : '💚 Affordable'})`;
+
+                await sendMessengerText(senderId, ORDER_RULES_MSG);
+                appendMessage(senderId, 'bot', ORDER_RULES_MSG);
+
+                const followUp = `দারুণ! ${cardLabel} আমরা নিশ্চিত করেছি। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
+                await sendMessengerButtonBlock(senderId, followUp, [
+                  { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+                  { title: "অন্য ডিজাইন দেখুন", payload: "BTN_AFFORDABLE" },
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                ]);
+                appendMessage(senderId, 'bot', followUp);
+              }
+            }
+            // ===== CUSTOMER SAYS THEY ALREADY SENT A CARD PHOTO =====
+            else if (payload === 'BTN_HAS_PHOTO' || txt.match(/ছবি\s*(দিয়েছি|দিছি|পাঠিয়েছি|পাঠাইছি)|chobi\s*(disi|diasi|dichi|pathaisi)/i)) {
+              setSelectedCard(senderId, { category: getCurrentCategory(senderId) || 'affordable', code: 'Customer Photo' });
+              const reply = `জি অনেক ধন্যবাদ! আপনার পাঠানো ছবি অনুযায়ী ডিজাইনার কাজ করবে। 🌸\n\nএবার বর-কনের নাম ও অনুষ্ঠানসূচীর তথ্য পাঠাতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন: 👇`;
+              await sendMessengerButtonBlock(senderId, reply, [
                 { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
+                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
               ]);
-              appendMessage(senderId, 'bot', followUp);
+              appendMessage(senderId, 'bot', reply);
             }
             // ===== BOTH FORMS / ORDER FORM & INFORMATION REQUEST =====
             else if (payload === 'BTN_BOTH_FORMS' || (!isFormSubmission && (
@@ -1627,6 +1659,7 @@ export default async function handler(req, res) {
               const cardCode = prefix + '-' + num;
               const category = prefix === 'PREM' ? 'premium' : 'affordable';
               setCurrentCategory(senderId, category);
+              setSelectedCard(senderId, { category, code: cardCode });
 
               const priceTable = getFullPriceTable(category);
               const emoji = category === 'premium' ? '✨' : '💚';
