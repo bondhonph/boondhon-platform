@@ -352,20 +352,20 @@ async function analyzeCardImage({ photoUrl, base64Data, mimeType, customerCaptio
       : `কাস্টমার ছবির সাথে কোনো অতিরিক্ত টেক্সট লেখেনি।`;
 
     const candidateHint = topCandidate && topCandidate.code
-      ? `ড্রাইভ ক্যাটালগের সাথে সম্ভাব্য মিল: ${topCandidate.code} (ক্যাটাগরি: ${topCandidate.category}, সাদৃশ্য: ${(topCandidate.similarity * 100).toFixed(0)}%)`
-      : `কোনো নির্দিষ্ট ড্রাইভ কার্ড মেলেনি।`;
+      ? `ড্রাইভ ক্যাটালগে নিকটতম মিল: ${topCandidate.code} (ক্যাটাগরি: ${topCandidate.category}, সাদৃশ্য: ${(topCandidate.similarity * 100).toFixed(1)}%, ড্রাইভ ম্যাচ: ${topCandidate.isMatch ? 'হ্যাঁ' : 'না'})`
+      : `ড্রাইভ ক্যাটালগে সরাসরি কোনো কার্ড মেলেনি।`;
 
     const prompt = `তুমি "বন্ধন প্রিন্টিং হাউস" (BOONDHON Printing House, Manikganj & Dhaka)-এর একজন অত্যন্ত অভিজ্ঞ ও অমায়িক সিনিয়র সেলস কনসালট্যান্ট "অনন্যা"।
 কাস্টমার মেসেঞ্জারে একটি ছবি পাঠিয়েছে।
 ${captionContext}
 ${candidateHint}
 
-আমাদের বিয়ের কার্ডের দুটি প্রধান ক্যাটাগরি ও প্রাইসিং:
-১. 💚 সাশ্রয়ী (Affordable) — ছোট সাইজ:
+আমাদের বিয়ের কার্ডের দুটি প্রধান ক্যাটাগরি ও অফিশিয়াল ড্রাইভ রেট:
+১. 💚 সাশ্রয়ী (Affordable) — সাধারণ আর্ট কার্ড/ছোট সাইজের কার্ড:
    • ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)
    • ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)
    • ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)
-২. ✨ প্রিমিয়াম (Premium / লাক্সারি) — বড় সাইজ:
+২. ✨ প্রিমিয়াম (Premium / লাক্সারি) — বড় সাইজ, খিলান, ফয়েল, লেজার কাট, বক্স বা লাক্সারি কার্ড:
    • ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)
    • ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)
    • ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)
@@ -378,12 +378,12 @@ ${candidateHint}
    - নাকি সম্পূর্ণ অপ্রাসঙ্গিক কোনো ছবি?
 
 ২. যদি বিয়ের কার্ড হয়:
-   - ড্রাইভ ক্যাটালগ বা কার্ডের ধরণ দেখে প্রথমে নির্দিষ্ট ক্যাটাগরি নিশ্চিত করো (Affordable নাকি Premium)।
-     (সাধারণ সাইজ/আর্ট কার্ড হলে Affordable, বড় লাক্সারি/খিলান/ফয়েল/বক্স কার্ড হলে Premium)।
-   - প্রথমে কাস্টমারকে কার্ডের প্রশংসা করে ক্যাটাগরি স্পষ্ট করে জানাও (যেমন: "এটি আমাদের সাশ্রয়ী/প্রিমিয়াম কালেকশনের কার্ড...")।
-   - তারপর সরাসরি সেই ক্যাটাগরির সঠিক দামের তালিকা (৫০, ১০০, ২০০ পিসের রেট) জানিয়ে দাও।
-   - যদি কাস্টমার কোনো নির্দিষ্ট পিস (যেমন ১০০ পিস) জানতে চায়, সরাসরি সেই পিসের হিসাব বলো।
-   - কোনো বিভ্রান্তি রাখবে না এবং রোবোটিক উত্তর দেবে না।
+   - আমাদের ড্রাইভ ক্যাটালগের সাথে মিলিয়ে সবার আগে ক্যাটাগরি (Affordable নাকি Premium) নিশ্চিত করো।
+   - ড্রাইভ ম্যাচ বা কার্ডের সাইজ ও ডিজাইন অনুযায়ী সঠিক ক্যাটাগরি সিলেক্ট করো।
+   - প্রথমে কাস্টমারকে আন্তরিক শুভেচ্ছা ও কার্ডের প্রশংসা করে ক্যাটাগরি স্পষ্ট করে জানাও (যেমন: "এটি আমাদের সাশ্রয়ী/প্রিমিয়াম কালেকশনের কার্ড...")।
+   - এরপর নিশ্চিত হওয়া ক্যাটাগরির রেট (৫০, ১০০, ২০০ পিসের দাম) সরাসরি তুলে ধরো।
+   - যদি কাস্টমার কোনো নির্দিষ্ট পিস (যেমন ১০০ পিস) জানতে চায়, সরাসরি সেই নির্দিষ্ট পিসের মোট ও পিস প্রতি হিসাব বলো।
+   - কোনো দ্বিধা বা বিভ্রান্তি রাখবে না।
 
 ৩. যদি পেমেন্ট স্ক্রিনশট হয়:
    - আন্তরিক ধন্যবাদ জানিয়ে বিকাশ/নগদের শেষ ৪টি ডিজিট লিখে দিতে বলো (আমাদের অ্যাকাউন্টস টিম চেক করে দ্রুত নিশ্চিত করবে)।
@@ -1178,9 +1178,10 @@ export default async function handler(req, res) {
                   }
                 }
 
-                // Check if catalog match is confident (>= 0.70 similarity with a Drive catalog card)
-                if (matchResult && matchResult.similarity >= 0.70) {
-                  const category = matchResult.category;
+                // Step 1: Check Drive Catalog Match first!
+                // Any match with isMatch=true (similarity >= 0.48) is directly confirmed from Google Drive
+                if (matchResult && (matchResult.isMatch || matchResult.similarity >= 0.48)) {
+                  const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
                   const matchCode = matchResult.code;
                   setCurrentCategory(senderId, category); // Save category so "eita koto" knows!
                   setSelectedCard(senderId, { category, code: matchCode, url: photoUrl });
@@ -1210,7 +1211,7 @@ export default async function handler(req, res) {
                   ]);
                   appendMessage(senderId, 'bot', reply);
                 } else {
-                  // Low similarity (< 0.70) or external card — Gemini 3.6 Vision analyzes the image + candidate
+                  // Step 2: For external photos or lower similarity, analyze via Gemini Vision with Drive catalog context
                   const visionRes = await analyzeCardImage({
                     photoUrl,
                     base64Data: photoBase64,
