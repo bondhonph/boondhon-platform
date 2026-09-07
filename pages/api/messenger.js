@@ -1348,11 +1348,12 @@ export default async function handler(req, res) {
               ]);
               appendMessage(senderId, 'bot', reply);
             }
-            // ===== LOW QUANTITY PHRASE QUERY ("আমার অল্প লাগবে" / "olpo lagbe" / "kom lagbe") =====
-            else if (!isFormSubmission && text.length < 60 && (
-              /\b(olpo\s*lagbe|kom\s*lagbe|olpo\s*pisi|kom\s*pcs|kom\s*pisi)\b/i.test(txt) ||
-              /(^|\s)(অল্প|কম)\s*(লাগবে|হবে|পিস|কার্ড|পরিমাণ|কিছু)/.test(txt) ||
-              /^(আমার\s*)?(অল্প|কম)(\s*লাগবে|\s*হবে)?$/i.test(txt.trim())
+            // ===== LOW QUANTITY / MINIMUM ORDER QUERY ("আমার অল্প লাগবে" / "ন্যূনতম অর্ডার পরিমাণ" / "minimum order") =====
+            else if (!isFormSubmission && text.length < 70 && (
+              /\b(olpo\s*lagbe|kom\s*lagbe|olpo\s*pisi|kom\s*pcs|kom\s*pisi|minimum|min\s*order)\b/i.test(txt) ||
+              /(^|\s)(অল্প|কম|ন্যূনতম|নূন্যতম|মিনিমাম|কমপক্ষে)\s*(লাগবে|হবে|পিস|কার্ড|পরিমাণ|অর্ডার|কিছু)/.test(txt) ||
+              /^(আমার\s*)?(অল্প|কম|ন্যূনতম|নূন্যতম)(\s*লাগবে|\s*হবে|\s*অর্ডার|\s*পরিমাণ)?$/i.test(txt.trim()) ||
+              txt.includes('ন্যূনতম') || txt.includes('নূন্যতম') || txt.includes('মিনিমাম') || txt.includes('minimum')
             ) && !/(কমিউনিটি|কম্পিউটার|কম্পানি|কমপ্লিট|কমেন্ট|ইনকাম|স্বাগতম)/i.test(txt)) {
               const reply = `জি, আমাদের কাছে অল্প পরিমাণেও (১-৪৯ পিস) বিয়ের কার্ড অর্ডার করতে পারবেন! 😊\n\nঅল্প পরিমাণের প্রাইসিং রেট:\n• ১-৫ পিস: ১,০০০৳ (ফিক্সড মেকিং চার্জ সহ)\n• ৬-১০ পিস: ১,৫০০৳ (ফিক্সড চার্জ)\n• ১১-৪৯ পিস: পিস প্রতি ৭৫৳ (যেমন ২৫ পিস = ১,৮৭৫৳)\n\n💡 পরামর্শ: ৫০+ পিস নিলে পিস প্রতি দাম অনেক কমে আসে (Affordable: ৫৫৳, Premium: ৬৫৳)।\n\nআপনার কত পিস লাগবে বলুন! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
@@ -1424,6 +1425,20 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               }
+            }
+            // ===== GENERAL DESIGN / CARD VIEW REQUEST ("কার্ড দেখতে চাই", "ডিজাইন দেখতে চাই", "কালেকশন") =====
+            else if (
+              !txt.includes('affordable') && !txt.includes('premium') && !txt.includes('সাশ্রয়ী') && !txt.includes('প্রিমিয়াম') &&
+              (txt.match(/(?:কার্ড|card|ডিজাইন|design|কালেকশন|collection).*?(?:দেখব|দেখবো|দেখতে|দেখান|দেখা|show|ছবি|pic)/i) ||
+               txt.match(/^(কার্ড\s*দেখব|কার্ড\s*দেখবো|কার্ড\s*দেখতে\s*চাই|কার্ডের\s*ডিজাইন\s*দেখতে\s*চাই|ডিজাইন\s*দেখব|ডিজাইন\s*দেখতে\s*চাই|কালেকশন\s*দেখব|কালেকশন\s*দেখতে\s*চাই|ডিজাইন\s*গুলো\s*দেখতে\s*চাই)$/i))
+            ) {
+              const reply = `আমাদের বিয়ের কার্ডের দুটি চমৎকার কালেকশন রয়েছে: 🌸\n\n💚 সাশ্রয়ী (Affordable) — সেরা বাজেটে আধুনিক লেজার-কাট ডিজাইন\n✨ প্রিমিয়াম (Premium) — বড় সাইজের লাক্সারি ও রাজকীয় লুক\n\nআপনি কোন কালেকশনের ডিজাইন দেখতে চান? 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                { title: "দাম জানুন", payload: "BTN_PRICE" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
             }
             // ===== AFFORDABLE COLLECTION =====
             else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')) {
@@ -1581,6 +1596,16 @@ export default async function handler(req, res) {
                 { title: "উভয় ফর্ম দেখুন", payload: "BTN_BOTH_FORMS" }
               ]);
               appendMessage(senderId, 'bot', infoNotice);
+            }
+            // ===== DELIVERY TIMELINE QUERY ("ডেলিভারি সময় কত", "কতদিন লাগে", "কবে পাব") =====
+            else if (txt.match(/ডেলিভারি\s*(সময়|সময়|কতদিন|কবে)|কত\s*দিন\s*(লাগবে|লাগে)|কতদিনে\s*(পাব|পৌঁছাবে)|কবে\s*(পাব|পৌঁছাবে)|delivery\s*(time|koto|din)/i)) {
+              const reply = `🚚 আমাদের ডেলিভারি সময় ও প্রক্রিয়া:\n\n• ডিজাইন ও প্রুফ চেক: কার্ডের তথ্য পাওয়ার পর ১-২ দিনের মধ্যে ডিজাইনার প্রুফ দেখাবে।\n• প্রিন্ট ও ডেলিভারি: আপনার ডিজাইন ওকে হওয়ার পর ৫-৭ কর্মদিবসের মধ্যে জেলা শহরে ক্যাশ অন ডেলিভারিতে হোম ডেলিভারি পৌঁছে যাবে!\n\n(জরুরি প্রয়োজনে মানিকগঞ্জ অফিস বা ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন) 😊`;
+              await sendMessengerButtonBlock(senderId, reply, [
+                { title: "দাম জানুন", payload: "BTN_PRICE" },
+                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+              ]);
+              appendMessage(senderId, 'bot', reply);
             }
             else if (payload === 'BTN_POLICY' || txt.match(/পলিসি|policy|ডেলিভারি|delivery|কুরিয়ার/)) {
               await sendMessengerText(senderId, ORDER_RULES_MSG);
