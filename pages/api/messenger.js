@@ -774,14 +774,27 @@ function isDuplicateEvent(eventId) {
 
 // User-level Debounce Lock (prevents rapid duplicate webhook triggers per user)
 const userLastMsgMap = new Map();
+const userLastPhotoMap = new Map();
+
 function isUserDebounced(senderId, isPhoto) {
   const now = Date.now();
   const lastTime = userLastMsgMap.get(senderId) || 0;
+  const lastPhotoTime = userLastPhotoMap.get(senderId) || 0;
+
   if (isPhoto) {
+    userLastPhotoMap.set(senderId, now);
     userLastMsgMap.set(senderId, now);
     return false; // Always process photo
   }
-  if (now - lastTime < 2000) {
+
+  // If user sent a photo within last 3 seconds, and now sends a text like "eita koto",
+  // it's part of the same photo message event from Messenger! Let photo handler do the talking.
+  if (now - lastPhotoTime < 3000) {
+    console.log(`⏩ Skipping duplicate text event right after photo for ${senderId}`);
+    return true;
+  }
+
+  if (now - lastTime < 1500) {
     console.log(`⏩ Debouncing rapid webhook event for ${senderId} (${now - lastTime}ms since last event)`);
     return true;
   }
