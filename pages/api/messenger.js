@@ -775,6 +775,25 @@ function isDuplicateEvent(eventId) {
 // User-level Debounce Lock (prevents rapid duplicate webhook triggers per user)
 const userLastMsgMap = new Map();
 const userLastPhotoMap = new Map();
+const selectedCardMap = new Map();   // In-memory card selection (Vercel /tmp is ephemeral!)
+const userCategoryMap = new Map();   // In-memory category backup
+
+// Wrappers that write to BOTH in-memory Map AND file-based store
+function setSelectedCardSafe(senderId, cardInfo) {
+  selectedCardMap.set(senderId, cardInfo);
+  try { setSelectedCard(senderId, cardInfo); } catch(e) { console.error('setSelectedCard file err:', e.message); }
+}
+function getSelectedCardSafe(senderId) {
+  // In-memory first (survives within same serverless instance), then file-based fallback
+  return selectedCardMap.get(senderId) || getSelectedCard(senderId) || null;
+}
+function setCurrentCategorySafe(senderId, cat) {
+  userCategoryMap.set(senderId, cat);
+  try { setCurrentCategory(senderId, cat); } catch(e) { console.error('setCurrentCategory file err:', e.message); }
+}
+function getCurrentCategorySafe(senderId) {
+  return userCategoryMap.get(senderId) || getCurrentCategory(senderId) || null;
+}
 
 function isUserDebounced(senderId, isPhoto) {
   const now = Date.now();
@@ -1107,7 +1126,7 @@ export default async function handler(req, res) {
             );
 
             // Check if customer is making an acceptable 50-100 tk bargain offer
-            const bargainOffer = evaluateBargain(text, getCurrentCategory(senderId) || 'affordable');
+            const bargainOffer = evaluateBargain(text, getCurrentCategorySafe(senderId) || 'affordable');
 
             let quantity = null;
             if (payload.startsWith('QTY_')) {
@@ -1134,8 +1153,8 @@ export default async function handler(req, res) {
               // Case 1: Exact card already identified via quoted/swiped message
               if (quotedCard) {
                 const category = quotedCard.category || 'affordable';
-                setCurrentCategory(senderId, category);
-                setSelectedCard(senderId, { category, cardId: quotedCard.cardId, url: quotedCard.url });
+                setCurrentCategorySafe(senderId, category);
+                setSelectedCardSafe(senderId, { category, cardId: quotedCard.cardId, url: quotedCard.url });
 
                 const priceTable = getFullPriceTable(category);
                 const emoji = category === 'premium' ? '✨' : '💚';
@@ -1196,8 +1215,8 @@ export default async function handler(req, res) {
                 if (matchResult && (matchResult.isMatch || matchResult.similarity >= 0.48)) {
                   const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
                   const matchCode = matchResult.code;
-                  setCurrentCategory(senderId, category); // Save category so "eita koto" knows!
-                  setSelectedCard(senderId, { category, code: matchCode, url: photoUrl });
+                  setCurrentCategorySafe(senderId, category); // Save category so "eita koto" knows!
+                  setSelectedCardSafe(senderId, { category, code: matchCode, url: photoUrl });
 
                   const priceTable = getFullPriceTable(category);
                   const emoji = category === 'premium' ? '✨' : '💚';
@@ -1252,33 +1271,14 @@ export default async function handler(req, res) {
                     ]);
                     appendMessage(senderId, 'bot', reply);
                   } else {
-                    // Wedding Card — Category identified by Vision
-                    const detectedCat = (visionRes?.detectedCategory || matchResult?.category || 'affordable').toLowerCase().includes('prem') ? 'premium' : 'affordable';
-                    setCurrentCategory(senderId, detectedCat); // Save so future questions know the category!
-                    setSelectedCard(senderId, { category: detectedCat, code: 'Customer Photo', url: photoUrl });
-
-                    const emoji = detectedCat === 'premium' ? '✨' : '💚';
-                    const catName = detectedCat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                    const altCat = detectedCat === 'premium' ? 'affordable' : 'premium';
-                    const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
-
-                    // Strictly quote ONLY that specific category's price table
-                    let reply = `অনেক সুন্দর একটি ডিজাইন পছন্দ করেছেন! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের সাথে মানানসই।\n\n${getFullPriceTable(detectedCat)}\n\nআপনার মোট কত পিস কার্ড লাগবে বলুন! 😊`;
-
-                    if (customerPhotoCaption) {
-                      const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
-                      if (capQtyMatch) {
-                        const q = parseInt(capQtyMatch[1], 10);
-                        if (q >= 50 && q < 10000) {
-                          reply = `অনেক সুন্দর একটি ডিজাইন পছন্দ করেছেন! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, detectedCat)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
-                        }
-                      }
-                    }
-
+                    // Wedding Card detected by Vision BUT NOT matched in our Drive catalog!
+                    // Per user directive: "jeno image dekhlei price bolbena amder drive er sathe na mille bolbena"
+                    // DON'T assign category/price — ask customer to choose from our collection
+                    const reply = `সুন্দর কার্ড! 😍 তবে এই ডিজাইনটি আমাদের বর্তমান কালেকশনে নেই।\n\nআমাদের কালেকশন থেকে পছন্দের কার্ড দেখুন এবং সেই ছবি পাঠান — তাহলে সাথে সাথে দাম জানাবো! 😊`;
                     await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                      { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-                      { title: "কার্ড দেখুন", payload: detectedCat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+                      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                      { title: "দাম জানুন", payload: "BTN_PRICE" }
                     ]);
                     appendMessage(senderId, 'bot', reply);
                   }
@@ -1291,8 +1291,8 @@ export default async function handler(req, res) {
               normalizedTxt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস|eita|aita|etar|eitar/i) ||
               normalizedTxt === 'pp' || normalizedTxt === 'pp?' || normalizedTxt === 'p?'
             )) {
-              const cat = getCurrentCategory(senderId) || 'affordable';
-              setCurrentCategory(senderId, cat);
+              const cat = getCurrentCategorySafe(senderId) || 'affordable';
+              setCurrentCategorySafe(senderId, cat);
 
               const priceTable = getFullPriceTable(cat);
               const emoji = cat === 'premium' ? '✨' : '💚';
@@ -1428,7 +1428,7 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                const currentCat = getCurrentCategory(senderId) || 'affordable';
+                const currentCat = getCurrentCategorySafe(senderId) || 'affordable';
                 const reply = getCategoryPrice(quantity, currentCat) + "\n\nঅর্ডার করতে চাইলে বলুন! 😊";
                 
                 const oppositeBtn = currentCat === 'premium'
@@ -1480,7 +1480,7 @@ export default async function handler(req, res) {
               txt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
               txt === 'pp' || txt === 'pp?' || txt === 'p?' || txt === 'দাম' || txt === 'দাম?' || txt === 'কত?' || txt === 'কতো?'
             ) && !isPriceObjectionOrDiscount) {
-              const currentCat = getCurrentCategory(senderId);
+              const currentCat = getCurrentCategorySafe(senderId);
               
               if (currentCat) {
                 const priceTable = getFullPriceTable(currentCat);
@@ -1508,7 +1508,7 @@ export default async function handler(req, res) {
             }
             // ===== CATEGORY-SPECIFIC PRICE BUTTONS =====
             else if (payload === 'BTN_AFFORDABLE_PRICE') {
-              setCurrentCategory(senderId, 'affordable');
+              setCurrentCategorySafe(senderId, 'affordable');
               const reply = getFullPriceTable('affordable') + "\n\nকত পিস লাগবে বলুন! 😊";
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
@@ -1518,7 +1518,7 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', reply);
             }
             else if (payload === 'BTN_PREMIUM_PRICE') {
-              setCurrentCategory(senderId, 'premium');
+              setCurrentCategorySafe(senderId, 'premium');
               const reply = getFullPriceTable('premium') + "\n\nকত পিস লাগবে বলুন! 😊";
               await sendMessengerButtonBlock(senderId, reply, [
                 { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
@@ -1529,7 +1529,18 @@ export default async function handler(req, res) {
             }
             // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
             else if (payload === 'BTN_ORDER' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
-              const selectedCard = getSelectedCard(senderId);
+              let selectedCard = getSelectedCardSafe(senderId);
+
+              // Fallback: if file-based selectedCard was lost (Vercel /tmp ephemeral),
+              // but category is still known from the image price reply, treat it as card selected
+              if (!selectedCard) {
+                const knownCategory = getCurrentCategorySafe(senderId);
+                if (knownCategory) {
+                  selectedCard = { category: knownCategory, code: 'Previous Selection', url: null };
+                  setSelectedCardSafe(senderId, selectedCard); // Save it back
+                  console.log(`🔄 Recovered selectedCard from category for ${senderId}: ${knownCategory}`);
+                }
+              }
 
               if (!selectedCard) {
                 // Customer has NOT chosen or sent a card yet! Ask for actual photo upload!
@@ -1559,7 +1570,7 @@ export default async function handler(req, res) {
             }
             // ===== CUSTOMER SAYS THEY SENT PHOTO BY TEXT (CHECK IF REAL PHOTO EXISTS) =====
             else if (payload === 'BTN_HAS_PHOTO' || txt.match(/ছবি\s*(দিয়েছি|দিছি|পাঠিয়েছি|পাঠাইছি)|chobi\s*(disi|diasi|dichi|pathaisi)/i)) {
-              const existingCard = getSelectedCard(senderId);
+              const existingCard = getSelectedCardSafe(senderId);
               if (!existingCard) {
                 // Customer did NOT actually upload a photo yet!
                 const reply = `আমরা তো এখনো আপনার পছন্দের কার্ডের কোনো ছবি পাইনি ভাইয়া! 🌸\n\nদয়া করে মেসেঞ্জারের ক্যামেরা বা গ্যালারি আইকন চেপে আপনার পছন্দের কার্ডটির ছবি বা স্ক্রিনশট এখানে পাঠিয়ে দিন। ছবি পেলেই আমরা সাথে সাথে ফর্ম দেবো! 😊`;
@@ -1682,8 +1693,8 @@ export default async function handler(req, res) {
               const num = String(parseInt(codeMatch[2], 10)).padStart(3, '0');
               const cardCode = prefix + '-' + num;
               const category = prefix === 'PREM' ? 'premium' : 'affordable';
-              setCurrentCategory(senderId, category);
-              setSelectedCard(senderId, { category, code: cardCode });
+              setCurrentCategorySafe(senderId, category);
+              setSelectedCardSafe(senderId, { category, code: cardCode });
 
               const priceTable = getFullPriceTable(category);
               const emoji = category === 'premium' ? '✨' : '💚';
@@ -1791,7 +1802,7 @@ export default async function handler(req, res) {
                 appendMessage(senderId, 'bot', reply);
               } else {
                 // ===== AI SALES BRAIN — Smart conversational reply =====
-                const currentCat = getCurrentCategory(senderId);
+                const currentCat = getCurrentCategorySafe(senderId);
                 const catBtn = currentCat === 'premium'
                   ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
                   : currentCat === 'affordable'
