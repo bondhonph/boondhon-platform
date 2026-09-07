@@ -1211,11 +1211,15 @@ export default async function handler(req, res) {
                 }
 
                 // Step 1: Check Drive Catalog Match first!
-                // Any match with isMatch=true (similarity >= 0.48) is directly confirmed from Google Drive
-                if (matchResult && (matchResult.isMatch || matchResult.similarity >= 0.48)) {
+                // High confidence: similarity >= 0.65 → directly confirmed from Google Drive
+                // Medium confidence: similarity 0.48-0.65 → verify with Gemini Vision first
+                const driveHighMatch = matchResult && matchResult.similarity >= 0.65;
+                const driveMediumMatch = matchResult && matchResult.similarity >= 0.48 && matchResult.similarity < 0.65;
+
+                if (driveHighMatch) {
                   const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
                   const matchCode = matchResult.code;
-                  setCurrentCategorySafe(senderId, category); // Save category so "eita koto" knows!
+                  setCurrentCategorySafe(senderId, category);
                   setSelectedCardSafe(senderId, { category, code: matchCode, url: photoUrl });
 
                   const priceTable = getFullPriceTable(category);
@@ -1242,6 +1246,67 @@ export default async function handler(req, res) {
                     { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
                   ]);
                   appendMessage(senderId, 'bot', reply);
+                } else if (driveMediumMatch) {
+                  // Medium confidence — verify with Gemini Vision that it's actually a wedding card
+                  const visionCheck = await analyzeCardImage({
+                    photoUrl,
+                    base64Data: photoBase64,
+                    mimeType: photoMime,
+                    customerCaption: customerPhotoCaption,
+                    topCandidate: matchResult
+                  });
+
+                  if (visionCheck?.type === 'WEDDING_CARD') {
+                    // Gemini confirmed it IS a wedding card — use Drive's category
+                    const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
+                    const matchCode = matchResult.code;
+                    setCurrentCategorySafe(senderId, category);
+                    setSelectedCardSafe(senderId, { category, code: matchCode, url: photoUrl });
+
+                    const priceTable = getFullPriceTable(category);
+                    const emoji = category === 'premium' ? '✨' : '💚';
+                    const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+                    const altCat = category === 'premium' ? 'affordable' : 'premium';
+                    const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+
+                    let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
+
+                    if (customerPhotoCaption) {
+                      const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
+                      if (capQtyMatch) {
+                        const q = parseInt(capQtyMatch[1], 10);
+                        if (q >= 50 && q < 10000) {
+                          reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+                        }
+                      }
+                    }
+
+                    await sendMessengerButtonBlock(senderId, reply, [
+                      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                      { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+                      { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+                    ]);
+                    appendMessage(senderId, 'bot', reply);
+                  } else if (visionCheck?.type === 'PAYMENT_RECEIPT') {
+                    setCustomerAwaitingPayment(senderId, true);
+                    setHumanTakeover(senderId, true);
+                    const reply = visionCheck.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন।`;
+                    await sendMessengerButtonBlock(senderId, reply, [
+                      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+                      { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+                      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+                    ]);
+                    appendMessage(senderId, 'bot', reply);
+                  } else {
+                    // NOT a wedding card — don't give price
+                    const reply = visionCheck?.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি বিয়ের কার্ড দেখতে চাইছেন? আমাদের কালেকশন দেখুন! 😊`;
+                    await sendMessengerButtonBlock(senderId, reply, [
+                      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+                      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+                      { title: "দাম জানুন", payload: "BTN_PRICE" }
+                    ]);
+                    appendMessage(senderId, 'bot', reply);
+                  }
                 } else {
                   // Step 2: For external photos or lower similarity, analyze via Gemini Vision with Drive catalog context
                   const visionRes = await analyzeCardImage({
