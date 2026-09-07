@@ -1175,7 +1175,7 @@ export default async function handler(req, res) {
                 }
 
                 await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                  { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
                   { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
                   { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
                 ]);
@@ -1241,7 +1241,7 @@ export default async function handler(req, res) {
                   }
 
                   await sendMessengerButtonBlock(senderId, reply, [
-                    { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                    { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
                     { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
                     { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
                   ]);
@@ -1282,7 +1282,7 @@ export default async function handler(req, res) {
                     }
 
                     await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+                      { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
                       { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
                       { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
                     ]);
@@ -1593,21 +1593,22 @@ export default async function handler(req, res) {
               appendMessage(senderId, 'bot', reply);
             }
             // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
-            else if (payload === 'BTN_ORDER' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
-              let selectedCard = getSelectedCardSafe(senderId);
+            else if (payload === 'BTN_ORDER' || payload === 'BTN_ORDER_PREMIUM' || payload === 'BTN_ORDER_AFFORDABLE' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
+              // Extract category directly from payload (stateless — works across Vercel instances!)
+              let orderCategory = null;
+              if (payload === 'BTN_ORDER_PREMIUM') orderCategory = 'premium';
+              else if (payload === 'BTN_ORDER_AFFORDABLE') orderCategory = 'affordable';
 
-              // Fallback: if file-based selectedCard was lost (Vercel /tmp ephemeral),
-              // but category is still known from the image price reply, treat it as card selected
-              if (!selectedCard) {
-                const knownCategory = getCurrentCategorySafe(senderId);
-                if (knownCategory) {
-                  selectedCard = { category: knownCategory, code: 'Previous Selection', url: null };
-                  setSelectedCardSafe(senderId, selectedCard); // Save it back
-                  console.log(`🔄 Recovered selectedCard from category for ${senderId}: ${knownCategory}`);
-                }
+              // Fallback: try in-memory or file-based state
+              if (!orderCategory) {
+                const sc = getSelectedCardSafe(senderId);
+                if (sc) orderCategory = sc.category;
+              }
+              if (!orderCategory) {
+                orderCategory = getCurrentCategorySafe(senderId);
               }
 
-              if (!selectedCard) {
+              if (!orderCategory) {
                 // Customer has NOT chosen or sent a card yet! Ask for actual photo upload!
                 const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 আমাদের পেজ বা পোস্টের যে কার্ডটি আপনার পছন্দ হয়েছে, দয়া করে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন!\n👀 কালেকশন দেখতে চাইলে নিচের বাটন চাপুন: 😊`;
                 await sendMessengerButtonBlock(senderId, reply, [
@@ -1617,8 +1618,8 @@ export default async function handler(req, res) {
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
-                // Card is already known!
-                const catLabel = selectedCard.category === 'premium' ? '✨ Premium' : '💚 Affordable';
+                // Card category is known — proceed to order!
+                const catLabel = orderCategory === 'premium' ? '✨ Premium' : '💚 Affordable';
                 const cardLabel = `আপনার পছন্দের কার্ডের ছবি (${catLabel})`;
 
                 await sendMessengerText(senderId, ORDER_RULES_MSG);
