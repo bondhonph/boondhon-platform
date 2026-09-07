@@ -1518,12 +1518,12 @@ export default async function handler(req, res) {
               const selectedCard = getSelectedCard(senderId);
 
               if (!selectedCard) {
-                // Customer has NOT chosen or sent a card yet! Ask for the card first!
-                const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 কার্ড পছন্দ হয়ে থাকলে: আমাদের পেজ বা পোস্টের যে কার্ডটি পছন্দ হয়েছে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন।\n👀 কালেকশন দেখতে চাইলে: নিচের বাটন থেকে ডিজাইনগুলো দেখে নিন! 😊`;
+                // Customer has NOT chosen or sent a card yet! Ask for actual photo upload!
+                const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 আমাদের পেজ বা পোস্টের যে কার্ডটি আপনার পছন্দ হয়েছে, দয়া করে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন!\n👀 কালেকশন দেখতে চাইলে নিচের বাটন চাপুন: 😊`;
                 await sendMessengerButtonBlock(senderId, reply, [
                   { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
                   { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
-                  { title: "কার্ডের ছবি দিয়েছি", payload: "BTN_HAS_PHOTO" }
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
                 ]);
                 appendMessage(senderId, 'bot', reply);
               } else {
@@ -1543,16 +1543,27 @@ export default async function handler(req, res) {
                 appendMessage(senderId, 'bot', followUp);
               }
             }
-            // ===== CUSTOMER SAYS THEY ALREADY SENT A CARD PHOTO =====
+            // ===== CUSTOMER SAYS THEY SENT PHOTO BY TEXT (CHECK IF REAL PHOTO EXISTS) =====
             else if (payload === 'BTN_HAS_PHOTO' || txt.match(/ছবি\s*(দিয়েছি|দিছি|পাঠিয়েছি|পাঠাইছি)|chobi\s*(disi|diasi|dichi|pathaisi)/i)) {
-              setSelectedCard(senderId, { category: getCurrentCategory(senderId) || 'affordable', code: 'Customer Photo' });
-              const reply = `জি অনেক ধন্যবাদ! আপনার পাঠানো ছবি অনুযায়ী ডিজাইনার কাজ করবে। 🌸\n\nএবার বর-কনের নাম ও অনুষ্ঠানসূচীর তথ্য পাঠাতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন: 👇`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
-                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
-                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
+              const existingCard = getSelectedCard(senderId);
+              if (!existingCard) {
+                // Customer did NOT actually upload a photo yet!
+                const reply = `আমরা তো এখনো আপনার পছন্দের কার্ডের কোনো ছবি পাইনি ভাইয়া! 🌸\n\nদয়া করে মেসেঞ্জারের ক্যামেরা বা গ্যালারি আইকন চেপে আপনার পছন্দের কার্ডটির ছবি বা স্ক্রিনশট এখানে পাঠিয়ে দিন। ছবি পেলেই আমরা সাথে সাথে ফর্ম দেবো! 😊`;
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
+                  { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
+                  { title: "দাম জানুন", payload: "BTN_PRICE" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
+              } else {
+                const reply = `জি অনেক ধন্যবাদ! আপনার পাঠানো ছবি অনুযায়ী ডিজাইনার কাজ করবে। 🌸\n\nএবার বর-কনের নাম ও অনুষ্ঠানসূচীর তথ্য পাঠাতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন: 👇`;
+                await sendMessengerButtonBlock(senderId, reply, [
+                  { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+                  { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+                  { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
+                ]);
+                appendMessage(senderId, 'bot', reply);
+              }
             }
             // ===== BOTH FORMS / ORDER FORM & INFORMATION REQUEST =====
             else if (payload === 'BTN_BOTH_FORMS' || (!isFormSubmission && (
