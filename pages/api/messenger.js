@@ -1224,13 +1224,17 @@ async function processOneEvent(webhookEvent) {
       const echoText = (webhookEvent.message?.text || '').trim();
       const lowerEcho = echoText.toLowerCase();
 
-      // Check if admin is sending the trigger command to RE-ACTIVATE the bot
+      // ============================================================
+      // HYBRID MODEL: Admin Slash Commands directly from Messenger!
+      // Admin can chat manually OR trigger rich bot features on-demand.
+      // ============================================================
+
+      // 1. RE-ACTIVATE / ON (Turns bot ON & immediately answers pending customer message)
       if (['/active', 'active', '/bot', 'bot', '/on', 'on', '/start', 'start'].includes(lowerEcho)) {
         humanTakeoverMemCache.delete(recipientId);
         await setHumanTakeoverSafe(recipientId, false);
         console.log(`🤖 ADMIN TRIGGERED "${echoText}": Bot RE-ACTIVATED immediately for ${recipientId}!`);
 
-        // USER REQUEST: After bot is activated, check customer's last message and reply to it immediately!
         try {
           await replyToLastCustomerMessage(recipientId);
         } catch (replayErr) {
@@ -1239,6 +1243,107 @@ async function processOneEvent(webhookEvent) {
         return;
       }
 
+      // 2. TURN BOT OFF / PAUSE (Admin wants full manual control)
+      if (['/off', 'off', '/pause', 'pause', '/stop', 'stop'].includes(lowerEcho)) {
+        await setHumanTakeoverSafe(recipientId, true);
+        console.log(`🛑 ADMIN EXPLICITLY TURNED BOT OFF for ${recipientId}`);
+        return;
+      }
+
+      // 3. SEND AFFORDABLE CARD GALLERY
+      if (['/card', '/cards', '/affordable', '/সাশ্রয়ী', 'card', 'cards'].includes(lowerEcho)) {
+        console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Affordable gallery to ${recipientId}`);
+        await setHumanTakeoverSafe(recipientId, false); // allow bot to continue when customer reacts
+        await sendSequentialGallery(recipientId, 'affordable', 0);
+        return;
+      }
+
+      // 4. SEND PREMIUM CARD GALLERY
+      if (['/premium', '/লাক্সারি', '/প্রিমিয়াম', 'premium'].includes(lowerEcho)) {
+        console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Premium gallery to ${recipientId}`);
+        await setHumanTakeoverSafe(recipientId, false); // allow bot to continue when customer reacts
+        await sendSequentialGallery(recipientId, 'premium', 0);
+        return;
+      }
+
+      // 5. SEND ORDER RULES / POLICY
+      if (['/rules', '/rule', '/policy', '/পলিসি', '/নিয়ম', '/niom', 'rules', 'policy'].includes(lowerEcho)) {
+        console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Order Rules to ${recipientId}`);
+        await sendMessengerButtonBlock(recipientId, ORDER_RULES_MSG, [
+          { title: "📝 ফর্ম পূরণ", payload: "BTN_FORM" },
+          { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+          { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" }
+        ]);
+        await appendMessage(recipientId, 'bot', ORDER_RULES_MSG);
+        return;
+      }
+
+      // 6. SEND ORDER FORM
+      if (['/form', '/ফর্ম', 'form'].includes(lowerEcho)) {
+        console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Order Form to ${recipientId}`);
+        await sendMessengerText(recipientId, BANGLA_ORDER_FORM_TEXT);
+        await appendMessage(recipientId, 'bot', BANGLA_ORDER_FORM_TEXT);
+        return;
+      }
+
+      // 7. SEND FULL PRICE TABLE
+      if (['/price', '/দাম', '/rate', 'price', '/dam'].includes(lowerEcho)) {
+        console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Price Table to ${recipientId}`);
+        const reply = `আমাদের বিয়ের কার্ডের অফিশিয়াল রেট চার্ট (মিনিমাম ৫০ পিস): 🌸\n\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\n(১-৪৯ পিস অল্প পরিমাণেও ফিক্সড মেকিং চার্জ সহ অর্ডার করতে পারবেন!)\nআপনার কত পিস লাগবে বলুন? 😊`;
+        await sendMessengerButtonBlock(recipientId, reply, [
+          { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+          { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+          { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+        ]);
+        await appendMessage(recipientId, 'bot', reply);
+        return;
+      }
+
+      // 8. SEND SPECIFIC QUANTITY PRICING (e.g. /100, /50, /200, /150, /300, /qty 100)
+      const qtyMatch = lowerEcho.match(/^\/(?:qty\s*)?(\d{2,4})$/);
+      if (qtyMatch) {
+        const q = parseInt(qtyMatch[1], 10);
+        if (q > 0) {
+          console.log(`🤖 ADMIN COMMAND: Sending ${q} pcs price to ${recipientId}`);
+          if (q < 50) {
+            const reply = getLowQtyPrice(q);
+            await sendMessengerButtonBlock(recipientId, reply, [
+              { title: "৫০ পিস অর্ডার", payload: "QTY_50" },
+              { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+              { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
+            ]);
+            await appendMessage(recipientId, 'bot', reply);
+          } else {
+            const reply = `আমাদের ${bngDigits(q)} পিস কার্ডের দামের হিসাব: 🌸\n\n` +
+              `💚 সাশ্রয়ী (Affordable): ${bngDigits(getOrderTotal(q, 'affordable'))}৳ (${bngDigits(getOrderPerPiece(q, 'affordable'))}৳/পিস)\n` +
+              `✨ প্রিমিয়াম (Premium): ${bngDigits(getOrderTotal(q, 'premium'))}৳ (${bngDigits(getOrderPerPiece(q, 'premium'))}৳/পিস)\n` +
+              (q >= 200 ? `🎁 ২০০+ পিসে ১টি আকর্ষণীয় নিকাহনামা একদম ফ্রি উপহার!\n\n` : `\n`) +
+              `কোন কালেকশনের ডিজাইন দেখতে চান বলুন? 😊`;
+            await sendMessengerButtonBlock(recipientId, reply, [
+              { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+              { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+              { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+            ]);
+            await appendMessage(recipientId, 'bot', reply);
+          }
+          return;
+        }
+      }
+
+      // 9. SEND ADVANCE PAYMENT INSTRUCTIONS
+      if (['/payment', '/advance', '/এডভান্স', '/অ্যাডভান্স', '/টাকা'].includes(lowerEcho)) {
+        console.log(`🤖 ADMIN COMMAND: Sending Advance Payment info to ${recipientId}`);
+        const reply = `অর্ডার কনফার্ম করার জন্য ৩০% অ্যাডভান্স পেমেন্ট পাঠাতে হবে:\n\n📲 বিকাশ / নগদ / রকেট (পার্সোনাল): 01682588856\n\nটাকা পাঠিয়ে অনুগ্রহ করে লাস্ট ৪ ডিজিট অথবা পেমেন্টের স্ক্রিনশট এখানে পাঠিয়ে দিন। আমরা সাথে সাথে অর্ডার কনফার্ম করে ডিজাইনারের সাথে কানেক্ট করে দেবো! 😊`;
+        await sendMessengerButtonBlock(recipientId, reply, [
+          { title: "পেমেন্ট করেছি", payload: "BTN_PAID" },
+          { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+          { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+        ]);
+        await appendMessage(recipientId, 'bot', reply);
+        return;
+      }
+
+      // NORMAL ADMIN TEXT: Manual human chat → pauses bot for 15 mins
       await appendMessage(recipientId, 'admin', echoText || '(admin reply)');
       await setHumanTakeoverSafe(recipientId, true);
       console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — bot OFF for 15 min`);
