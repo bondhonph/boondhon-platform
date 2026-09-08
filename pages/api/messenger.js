@@ -1120,38 +1120,46 @@ async function replyToLastCustomerMessage(recipientId) {
         const gData = await gRes.json();
         const msgs = gData?.data?.[0]?.messages?.data || [];
 
-        // Find the most recent message sent by the customer
-        const custIdx = msgs.findIndex(m => m.from?.id && String(m.from.id) !== PAGE_ID);
-        if (custIdx !== -1) {
-          const custMsg = msgs[custIdx];
-
-          // Check if the bot already replied to this customer message
-          // Any message newer than custMsg is in msgs.slice(0, custIdx)
-          const msgsAfterCust = msgs.slice(0, custIdx);
-          const botAlreadyReplied = msgsAfterCust.some(m => {
-            if (String(m.from?.id) !== PAGE_ID) return false;
+        // Scan all pending customer messages sent while waiting/since last bot reply
+        const unrepliedCustomerMsgs = [];
+        for (const m of msgs) {
+          if (m.from?.id && String(m.from.id) === PAGE_ID) {
             const mText = (m.message || '').trim().toLowerCase();
-            if (triggerCommands.includes(mText)) return false; // ignore admin trigger command
+            if (triggerCommands.includes(mText)) continue; // ignore admin trigger command
             const tags = (m.tags?.data || []).map(t => (t.name || '').toLowerCase());
             const isHuman = tags.includes('messenger') || tags.includes('source:mobile') || tags.includes('source:page_inbox');
-            // If message is from page without human tags, it was an automated bot reply
-            return !isHuman;
-          });
-
-          if (!botAlreadyReplied) {
-            lastText = custMsg.message || '';
-            if (custMsg.attachments?.data && Array.isArray(custMsg.attachments.data)) {
-              lastAttachments = custMsg.attachments.data.map(att => ({
-                type: att.mime_type?.startsWith('image') || att.image_data ? 'image' : 'fallback',
-                payload: {
-                  url: att.image_data?.url || att.payload?.url || att.file_url || null
-                }
-              }));
+            if (!isHuman) {
+              // Bot already replied prior to this, stop scanning older messages
+              break;
             }
           } else {
-            console.log(`Bot already replied to customer message "${custMsg.message}" for ${recipientId}. No replay needed.`);
-            return;
+            // Customer message
+            unrepliedCustomerMsgs.push(m);
           }
+        }
+
+        if (unrepliedCustomerMsgs.length > 0) {
+          // Look for a substantive customer message (e.g. question, order query, quantity, photo)
+          // rather than a generic greeting ("hi", "hello", "Get Started") that customer sent while waiting!
+          const meaningfulMsg = unrepliedCustomerMsgs.find(m => {
+            const t = (m.message || '').trim().toLowerCase();
+            const hasAtt = m.attachments?.data && m.attachments.data.length > 0;
+            return hasAtt || (t && !['hi', 'hello', 'hey', 'হাই', 'হ্যালো', 'get started', 'get_started', 'start', 'শুরু'].includes(t));
+          });
+
+          const targetMsg = meaningfulMsg || unrepliedCustomerMsgs[0];
+          lastText = targetMsg.message || '';
+          if (targetMsg.attachments?.data && Array.isArray(targetMsg.attachments.data)) {
+            lastAttachments = targetMsg.attachments.data.map(att => ({
+              type: att.mime_type?.startsWith('image') || att.image_data ? 'image' : 'fallback',
+              payload: {
+                url: att.image_data?.url || att.payload?.url || att.file_url || null
+              }
+            }));
+          }
+        } else {
+          console.log(`Bot already replied to all pending customer messages for ${recipientId}. No replay needed.`);
+          return;
         }
       } else {
         console.warn('Graph API lookup returned non-ok status in replyToLastCustomerMessage:', gRes.status);
@@ -1166,15 +1174,22 @@ async function replyToLastCustomerMessage(recipientId) {
     try {
       const conv = await getConversation(recipientId);
       const allMsgs = conv?.messages || [];
-      const customerMsgs = allMsgs.filter(m => m.sender === 'customer');
-      const lastCustMsg = customerMsgs[customerMsgs.length - 1];
-      if (lastCustMsg) {
-        const lastCustIdx = allMsgs.lastIndexOf(lastCustMsg);
-        const msgsAfterCust = allMsgs.slice(lastCustIdx + 1);
-        const botRepliedAfter = msgsAfterCust.some(m => m.sender === 'bot');
-        if (!botRepliedAfter) {
-          lastText = lastCustMsg.text || '';
+      // Find the last bot message index
+      let lastBotIdx = -1;
+      for (let i = allMsgs.length - 1; i >= 0; i--) {
+        if (allMsgs[i].sender === 'bot') {
+          lastBotIdx = i;
+          break;
         }
+      }
+      const unrepliedInStore = allMsgs.slice(lastBotIdx + 1).filter(m => m.sender === 'customer');
+      if (unrepliedInStore.length > 0) {
+        const meaningful = unrepliedInStore.find(m => {
+          const t = (m.text || '').trim().toLowerCase();
+          return t && !['hi', 'hello', 'hey', 'হাই', 'হ্যালো', 'get started', 'get_started', 'start', 'শুরু'].includes(t);
+        });
+        const target = meaningful || unrepliedInStore[unrepliedInStore.length - 1];
+        lastText = target.text || '';
       }
     } catch (storeErr) {
       console.warn('Fallback store error in replyToLastCustomerMessage:', storeErr.message);
@@ -1384,7 +1399,14 @@ async function processOneEvent(webhookEvent) {
   }
 
   // ===== HUMAN TAKEOVER CHECK (in-memory cache + durable store + live Facebook Graph API check) =====
-  if (!webhookEvent.is_replay && (await isHumanTakeoverActive(senderId))) {
+  const isButtonClick = !!(payload || postbackPayload || quickReplyPayload) ||
+    txt === 'get started' || txt === 'get_started' || txt === 'start';
+
+  if (isButtonClick) {
+    // Button clicks and 'Get Started' break takeover immediately so customer is never stuck!
+    humanTakeoverMemCache.delete(senderId);
+    await setHumanTakeoverSafe(senderId, false);
+  } else if (!webhookEvent.is_replay && (await isHumanTakeoverActive(senderId))) {
     console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
     return;
   }
@@ -1493,8 +1515,6 @@ async function processOneEvent(webhookEvent) {
     payload = '';
     // NOTE: Keep `text` intact so customer text/bargaining/questions are preserved for downstream handling!
   }
-
-  const isButtonClick = !!(payload || postbackPayload || quickReplyPayload);
 
   const normalizedTxt = normalizeBengaliDigits(text).toLowerCase();
   if (normalizedTxt.includes('facebook.com') || normalizedTxt.includes('fb.watch') || normalizedTxt.includes('/reel/') || normalizedTxt.includes('/videos/') || normalizedTxt.includes('fb.me')) {

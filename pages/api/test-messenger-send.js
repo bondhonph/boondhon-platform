@@ -15,22 +15,11 @@ export default async function handler(req, res) {
       appData = { error: e.message };
     }
 
-    // 3. Fetch Conversation for PSID
-    let convData = null;
-    const recipientId = req.query.recipientId || "8854985761245989";
-    try {
-      const convRes = await fetch(`https://graph.facebook.com/v20.0/me/conversations?user_id=${recipientId}&fields=messages.limit(10){from,created_time,message,attachments,tags}&access_token=${token}`);
-      convData = { status: convRes.status, body: await convRes.json() };
-    } catch (e) {
-      convData = { error: e.message };
-    }
-
     return res.status(200).json({
       status: "API Online",
       timestamp: new Date().toISOString(),
       page: pageData,
-      app: appData,
-      conversation: convData
+      app: appData
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
