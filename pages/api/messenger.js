@@ -729,8 +729,8 @@ async function isHumanTakeoverActive(userId) {
             if (elapsed >= TAKEOVER_DURATION_MS) break;
 
             const msgContent = (msg.message || '').trim().toLowerCase();
-            // If the admin's most recent message is /active or /bot, immediately cancel takeover!
-            if (msgContent === '/active' || msgContent === 'active' || msgContent === '/bot' || msgContent === '/on') {
+            // If the admin's most recent message is a trigger command, immediately cancel takeover!
+            if (['/active', 'active', '/bot', 'bot', '/on', 'on', '/start', 'start'].includes(msgContent)) {
               console.log(`🤖 Admin explicitly resumed bot with command "${msg.message}" for ${userId}. Takeover deactivated!`);
               humanTakeoverMemCache.delete(userId);
               return false;
@@ -1106,48 +1106,83 @@ export default async function handler(req, res) {
 async function replyToLastCustomerMessage(recipientId) {
   if (!recipientId) return;
 
-  const conv = await getConversation(recipientId);
-  const allMsgs = conv?.messages || [];
-  const customerMsgs = allMsgs.filter(m => m.sender === 'customer');
-
-  let lastCustMsg = customerMsgs[customerMsgs.length - 1];
-  let lastText = lastCustMsg?.text || '';
+  let lastText = '';
   let lastAttachments = null;
 
-  // Check if bot already replied AFTER the customer's last message
-  if (lastCustMsg) {
-    const lastCustIdx = allMsgs.lastIndexOf(lastCustMsg);
-    const msgsAfterCust = allMsgs.slice(lastCustIdx + 1);
-    const botRepliedAfter = msgsAfterCust.some(m => m.sender === 'bot');
-    if (botRepliedAfter) {
-      console.log(`Bot already replied to customer's latest message for ${recipientId}. No pending message to replay.`);
-      return;
-    }
-  }
+  const triggerCommands = ['/on', 'on', '/active', 'active', '/bot', 'bot', '/start', 'start'];
 
-  // Fallback: If not found in chat-store, or if message text is empty, check Graph API directly
-  if ((!lastText || lastText.trim() === '') && PAGE_ACCESS_TOKEN && PAGE_ID) {
+  // 1. PRIMARY: Check live Facebook Graph API first (ground truth across all Vercel instances)
+  if (PAGE_ACCESS_TOKEN) {
     try {
-      const graphUrl = `https://graph.facebook.com/v20.0/${PAGE_ID}/conversations?user_id=${recipientId}&fields=messages.limit(5){from,created_time,message,attachments}&access_token=${PAGE_ACCESS_TOKEN}`;
+      const graphUrl = `https://graph.facebook.com/v20.0/me/conversations?user_id=${recipientId}&fields=messages.limit(10){from,created_time,message,attachments,tags}&access_token=${PAGE_ACCESS_TOKEN}`;
       const gRes = await fetch(graphUrl);
       if (gRes.ok) {
         const gData = await gRes.json();
         const msgs = gData?.data?.[0]?.messages?.data || [];
-        const custGMsg = msgs.find(m => m.from?.id !== PAGE_ID);
-        if (custGMsg) {
-          lastText = custGMsg.message || '';
-          if (custGMsg.attachments?.data) {
-            lastAttachments = custGMsg.attachments.data;
+
+        // Find the most recent message sent by the customer
+        const custIdx = msgs.findIndex(m => m.from?.id && String(m.from.id) !== PAGE_ID);
+        if (custIdx !== -1) {
+          const custMsg = msgs[custIdx];
+
+          // Check if the bot already replied to this customer message
+          // Any message newer than custMsg is in msgs.slice(0, custIdx)
+          const msgsAfterCust = msgs.slice(0, custIdx);
+          const botAlreadyReplied = msgsAfterCust.some(m => {
+            if (String(m.from?.id) !== PAGE_ID) return false;
+            const mText = (m.message || '').trim().toLowerCase();
+            if (triggerCommands.includes(mText)) return false; // ignore admin trigger command
+            const tags = (m.tags?.data || []).map(t => (t.name || '').toLowerCase());
+            const isHuman = tags.includes('messenger') || tags.includes('source:mobile') || tags.includes('source:page_inbox');
+            // If message is from page without human tags, it was an automated bot reply
+            return !isHuman;
+          });
+
+          if (!botAlreadyReplied) {
+            lastText = custMsg.message || '';
+            if (custMsg.attachments?.data && Array.isArray(custMsg.attachments.data)) {
+              lastAttachments = custMsg.attachments.data.map(att => ({
+                type: att.mime_type?.startsWith('image') || att.image_data ? 'image' : 'fallback',
+                payload: {
+                  url: att.image_data?.url || att.payload?.url || att.file_url || null
+                }
+              }));
+            }
+          } else {
+            console.log(`Bot already replied to customer message "${custMsg.message}" for ${recipientId}. No replay needed.`);
+            return;
           }
         }
+      } else {
+        console.warn('Graph API lookup returned non-ok status in replyToLastCustomerMessage:', gRes.status);
       }
     } catch (err) {
       console.warn('Graph API lookup error in replyToLastCustomerMessage:', err.message);
     }
   }
 
+  // 2. FALLBACK: If Graph API returned nothing or had an error, check local store
   if ((!lastText || lastText.trim() === '') && !lastAttachments) {
-    console.log(`No customer message found to replay for ${recipientId}.`);
+    try {
+      const conv = await getConversation(recipientId);
+      const allMsgs = conv?.messages || [];
+      const customerMsgs = allMsgs.filter(m => m.sender === 'customer');
+      const lastCustMsg = customerMsgs[customerMsgs.length - 1];
+      if (lastCustMsg) {
+        const lastCustIdx = allMsgs.lastIndexOf(lastCustMsg);
+        const msgsAfterCust = allMsgs.slice(lastCustIdx + 1);
+        const botRepliedAfter = msgsAfterCust.some(m => m.sender === 'bot');
+        if (!botRepliedAfter) {
+          lastText = lastCustMsg.text || '';
+        }
+      }
+    } catch (storeErr) {
+      console.warn('Fallback store error in replyToLastCustomerMessage:', storeErr.message);
+    }
+  }
+
+  if ((!lastText || lastText.trim() === '') && !lastAttachments) {
+    console.log(`No pending customer message found to replay for ${recipientId}.`);
     return;
   }
 
@@ -1190,7 +1225,7 @@ async function processOneEvent(webhookEvent) {
       const lowerEcho = echoText.toLowerCase();
 
       // Check if admin is sending the trigger command to RE-ACTIVATE the bot
-      if (lowerEcho === '/active' || lowerEcho === 'active' || lowerEcho === '/bot' || lowerEcho === '/on') {
+      if (['/active', 'active', '/bot', 'bot', '/on', 'on', '/start', 'start'].includes(lowerEcho)) {
         humanTakeoverMemCache.delete(recipientId);
         await setHumanTakeoverSafe(recipientId, false);
         console.log(`🤖 ADMIN TRIGGERED "${echoText}": Bot RE-ACTIVATED immediately for ${recipientId}!`);
