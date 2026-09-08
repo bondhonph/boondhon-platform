@@ -196,7 +196,7 @@ async function analyzeCardImage({ photoUrl, base64Data, mimeType, customerCaptio
       imgMime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
     }
 
-    if (!imgBase64) return null;
+    if (!imgBase64 && !customerCaption) return null;
 
     const captionContext = customerCaption && customerCaption.trim().length > 0
       ? `কাস্টমার ছবির সাথে এই টেক্সট/ক্যাপশন লিখেছে: "${customerCaption.trim()}"`
@@ -207,7 +207,7 @@ async function analyzeCardImage({ photoUrl, base64Data, mimeType, customerCaptio
       : `ড্রাইভ ক্যাটালগে সরাসরি কোনো কার্ড মেলেনি।`;
 
     const prompt = `তুমি "বন্ধন প্রিন্টিং হাউস" (BOONDHON Printing House, Manikganj & Dhaka)-এর একজন অত্যন্ত অভিজ্ঞ ও অমায়িক সিনিয়র সেলস কনসালট্যান্ট "অনন্যা"।
-কাস্টমার মেসেঞ্জারে একটি ছবি পাঠিয়েছে।
+কাস্টমার মেসেঞ্জারে একটি কার্ডের ছবি বা কার্ডের রেফারেন্স পাঠিয়েছে।
 ${captionContext}
 ${candidateHint}
 
@@ -223,10 +223,14 @@ ${buildPricingBlurbForAI(bngDigits)}
 ২. যদি বিয়ের কার্ড হয়:
    - আমাদের ড্রাইভ ক্যাটালগের সাথে মিলিয়ে সবার আগে ক্যাটাগরি (Affordable নাকি Premium) নিশ্চিত করো।
    - ড্রাইভ ম্যাচ বা কার্ডের সাইজ ও ডিজাইন অনুযায়ী সঠিক ক্যাটাগরি সিলেক্ট করো।
-   - প্রথমে কাস্টমারকে আন্তরিক শুভেচ্ছা ও কার্ডের প্রশংসা করে ক্যাটাগরি স্পষ্ট করে জানাও (যেমন: "এটি আমাদের সাশ্রয়ী/প্রিমিয়াম কালেকশনের কার্ড...")।
-   - এরপর নিশ্চিত হওয়া ক্যাটাগরির রেট (৫০, ১০০, ২০০ পিসের দাম) সরাসরি তুলে ধরো।
-   - যদি কাস্টমার কোনো নির্দিষ্ট পিস (যেমন ১০০ পিস) জানতে চায়, সরাসরি সেই নির্দিষ্ট পিসের মোট ও পিস প্রতি হিসাব বলো।
-   - কোনো দ্বিধা বা বিভ্রান্তি রাখবে না।
+   - ⚠️ কাস্টমার যদি ক্যাপশনে কোনো মন্তব্য, প্রশ্ন বা দরদাম/দামের প্রস্তাব করে থাকে (যেমন: "১০ টাকা করে ১০০০ টাকা দিবো", "কম রাখা যাবে?", "১০ টাকায় হবে?", "কোন কালার হবে?"):
+     * কাস্টমার যা বলেছে বা জানতে চেয়েছে, সবার আগে অত্যন্ত অমায়িক ও আন্তরিকভাবে তার সেই কথার সরাসরি উত্তর দাও।
+     * কাস্টমার যদি অবাস্তব কম দামের প্রস্তাব বা দরদাম করে (যেমন: "১০ টাকা করে ১০০০ টাকা দিবো", "১৫ টাকায় হবে?", "১০ টাকায় দেন"):
+       - বিনয়ের সাথে মিষ্টি করে বুঝিয়ে বলো যে আমাদের উন্নত মানের বোর্ড/পেপার, ফয়েল প্রিন্টিং ও কাটিং সেটআপ খরচের কারণে এত কম রেটে (যেমন ১০ টাকায়) কার্ডটি তৈরি করা সম্ভব নয়।
+       - এরপর আমাদের অফিশিয়াল সর্বনিম্ন রেট (যেমন ২০০ পিসে ৩৫৳/৪৫৳ এবং ২০০+ পিসে ১টি আকর্ষণীয় নিকাহনামা একদম ফ্রি উপহার) সুন্দরভাবে তুলে ধরো।
+     * কাস্টমার যদি কালার, ডেলিভারি, ফরম বা অন্য কোনো প্রশ্ন করে, সরাসরি তার সদুত্তর দাও।
+     * কাস্টমারের কথার উত্তর না দিয়ে কখনোই শুধু মুখস্থ দামের তালিকা ধরিয়ে দেবে না।
+   - কাস্টমার যদি কোনো মন্তব্য না করে থাকে (শুধু ছবি পাঠায়): আন্তরিক প্রশংসা করে ক্যাটাগরির রেট জানাও এবং কত পিস লাগবে জানতে চাও।
 
 ৩. যদি পেমেন্ট স্ক্রিনশট হয়:
    - আন্তরিক ধন্যবাদ জানিয়ে বিকাশ/নগদের শেষ ৪টি ডিজিট লিখে দিতে বলো (আমাদের অ্যাকাউন্টস টিম চেক করে দ্রুত নিশ্চিত করবে)।
@@ -238,7 +242,7 @@ STRICT JSON format:
 {
   "type": "WEDDING_CARD" | "PAYMENT_RECEIPT" | "OTHER",
   "detectedCategory": "affordable" | "premium",
-  "reply": "বাংলায় তোমার স্পষ্ট ও আন্তরিক সেলস উত্তর (ক্যাটাগরি ও দাম সহ)"
+  "reply": "বাংলায় তোমার স্পষ্ট, আন্তরিক ও সরাসরি সেলস উত্তর (কাস্টমারের কথার উত্তর সহ ১-৩ লাইনে)"
 }`;
 
     const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
@@ -258,12 +262,12 @@ STRICT JSON format:
               role: 'user',
               parts: [
                 { text: prompt },
-                {
+                ...(imgBase64 ? [{
                   inline_data: {
                     mime_type: imgMime,
                     data: imgBase64
                   }
-                }
+                }] : [])
               ]
             }
           ],
@@ -1174,13 +1178,14 @@ async function processOneEvent(webhookEvent) {
 
   if (replyTo) {
     if (replyTo.attachments && Array.isArray(replyTo.attachments)) {
-      const qImg = replyTo.attachments.find(att => (att.type === 'image' || att.image_data) && !att.payload?.sticker_id);
-      if (qImg?.payload?.url) {
-        photoUrl = qImg.payload.url;
-        isPhoto = true;
-      } else if (qImg?.image_data?.url) {
-        photoUrl = qImg.image_data.url;
-        isPhoto = true;
+      for (const att of replyTo.attachments) {
+        if (att.payload?.sticker_id) continue;
+        const u = att.payload?.url || att.image_data?.url || (att.payload?.elements?.[0]?.image_url);
+        if (u) {
+          photoUrl = u;
+          isPhoto = true;
+          break;
+        }
       }
     }
 
@@ -1196,23 +1201,47 @@ async function processOneEvent(webhookEvent) {
 
     if (!isPhoto && replyTo.mid && PAGE_ACCESS_TOKEN) {
       try {
-        const graphMidUrl = `https://graph.facebook.com/v20.0/${replyTo.mid}?fields=attachments,message&access_token=${PAGE_ACCESS_TOKEN}`;
+        const graphMidUrl = `https://graph.facebook.com/v20.0/${replyTo.mid}?fields=attachments{id,mime_type,name,image_data,file_url,payload,target,generic_template,subattachments},message&access_token=${PAGE_ACCESS_TOKEN}`;
         const midRes = await fetch(graphMidUrl, {
           headers: { 'Accept': 'application/json' },
-          signal: AbortSignal.timeout(2000)
+          signal: AbortSignal.timeout(3500)
         });
         if (midRes.ok) {
           const midData = await midRes.json();
           const atts = midData?.attachments?.data || midData?.attachments || [];
-          const foundImg = Array.isArray(atts) ? atts.find(a => a.image_data?.url || a.file_url || (a.type === 'image' && a.payload?.url)) : null;
-          const fetchedUrl = foundImg?.image_data?.url || foundImg?.file_url || foundImg?.payload?.url;
-          if (fetchedUrl) {
-            photoUrl = fetchedUrl;
-            isPhoto = true;
+          if (Array.isArray(atts)) {
+            for (const a of atts) {
+              const u = a.image_data?.url || a.file_url || a.payload?.url || a.generic_template?.image_url ||
+                (a.subattachments?.data && a.subattachments.data[0]?.image_data?.url) ||
+                (a.subattachments?.data && a.subattachments.data[0]?.file_url);
+              if (u) {
+                photoUrl = u;
+                isPhoto = true;
+                break;
+              }
+            }
           }
         }
       } catch (e) {
         console.warn('Could not fetch reply_to message from Graph API:', e.message);
+      }
+    }
+
+    // Fallback: If customer swiped/quoted a bot message or attachment, but no direct image URL could be found:
+    // Check if the bot recently sent cards to this customer!
+    if (!isPhoto && !photoUrl && !quotedCard) {
+      try {
+        const convRecord = await getConversation(senderId);
+        if (convRecord && Array.isArray(convRecord.sentCards) && convRecord.sentCards.length > 0) {
+          const lastCard = convRecord.sentCards[convRecord.sentCards.length - 1];
+          if (lastCard && (Date.now() - (lastCard.timestamp || 0) < 86400000)) { // within 24 hours
+            quotedCard = lastCard;
+            if (lastCard.url) photoUrl = lastCard.url;
+            isPhoto = true;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback sentCards lookup error:', e.message);
       }
     }
   }
@@ -1237,10 +1266,10 @@ async function processOneEvent(webhookEvent) {
   }
 
   // If sending a photo or replying to a card, preserve caption/text
-  const customerPhotoCaption = isPhoto ? (text || '').trim() : '';
+  const customerPhotoCaption = (text || '').trim();
   if (isPhoto) {
     payload = '';
-    text = '';
+    // NOTE: Keep `text` intact so customer text/bargaining/questions are preserved for downstream handling!
   }
 
   const isButtonClick = !!(payload || postbackPayload || quickReplyPayload);
@@ -1565,8 +1594,22 @@ async function processOneEvent(webhookEvent) {
 
       if (customerPhotoCaption) {
         const capQtyResult = Parser.extractQuantity(customerPhotoCaption);
-        if (capQtyResult && capQtyResult.qty >= 50) {
+        const hasBargainOrQuestion = /[?？]|টাকা|করে|দিবো|দিব|রাখবেন|কম|ছাড়|ছাড়|ডিসকাউন্ট|অফার|হবে|কালার|রং|রঙ|কবে|দিন|বাজেট|পারি|পারবেন|সম্ভব|বলা|জানান|দাম|কত|কতো|রেট|rate|price|koto|dam|discount/i.test(customerPhotoCaption);
+        if (capQtyResult && capQtyResult.qty >= 50 && !hasBargainOrQuestion) {
           reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${category === 'premium' ? '✨ Premium' : '💚 Affordable'} কালেকশনের কার্ড।\n\n${getCategoryPrice(capQtyResult.qty, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+        } else {
+          try {
+            const visionCheck = await analyzeCardImage({
+              photoUrl: quotedCard.url || photoUrl,
+              customerCaption: customerPhotoCaption,
+              topCandidate: { code: quotedCard.cardId, category, isMatch: true, similarity: 1.0 }
+            });
+            if (visionCheck?.reply) {
+              reply = visionCheck.reply;
+            }
+          } catch (e) {
+            console.warn('AI quotedCard caption reply error:', e.message);
+          }
         }
       }
 
@@ -1621,8 +1664,24 @@ async function processOneEvent(webhookEvent) {
 
         if (customerPhotoCaption) {
           const capQtyResult = Parser.extractQuantity(customerPhotoCaption);
-          if (capQtyResult && capQtyResult.qty >= 50) {
+          const hasBargainOrQuestion = /[?？]|টাকা|করে|দিবো|দিব|রাখবেন|কম|ছাড়|ছাড়|ডিসকাউন্ট|অফার|হবে|কালার|রং|রঙ|কবে|দিন|বাজেট|পারি|পারবেন|সম্ভব|বলা|জানান|দাম|কত|কতো|রেট|rate|price|koto|dam|discount/i.test(customerPhotoCaption);
+          if (capQtyResult && capQtyResult.qty >= 50 && !hasBargainOrQuestion) {
             reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${category === 'premium' ? '✨ Premium' : '💚 Affordable'} কালেকশনের কার্ড।\n\n${getCategoryPrice(capQtyResult.qty, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+          } else {
+            try {
+              const visionCheck = await analyzeCardImage({
+                photoUrl,
+                base64Data: photoBase64,
+                mimeType: photoMime,
+                customerCaption: customerPhotoCaption,
+                topCandidate: { code: matchCode, category, isMatch: true, similarity: 1.0 }
+              });
+              if (visionCheck?.reply) {
+                reply = visionCheck.reply;
+              }
+            } catch (err) {
+              console.warn('AI buildMatchedReply caption reply error:', err.message);
+            }
           }
         }
 
@@ -1724,8 +1783,17 @@ async function processOneEvent(webhookEvent) {
     let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
 
     const qtyResult = Parser.extractQuantity(normalizedTxt);
-    if (qtyResult && qtyResult.qty >= 50) {
+    const hasBargainOrQuestion = /[?？]|টাকা|করে|দিবো|দিব|রাখবেন|কম|ছাড়|ছাড়|ডিসকাউন্ট|অফার|হবে|কালার|রং|রঙ|কবে|দিন|বাজেট|পারি|পারবেন|সম্ভব|বলা|জানান|দাম|কত|কতো|রেট|rate|price|koto|dam|discount/i.test(normalizedTxt);
+    if (qtyResult && qtyResult.qty >= 50 && !hasBargainOrQuestion) {
       reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(qtyResult.qty, cat)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+    } else if (hasBargainOrQuestion) {
+      try {
+        const convHistory = existingConv?.messages || [];
+        const aiReply = await generateAISalesResponse(senderId, text, convHistory);
+        if (aiReply) reply = aiReply;
+      } catch (e) {
+        console.warn('Quoted reply AI sales response error:', e.message);
+      }
     }
 
     await sendMessengerButtonBlock(senderId, reply, [
