@@ -9,6 +9,21 @@ export default async function handler(req, res) {
 
   const results = {};
 
+  // Test 0: Test conversations endpoint
+  try {
+    const cRes = await fetch(`https://graph.facebook.com/v20.0/me/conversations?fields=id,messages.limit(3){from,message}&access_token=${token}`);
+    results.conversationsMe = { status: cRes.status, body: await cRes.json() };
+  } catch (err) {
+    results.conversationsMe = { error: err.message };
+  }
+
+  try {
+    const cRes2 = await fetch(`https://graph.facebook.com/v20.0/100208292579845/conversations?user_id=${recipientId}&fields=messages.limit(3){from,message}&access_token=${token}`);
+    results.conversationsPageWithUserId = { status: cRes2.status, body: await cRes2.json() };
+  } catch (err) {
+    results.conversationsPageWithUserId = { error: err.message };
+  }
+
   // Test 1: Send Proxy Image
   try {
     const res1 = await fetch(`https://graph.facebook.com/v20.0/me/messages?access_token=${token}`, {
