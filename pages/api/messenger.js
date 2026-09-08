@@ -346,9 +346,15 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
 ৪. তথ্যের স্বাভাবিক উপস্থাপন (Natural Product Blend):
    - প্রাইস, সাইজ, ডেলিভারি বা পেমেন্টের তথ্যগুলো জোর করে পুরো লিস্ট ধরিয়ে না দিয়ে, কাস্টমার যেটুকু জানতে চেয়েছে সেটার সাথে মিলিয়ে প্রাসঙ্গিকভাবে ১-৩ লাইনে বলো।
    - উত্তর সবসময় সংক্ষিপ্ত ও প্রমিত বাংলায় (১-৩ লাইন) রাখবে, যাতে কাস্টমার পড়তে স্বাচ্ছন্দ্যবোধ করে।
-৫. কার্ডের পরিমাণের তারতম্যে দামের যুক্তি (Sales Logic for Quantity):
+৫. কার্ডের পরিমাণের তারতম্যে দামের যুক্তি ও অফিশিয়াল মিনিমাম অর্ডার নীতি:
+   - আমাদের বিয়ের কার্ডের অফিশিয়াল মিনিমাম অর্ডার ৫০ পিস থেকে শুরু।
+   - কাস্টমার যখনই সাধারণ দাম জানতে চাইবে ("দাম কত", "প্রাইস কত", "রেট কত"): সবার আগে ৫০, ১০০ ও ২০০ পিসের দাম জানাবে। নিজে থেকে কখনোই ১-৪৯ পিসের কথা উল্লেখ করবে না।
+   - কাস্টমার যদি নিজে থেকে ৫০ পিসের কম কার্ড চায় (যেমন: "১০ পিস লাগবে", "২০ পিস হবে?", "কম পিস নেওয়া যাবে?"):
+     * সবার আগে ৫০, ১০০ ও ২০০ পিসের দাম তুলে ধরবে এবং বলবে যে আমাদের মিনিমাম অর্ডার ৫০ পিস থেকে শুরু, কারণ ৫০ বা ১০০ পিস বানালে ডাইস, প্লেট ও সেটআপ খরচ ভাগ হয়ে প্রতি পিস অনেক সাশ্রয়ী পড়ে।
+     * এরপর জানাবে: তবে আপনার যদি নিতান্তই কম পিস প্রয়োজন হয়, বিশেষ ব্যবস্থায় ফিক্সড মেকিং ও ডাইস চার্জ সহ তৈরি করা যাবে (১-৫ পিস ১,০০০৳, ৬-১০ পিস ১,৫০০৳, ১১-৪৯ পিস প্রতি পিস ৭৫৳)।
+     * কাস্টমারকে বুঝিয়ে বলবে যে ৫০ পিস নেওয়া সবচেয়ে লাভজনক ও সাশ্রয়ী।
    - কাস্টমার যদি প্রশ্ন করে "১টা কার্ডের কমবেশিতে এত পার্থক্য কেন?", "৪৯ আর ৫০ এ এত ব্যবধান কেন?", বা "কম নিলে বেশি রেট কেন?":
-   - কাস্টমারকে সহজ ও মিষ্টি করে বুঝিয়ে বলো: প্রিন্টিং কারখানায় প্রতিটি কার্ডের জন্য কাটিং ডাইস, ফয়েল ব্লক ও স্ক্রিন প্রিন্টিংয়ের প্লেট তৈরির একটি নির্দিষ্ট ফিক্সড সেটআপ খরচ থাকে—যা ১টি কার্ড হলেও করতে হয়, ১০০টি বানালেও একই সেটআপ লাগে। তাই ৫০ বা ১০০ পিস বানালে সেই সেটআপ খরচটি ভাগ হয়ে প্রতি পিসের খরচ অনেক কমে যায় (৫৫৳ বা ৪৫৳)। কিন্তু ১-৪৯ পিসের ক্ষেত্রে ফিক্সড খরচের কারণে প্রতি পিস ৭৫৳ বা ফিক্সড মেকিং চার্জ পড়ে। তাই ৫০ পিস নেওয়া অনেক বেশি লাভজনক ও সাশ্রয়ী!
+     * কাস্টমারকে সহজ ও মিষ্টি করে বুঝিয়ে বলো: প্রিন্টিং কারখানায় প্রতিটি কার্ডের জন্য কাটিং ডাইস, ফয়েল ব্লক ও স্ক্রিন প্রিন্টিংয়ের প্লেট তৈরির একটি নির্দিষ্ট ফিক্সড সেটআপ খরচ থাকে—যা ১টি কার্ড হলেও করতে হয়, ১০০টি বানালেও একই সেটআপ লাগে। তাই ৫০ বা ১০০ পিস বানালে সেই সেটআপ খরচটি ভাগ হয়ে প্রতি পিসের খরচ অনেক কমে যায় (৫৫৳ বা ৪৫৳)। কিন্তু ১-৪৯ পিসের ক্ষেত্রে ফিক্সড খরচের কারণে প্রতি পিস ৭৫৳ বা ফিক্সড মেকিং চার্জ পড়ে। তাই ৫০ পিস নেওয়া অনেক বেশি লাভজনক ও সাশ্রয়ী!
 ৬. 💰 দাম নিয়ে আপত্তি ও হ্যান্ডলিং (Price Objection Handling):
    যখন কাস্টমার দাম নিয়ে আপত্তি করবে, নিচের কৌশলটি অনুসরণ করবে (ফ্ল্যাট ডিসকাউন্ট কখনো নিজে থেকে দেবে না):
    • ১. সাধারণ অভিযোগ — "দাম বেশি" / "price beshi" (প্রতিযোগীর নির্দিষ্ট রেফারেন্স ছাড়া):
@@ -1095,6 +1101,73 @@ export default async function handler(req, res) {
   return res.status(405).send('Method Not Allowed');
 }
 
+// Helper: When admin re-activates the bot via /active or /on,
+// immediately reply to the customer's last pending message!
+async function replyToLastCustomerMessage(recipientId) {
+  if (!recipientId) return;
+
+  const conv = await getConversation(recipientId);
+  const allMsgs = conv?.messages || [];
+  const customerMsgs = allMsgs.filter(m => m.sender === 'customer');
+
+  let lastCustMsg = customerMsgs[customerMsgs.length - 1];
+  let lastText = lastCustMsg?.text || '';
+  let lastAttachments = null;
+
+  // Check if bot already replied AFTER the customer's last message
+  if (lastCustMsg) {
+    const lastCustIdx = allMsgs.lastIndexOf(lastCustMsg);
+    const msgsAfterCust = allMsgs.slice(lastCustIdx + 1);
+    const botRepliedAfter = msgsAfterCust.some(m => m.sender === 'bot');
+    if (botRepliedAfter) {
+      console.log(`Bot already replied to customer's latest message for ${recipientId}. No pending message to replay.`);
+      return;
+    }
+  }
+
+  // Fallback: If not found in chat-store, or if message text is empty, check Graph API directly
+  if ((!lastText || lastText.trim() === '') && PAGE_ACCESS_TOKEN && PAGE_ID) {
+    try {
+      const graphUrl = `https://graph.facebook.com/v20.0/${PAGE_ID}/conversations?user_id=${recipientId}&fields=messages.limit(5){from,created_time,message,attachments}&access_token=${PAGE_ACCESS_TOKEN}`;
+      const gRes = await fetch(graphUrl);
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        const msgs = gData?.data?.[0]?.messages?.data || [];
+        const custGMsg = msgs.find(m => m.from?.id !== PAGE_ID);
+        if (custGMsg) {
+          lastText = custGMsg.message || '';
+          if (custGMsg.attachments?.data) {
+            lastAttachments = custGMsg.attachments.data;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Graph API lookup error in replyToLastCustomerMessage:', err.message);
+    }
+  }
+
+  if ((!lastText || lastText.trim() === '') && !lastAttachments) {
+    console.log(`No customer message found to replay for ${recipientId}.`);
+    return;
+  }
+
+  console.log(`🤖 Replaying customer's last message for ${recipientId}: "${lastText}"`);
+
+  const syntheticEvent = {
+    is_replay: true,
+    sender: { id: recipientId },
+    recipient: { id: PAGE_ID },
+    timestamp: Date.now(),
+    message: {
+      mid: `replay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      text: lastText,
+      ...(lastAttachments ? { attachments: lastAttachments } : {})
+    }
+  };
+
+  await processOneEvent(syntheticEvent);
+}
+
 // ============================================================
 // The full per-event handling logic, extracted into its own function so
 // it can be wrapped in a try/catch per event (P0-2) without a giant
@@ -1121,6 +1194,13 @@ async function processOneEvent(webhookEvent) {
         humanTakeoverMemCache.delete(recipientId);
         await setHumanTakeoverSafe(recipientId, false);
         console.log(`🤖 ADMIN TRIGGERED "${echoText}": Bot RE-ACTIVATED immediately for ${recipientId}!`);
+
+        // USER REQUEST: After bot is activated, check customer's last message and reply to it immediately!
+        try {
+          await replyToLastCustomerMessage(recipientId);
+        } catch (replayErr) {
+          console.error('Error replying to customer last message on re-activation:', replayErr);
+        }
         return;
       }
 
@@ -1159,10 +1239,12 @@ async function processOneEvent(webhookEvent) {
     if (fetchedName) extraName = fetchedName;
   }
 
-  await appendMessage(senderId, 'customer', text, null, extraName);
+  if (!webhookEvent.is_replay) {
+    await appendMessage(senderId, 'customer', text, null, extraName);
+  }
 
   // ===== HUMAN TAKEOVER CHECK (in-memory cache + durable store + live Facebook Graph API check) =====
-  if (await isHumanTakeoverActive(senderId)) {
+  if (!webhookEvent.is_replay && (await isHumanTakeoverActive(senderId))) {
     console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
     return;
   }
@@ -1825,7 +1907,7 @@ async function processOneEvent(webhookEvent) {
   }
   // ===== SHARED REEL / VIDEO / POST FROM PAGE =====
   else if (isLinkOrShare) {
-    const reply = `আমাদের ভিডিও/পোস্টের ডিজাইনটি পছন্দ করার জন্য ধন্যবাদ! 😍🌸\n\nএই কার্ডটির দামের হিসাব:\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\n(১-৪৯ পিস অল্প পরিমাণেও নিতে পারবেন!)\nআপনার কত পিস কার্ড লাগবে বলুন, সঠিক হিসাব জানিয়ে দিচ্ছি! 😊`;
+    const reply = `আমাদের ভিডিও/পোস্টের ডিজাইনটি পছন্দ করার জন্য ধন্যবাদ! 😍🌸\n\nএই কার্ডটির দামের হিসাব (মিনিমাম ৫০ পিস):\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\nআপনার কত পিস কার্ড লাগবে বলুন, সঠিক হিসাব জানিয়ে দিচ্ছি! 😊`;
     await sendMessengerButtonBlock(senderId, reply, [
       { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
       { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
@@ -1846,11 +1928,23 @@ async function processOneEvent(webhookEvent) {
   }
   // ===== LOW QUANTITY / MINIMUM ORDER QUERY =====
   else if (!isFormSubmission && isMinimumOrderQuery) {
-    const reply = `জি, আমাদের কাছে অল্প পরিমাণেও (১-৪৯ পিস) বিয়ের কার্ড অর্ডার করতে পারবেন! 😊\n\nঅল্প পরিমাণের প্রাইসিং রেট:\n• ১-৫ পিস: ১,০০০৳ (ফিক্সড মেকিং চার্জ সহ)\n• ৬-১০ পিস: ১,৫০০৳ (ফিক্সড চার্জ)\n• ১১-৪৯ পিস: পিস প্রতি ৭৫৳ (যেমন ২৫ পিস = ১,৮৭৫৳)\n\n💡 পরামর্শ: ৫০+ পিস নিলে পিস প্রতি দাম অনেক কমে আসে (Affordable: ৫৫৳, Premium: ৬৫৳)।\n\nআপনার কত পিস লাগবে বলুন! 😊`;
+    const reply = `আমাদের বিয়ের কার্ডের অফিশিয়াল মিনিমাম অর্ডার ৫০ পিস থেকে শুরু। কারণ ৫০ বা ১০০ পিস বানালে ডাইস, প্লেট ও মেকিং চার্জ ভাগ হয়ে পিস প্রতি খরচ অনেক কম পড়ে: 🌸\n\n` +
+      `💚 সাশ্রয়ী (Affordable):\n` +
+      `• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n` +
+      `• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n` +
+      `• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)\n\n` +
+      `✨ প্রিমিয়াম (Premium):\n` +
+      `• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n` +
+      `• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n` +
+      `• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস) (🎁 সাথে ১টি ফ্রি নিকাহনামা!)\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📦 তবে কারো যদি নিতান্তই ৫০ পিসের কম লাগে:\n` +
+      `ফিক্সড মেকিং ও ডাইস চার্জের কারণে ১-৫ পিস ১,০০০৳, ৬-১০ পিস ১,৫০০৳ এবং ১১-৪৯ পিস প্রতি পিস ৭৫৳ করে রাখা হয়।\n\n` +
+      `💡 পরামর্শ: ৫০ পিস নেওয়া সবচেয়ে বেশি লাভজনক ও সাশ্রয়ী! আপনার কত পিস লাগবে বলুন? 😊`;
     await sendMessengerButtonBlock(senderId, reply, [
-      { title: "৫ পিস (১০০০৳)", payload: "QTY_5" },
-      { title: "১০ পিস (১৫০০৳)", payload: "QTY_10" },
-      { title: "২৫ পিস (১৮৭৫৳)", payload: "QTY_25" }
+      { title: "৫০ পিস অর্ডার", payload: "QTY_50" },
+      { title: "১০০ পিস অর্ডার", payload: "QTY_100" },
+      { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
     ]);
     await appendMessage(senderId, 'bot', reply);
   }
@@ -1899,9 +1993,9 @@ async function processOneEvent(webhookEvent) {
     if (quantity < 50) {
       const reply = getLowQtyPrice(quantity);
       await sendMessengerButtonBlock(senderId, reply, [
+        { title: "৫০ পিস অর্ডার", payload: "QTY_50" },
         { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-        { title: "৫০ পিস রেট", payload: "QTY_50" },
-        { title: "দাম জানুন", payload: "BTN_PRICE" }
+        { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
       ]);
       await appendMessage(senderId, 'bot', reply);
     } else {
