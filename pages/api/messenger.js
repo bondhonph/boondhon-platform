@@ -1,322 +1,173 @@
-import { appendMessage, getConversation, setHumanTakeover, setOrderStatus, getUnseenImages, getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory, recordSentCardMessage, getSentCardByMid, setUserAwaitingPayment, isUserAwaitingPayment, setSelectedCard, getSelectedCard } from '../../lib/chat-store';
-import { VISUAL_CATALOG_RULES } from '../../lib/data';
+import crypto from 'crypto';
+import {
+  appendMessage, getConversation, setHumanTakeover, setOrderStatus,
+  getUnseenImagesWithStats, setCurrentCategory, getCurrentCategory,
+  recordSentCardMessage, getSentCardByMid, setUserAwaitingPayment,
+  isUserAwaitingPayment, setSelectedCard, getSelectedCard,
+  setLastShownCards, getLastShownCards, getConversationStage, setConversationStage,
+  getOrder, updateOrder, setPaymentStatus, resetCustomerState,
+  getAwaitingField, setAwaitingField,
+} from '../../lib/chat-store';
+import { VISUAL_CATALOG_RULES, AFFORDABLE_IDS, PREMIUM_IDS } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
+import { bngDigits, normalizeBengaliDigits } from '../../lib/bangla-digits';
+import {
+  buildCategoryPriceText, buildLowQtyPriceText, buildPriceTableText,
+  buildBothCategoriesPriceText, buildPricingBlurbForAI, evaluateBargain,
+  getAdvanceAmount, getTotalPrice, getPerPieceRate, getOrderTotal, getOrderPerPiece,
+} from '../../lib/pricing';
+import * as Parser from '../../lib/order-parser';
+import { logError } from '../../lib/logger';
+import { checkRequiredEnv } from '../../lib/env-check';
 
-const AFFORDABLE_IDS = [
-  "1J9_qfkIdIWL5Sc9O8EokvYlGfQWrf5TD","1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-","1dbYH2L4QykEUhYXGQPzQZObEuHFdwKsT",
-  "1HJTtR-zhhg6v2ph7MikdMDWI-LWJgG0z","1PRlMp4F1xnQJPURON535pl7t08_thXVA","1UEAeYYB3Bt5vMYEL-a7AcV1aV21Z04si",
-  "1-_qTV4gq0oKMdfMRxlTZL3yUO98ZGAoi","15yHXRk2mHI6-cKeooRqT20XeHubRRrPN","1Yrcqj5g0sZDrL3QaEkfEmKnF12BEs6ir",
-  "1vXwJ68j7x5qfpZdHkMkqLn0tvpblGDpl","1GWw91oefwyYr9sHSQXjePTSX-KwPjy7I","1_tnTz7HWDf4CVJHORPlani7pjEcLdm7X",
-  "1OMy_r94N_iUqvPW1t5fAGa4Sv3C_MIqF","1rXCxMziCgTImURvkahNp-AvneVljg-CW","1k_hzTbXOxxJg9rJ2OW-tnIkzLNYUqkOf",
-  "1bgYpcqh4pVLDy8yfwrS40X5ejtCFxmFv","1tLW7C2gwOmlZzGXh3bw0o7xjAPKrudIA","1ZEGHQfvuKNv-J5ZZadHKGfVAe4cvQnGq",
-  "1WE3kfWsd-0nrptiQ0fWi3dsd4iEcdw3t","1kLilyZRrhgrRfHn4aiTEcUBOu5fNDegs","1Cf7jQxeb5pyXvnA6HzGg_dYk3ZBrJ9z5",
-  "11UIRwmetqLkMU5qThwv5Vc7GnuASrZSa","1eXUGJyYhnNBXZ7PFwDgXgY-ql8cYADsh","1weNuPU3fBvPMkbFAGPiMm_ttEETSuQ9A",
-  "1PyKeX16mmVGaqKuZCujRskmip1LyGEgo","1luY2hOgpjUjXr_lGJbCQTumxKZFZrmJ4","1XanrmX4aOoDmjxha6lr5bYzlkZHglsTZ",
-  "1BBFuVKgKRUJV2pubIWiXgZlT3582Vcup","1wvf3jJjpV1sPuiO_Vj509y0UJABxbnuB","1TkCMzyPmSk9m2bIrRUInOm6epp2TQnV1",
-  "1H5lEN0baeoMMWL693BIXVYjrtZVipooO","14UHCDYmLowJbPfS-7Ve2Nx-tKno1MJU0","1CsDarakKEaGyVe8JqT05pMff988RztJX",
-  "1IDHV2uPD4AHjhsk75GJSETp9qQdpqPB4","1VGLRJbDyatJqfX0VEr3yGkRJMI23yRiL","1v1Fb2d2CP-v4N7Z2qVIqywIyph673I5Y",
-  "1X5yEsU9S8oYeFMEc8bjEm4XecbrR6fWA","1BkNP_edXf6c3wIP5lALPG2sjSp1C3d3z","1qKDy730IKVUH3e7U3zgUK863ekoYNGVS",
-  "1OVG52rNA1Ud-pG6gA-RtyRZkhE85tgkK","1nKQgpTV5txr5SO-6MYL4wnMskhLvkJJn","1lmdXd0R5pgyJqXhgGwYzzerX4NXPpOyZ",
-  "1cDyh8T6RQ7cOMY_js8TxQYrDO8BPy4cS","1eBePCdCDIMMvu6rZd-feOqvI8jPX44PU","1EOVX2gwvUotLFdfO5gO0Px8MaJwon9dY",
-  "1yA0KGGFMfYUQ8-9hpotpxNhagSSdp7xD","1inPC5SKDpW5epcxa-fFgXp9C9jowISPO","1WDJrtj_A5gk6KfolOju3TzfyVUm5Gt40",
-  "1gDDPhlDVI5Fu-nBdUPsM964FiuHz0YoU","18hlxoUBDiBuV_nxiqfPffkmW5mGmxdZA","1g7WVBZC6EqVPjZGqwnyYpDU-ehayWqCf",
-  "1jdh-o3_3_4xJGQbumQ258HN0fuc9qkZo","19-H4R6pAVCbU-P9BvLInXkcY2OZ1bUzo","1aqEN_fGQfJOYP4T1EdZuRbc-UpXJPTNj",
-  "1TfPmZfUQ1VbIie-GPcG5eLoy1Uk9D5Xt","1w502s3qp0cnI4NEAyv9ybo-6qVhs5IT1","1NGoRC9vhfaTIjis1aW0k8LpaFZMzLCjA",
-  "12QvRB7HhShW19jXuhN3BF6OFmGQLg0kR","1pJ5hgS89OF5cBTWVM6kbm1E3cMt1hcrT","1ygWRDCDH-dr7sI8TKtjAZkQ23bCTaqoG",
-  "1u-3SZI9ymC7E18sROzUy3gSAAb45yqmW","1vo67fp6I8ZA3wOi9pTw6eUu3HJrvAfbB","1K0JWt7BnX1wDLZ7D7Db_cI5z-OazCANU",
-  "10vyUHH9txFfzy6gTUXFsx95hDzH1rNE1","13_b1RSIwud_d2LvFwTc337ls-MfEmXRX","109AXjs6FKNUVfBfcQySBW_sqOzkcbrjV",
-  "1WJu3rqnGe-aYs1FZymiGtV-SEP6W7i-m","1IWSDwW4uTrWlNWo14GfbHPn7Fq0g_nzL","1g800vKvxkKR_hUYKvv0-Gh1jNJrqnyaq",
-  "11Uy_p33yXsQiMW0qy7l1b1qWvzQXLOEe","1PeaR16EDy3xXTJDbPuP9GHJiX3F2Ubea","1firMVBvk_QAfMfQONWCbvr1oo0dtK53F",
-  "1RNSqAZ7kxJSQ3jwzRfreYejLGGeXCz2h","1r-JnbeHPGBO0Q9cceYh1bzSCLKBOJEN_","1TtkzWXQisd7UShIg46wdW6vmWYbpUjkk",
-  "1vj8zzSFy1H_c7fAGi_REfMR-R8IPwTfK","1Q_DJOcMXmZrR7P9szIw9LWQ5-dyRLO2y","1OQQQN87UMWlaTcPnzFf9zwRTxxIqRO5-",
-  "1Cw6AehAWgLFPCLedbh3LR1LMfCx2B4S3","10iZEj1UR_VCC0T2MLYhyT1hfO5zeoQFN","1pXnX_YraQ9SmZmttbcuaBJ6GfCbMxfL_",
-  "1ierJrCWZ0kiommCWoUzsVEFC2VoOKIRt","1zCjZp5fZ7ocwB33-bBCs93kaHJ0EOl5r"
-];
-
-const PREMIUM_IDS = [
-  "182kOjBhoaqOTq7nr4ryI6re6fRuLITbH","1cTfbTDJDqBjsV-r7V1OjBZ-Z6tUAqwxj","1cA-MfI55Hh7ibreMQ4zPvt2i_LKxVHkR",
-  "1fvtC5mT4slvV_kROIej7awAGmCRc7TUl","1rLVZUQ8lw6ilWM76xxARtbUreQ3JIkdi","15AQWI3wP2a57-3OxHZTCfSbskgvC5YvH",
-  "1ahoubjUVdc9SJyi5n2rzZIsbugjCjHiz","1qlwwRe2Mr_gb8CZjkeG0-YxBSGmOHzZu","1oOdGtYFTz-xNmSLUO-VFS1YODqYZ74HJ",
-  "1zBBLQOfuAaPXhyr6At3tJ5DlTZ_nXfLy","11GVK5OYU7bjf8YaHeNAAnAHPks3T1Jme","1Kat8i9M3usZX8iX2xUCcX08RVocX9kKB",
-  "1f327zMbxf9s_Z2WSYhA4cAIF_NBiveKW","1T_pxOh0mn36N882wUMyYSsXKoZE4w1XA","1OQqgPUW0j1C5Ggvh50oTnnw5VsgEQv5I",
-  "15FGsZ0xdZd7DYZb4awafD8ysH_8g-A9O","1KUI4gzdhT-1I_LpzCMCQL8Sgfy4dU_Im","1amD4c_CLTODq8nca3N_H40vPiYp53VTm",
-  "1j2a0DIwsKoXWomTJ9RuJm1RncFH3mbqg","1Cl0fyeCN4T4mUxt-mhEQe6z6ZzBXsQsK","1Tpq2cCmWEooN2SYUIEgq-elk6tRK_5tV",
-  "1wlnH6L9DQcYtHHRDtPmrLGz-u6bslOgl","1ZrP-OujlWQGLEln1u8YTa4e3kjQY0yzI","1U6HoCb65TnMZsfKmGQ9wujvvppKzD7HY",
-  "1pbevqRrVV2_aYSNSMF8q7jMqnDMGpAUn","1KTSwcHJmwu1XximtqvbgSnP4Zrskg8T_","1ZG7hoRZgcj5F_UMCidzJSI2yAYoiUAf6",
-  "1uMyZI2cVy_uABGNPNoe-pXul2pPPhC_U","1gITGc6TLsrSjYkdMhURcUUNQH1y1GFpc","1FTFe6klyuHyUBsOfLeN_QsZABlhF_I1U",
-  "1n9SD-SDFTJMuW-J_9g-Sg3Pi9u4Q8VqZ","1PiYBXyjmd0jMff_0j9miNPSKsH549oOJ","1emx-RKETN5UkoPSIM66I9V6z8g4O6eL0",
-  "1V9mGxsK3TFtLWGBnnfoQQ9tgnvmfOOKj","1zCSjLjQOnSeOechbnhxepJSKxbdE7MeI","1HarOxTDa8wdWYkAHdsYCUNp6-bdW-0aM",
-  "1zIdOBb-MSqAEHDPmc_cJluX8dtgx5fkk","1V1JnATj5BVIrnhdP7FleskNC0RElJ0NZ","1liH9X1gZehPc1nmNoPrBMysviH-_AC_0",
-  "1kS9lA4Rt0Ro1H4zWO_hNBzKPNvLkpb6G","1ML1TVAbIwOfV8g8V2jbFOnhupomDRuj5","15AnUgqE1IMBspLC7jCVveFXzNMVrvZUl",
-  "16pVMXGt2O5OW0GnEH0vK_J7beXJOVTFG","1x_Ykz9171lN4T5AJzBpbHlqvPyM-JuJ4","1qj1usLPAzfw8y74c-KKF6MfbE6F_txEJ",
-  "1oUNXIOVWfaYe_O1s0AZP7WZbz9PkJdER","1lKmVy2Xgs27j5IW6CzbzYYHzIPpPB7pF","10R18Piu79JTBPmWu7l1q_ht5yRddjZj_",
-  "1C3AXVh-mfTMtcAFhrL044TvwklDIKYNa","1fZQ7kc9OkcDLMntxUqUnUh-eVfGPqfIm","1Zb-AwPI5Ta8GaDX8T2QSMesenxFBEpNw",
-  "181vyiexE1YGUOav2BUEdLzWLn24qdvvm","1IUCMZwe292HN-OEcdnIbvWPuwGy6bgBG","1zyZ3QVHsOkTBADMm8jxJrk2ZIiiFE87F",
-  "1vtMWO4Ah45nvFExeMq82sfZc2JRsIiHc","1S0Oefe3t9iTNkhY_kjNojyHbb7uY4qHE","1rDFVMBfbrEt76kjiJLES3bnA_jmedsyI",
-  "119JxcFfIzDClqpTEC7ekWEMEPzH4_Hth","18roPGwQh8ImnrZ3ncIe8dt69JtUqrmwQ","147CRb0HLsfBA8aw9BNdO6dco7dQF6xNo",
-  "1oBnPqo8kAxNk4D3cgxlJAaZGqmP5F2Mb","1NVkZtKt1EHXcCA0c_latgAtBdckWGi6t","1EZIR0WmtoYLGcR-mUebaCHYYCL9NNykR",
-  "1zwQdkQRZVqXLvhRmHeuqNj3OtwFZ5xer","1p0cWNTy_cCV8_yrV3RuPp94stsaH8ZRm","1ntMdF0lJquZtJTYKc3t4WWGU-00DiYaM",
-  "1L1RhTUFgN2ziAWpKaRwlZipkjehPXnWZ","1jgARDI1JIjh_4qRUbvdpG1p0RBp4if7b","1TGZcnR1aYmln_E_UxgD_uInfREnRXf9T",
-  "1OKX94fxZ1BXqvDYY8SCQ22gR6Db2op2y","1J2_PY_Rk-x5ipzl_Ur5unrWCx2ZN7LvR","184YPeKcI8ilthW2VPvTcnJSTebj335-c",
-  "1-7lrprKPJQ-JuiNVi_bUdzHr_7S0NmNn","1ZAk92jKEyUhpO_faXYdbz5PPXkmo5YQN","1_9oor-2oJ4dHHOBkERAije6pvr8zAqPJ",
-  "1MX7rnQG2F0H8UX5ofGazO53knl7SUNE1","148EhK2GqvlP8Z-X-pK4Cp-Zb_sXqBLAu","1EuLjjvKMWIMkgbnK5PKOsKC5kHEG5H11"
-];
+// ============================================================
+// FIX NOTE (audit plan P2-1 / A10): AFFORDABLE_IDS / PREMIUM_IDS and all
+// pricing numbers used to be duplicated inline in this file (a second,
+// independent copy of the exact same 74+75 Google-Drive ids, and six
+// separate hardcodings of the 55/45/35 & 65/55/45 taka rates). Both are
+// now imported from a single source (lib/data.js for the id lists,
+// lib/pricing.js for every price computation/format), so a future price
+// or catalog change only has to happen in one place.
+// ============================================================
 
 const PAGE_ACCESS_TOKEN = (process.env.FB_PAGE_ACCESS_TOKEN || "").trim();
+const FB_APP_SECRET = (process.env.FB_APP_SECRET || "").trim();
+const BOT_APP_ID = "2563899990649523";
+const PAGE_ID = "100208292579845";
+
+// STEP 20: validate environment once per cold start. Never throws, never
+// logs secret values — see lib/env-check.js. Missing vars only affect
+// which features are enabled; the handler below already has its own
+// per-feature fallback for each of these (PAGE_ACCESS_TOKEN blank checks,
+// GEMINI_API_KEY blank checks, FB_APP_SECRET blank -> signature check
+// disabled, KV vars blank -> file-based storage fallback in chat-store.js).
+checkRequiredEnv();
 
 const ORDER_RULES_MSG = `📋 বন্ধন-এ অর্ডার করার সহজ ৩টি ধাপ:
 
 ১️⃣ কার্ডের তথ্য পূরণ:
-প্রথমে নিচের 'ফর্ম পূরণ' বাটনে চাপ দিয়ে বর-কনের নাম, পিতা-মাতার নাম, অনুষ্ঠানসূচী (হলুদ, বিবাহ, বৌ-ভাত) ইত্যাদি তথ্য লিখে আমাদের পাঠিয়ে দিন।
+প্রথমে নিচের 'ফর্ম পূরণ' বাটনে চাপ দিয়ে বর-কনের নাম, পিতা-মাতার নাম, অনুষ্ঠানসূচী (হলুদ, বিবাহ, বৌ-ভাত) ইত্যাদি তথ্য লিখে আমাদের পাঠিয়ে দিন।
 
 ২️⃣ অ্যাডভান্স ও ডিজাইন প্রুফ:
-তথ্য পাওয়ার পর অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। অ্যাডভান্স পাওয়ার সাথে সাথে আমাদের অভিজ্ঞ ডিজাইনার আপনার কার্ড ডিজাইন করে আপনাকে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে।
+তথ্য পাওয়ার পর অর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স করতে হবে। অ্যাডভান্স পাওয়ার সাথে সাথে আমাদের অভিজ্ঞ ডিজাইনার আপনার কার্ড ডিজাইন করে আপনাকে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে।
 
-৩️⃣ চূড়ান্ত অনুমোদন ও ডেলিভারি:
-ডিজাইন আপনার ১০০% পছন্দ ও ওকে হওয়ার পরই প্রিন্ট শুরু হবে এবং জেলা শহরে ক্যাশ অন ডেলিভারিতে হোম ডেলিভারি পৌঁছে যাবে! 🚚`;
+৩️⃣ চূড়ান্ত অনুমোদন ও ডেলিভারি:
+ডিজাইন আপনার ১০০% পছন্দ ও ওকে হওয়ার পরই প্রিন্ট শুরু হবে এবং জেলা শহরে ক্যাশ অন ডেলিভারিতে হোম ডেলিভারি পৌঁছে যাবে! 🚚`;
 
 const BANGLA_ORDER_FORM_TEXT = `📝 বিয়ের কার্ড তৈরির অর্ডার ফর্ম (বাংলা): 🌸
-(ফর্মটি কপি করে তথ্যগুলো লিখে আমাদের পাঠিয়ে দিন)
+(ফর্মটি কপি করে তথ্যগুলো লিখে আমাদের পাঠিয়ে দিন)
 
-📸 পছন্দের কার্ডের ছবি: (ইনবক্সে যে কার্ডটির ছবি পাঠিয়েছেন) 
-📦 কার্ডের পরিমাণ (কত পিস লাগবে): 
+📸 পছন্দের কার্ডের ছবি: (ইনবক্সে যে কার্ডটির ছবি পাঠিয়েছেন)
+📦 কার্ডের পরিমাণ (কত পিস লাগবে):
 
 🤵 বর সম্পর্কিত তথ্য:
-• বরের পূর্ণ নাম: 
-• পিতার নাম: 
-• মাতার নাম: 
-• বর্তমান/স্থায়ী ঠিকানা (গ্রাম/রোড, থানা, জেলা): 
+• বরের পূর্ণ নাম:
+• পিতার নাম:
+• মাতার নাম:
+• বর্তমান/স্থায়ী ঠিকানা (গ্রাম/রোড, থানা, জেলা):
 
 👰 কনে সম্পর্কিত তথ্য:
-• কনের পূর্ণ নাম: 
-• পিতার নাম: 
-• মাতার নাম: 
-• বর্তমান/স্থায়ী ঠিকানা (গ্রাম/রোড, থানা, জেলা): 
+• কনের পূর্ণ নাম:
+• পিতার নাম:
+• মাতার নাম:
+• বর্তমান/স্থায়ী ঠিকানা (গ্রাম/রোড, থানা, জেলা):
 
 📅 অনুষ্ঠানসূচী (যেগুলো কার্ডে থাকবে):
-১. গায়ে হলুদ:
+১. গায়ে হলুদ:
    - তারিখ: (ইংরেজি ও বাংলা)
-   - বার / রোজ: 
-   - সময়: 
-   - স্থান / ভেন্যু: 
+   - বার / রোজ:
+   - সময়:
+   - স্থান / ভেন্যু:
 
 ২. শুভ বিবাহ / আকদ:
    - তারিখ: (ইংরেজি ও বাংলা)
-   - বার / রোজ: 
-   - সময়: 
-   - স্থান / ভেন্যু: 
+   - বার / রোজ:
+   - সময়:
+   - স্থান / ভেন্যু:
 
 ৩. বৌ-ভাত / ওলিমা:
    - তারিখ: (ইংরেজি ও বাংলা)
-   - বার / রোজ: 
-   - সময়: 
-   - স্থান / ভেন্যু: 
+   - বার / রোজ:
+   - সময়:
+   - স্থান / ভেন্যু:
 
 💌 আমন্ত্রণে ও সৌজন্যে:
-• অভ্যর্থনায় (ছোটদের নাম): 
-• শুভেচ্ছান্তে (বড়দের নাম/পরিবারবর্গ): 
-• প্রয়োজনে যোগাযোগ (মোবাইল নম্বর): 
+• অভ্যর্থনায় (ছোটদের নাম):
+• শুভেচ্ছান্তে (বড়দের নাম/পরিবারবর্গ):
+• প্রয়োজনে যোগাযোগ (মোবাইল নম্বর):
 
-🚚 হোম ডেলিভারির জন্য কুরিয়ার তথ্য:
-• প্রাপকের নাম: 
-• সচল মোবাইল নম্বর: 
-• ডেলিভারির পূর্ণ ঠিকানা (থানা ও জেলা সহ): 
+🚚 হোম ডেলিভারির জন্য কুরিয়ার তথ্য:
+• প্রাপকের নাম:
+• সচল মোবাইল নম্বর:
+• ডেলিভারির পূর্ণ ঠিকানা (থানা ও জেলা সহ):
 
 💡 (ফর্মটি পূরণ করে পাঠালে আমাদের ডিজাইনার ডিজাইন রেডি করে আপনাকে প্রুফ দেখাবে! 🥰)`;
 
 const ENGLISH_ORDER_FORM_TEXT = `📝 Wedding Card Order Form (English): ✨
 (Please copy this form, fill in your details and send it back to us)
 
-📸 Preferred Card: (Card photo sent in inbox) 
-📦 Card Quantity (How many pcs): 
+📸 Preferred Card: (Card photo sent in inbox)
+📦 Card Quantity (How many pcs):
 
 🤵 Groom's Details:
-• Groom's Full Name: 
-• Father's Name: 
-• Mother's Name: 
-• Address (City/District): 
+• Groom's Full Name:
+• Father's Name:
+• Mother's Name:
+• Address (City/District):
 
 👰 Bride's Details:
-• Bride's Full Name: 
-• Father's Name: 
-• Mother's Name: 
-• Address (City/District): 
+• Bride's Full Name:
+• Father's Name:
+• Mother's Name:
+• Address (City/District):
 
 📅 Event Schedule:
 1. Gaye Holud / Turmeric Ceremony:
-   - Date: 
-   - Day: 
-   - Time: 
-   - Venue: 
+   - Date:
+   - Day:
+   - Time:
+   - Venue:
 
 2. Wedding Ceremony / Nikah:
-   - Date: 
-   - Day: 
-   - Time: 
-   - Venue: 
+   - Date:
+   - Day:
+   - Time:
+   - Venue:
 
 3. Reception / Walima:
-   - Date: 
-   - Day: 
-   - Time: 
-   - Venue: 
+   - Date:
+   - Day:
+   - Time:
+   - Venue:
 
 💌 RSVP & Compliments:
-• RSVP / Best Compliments: 
-• Little Ones / Cordially Invited by: 
-• Contact Phone: 
+• RSVP / Best Compliments:
+• Little Ones / Cordially Invited by:
+• Contact Phone:
 
 🚚 Courier Delivery Details:
-• Receiver Name: 
-• Active Mobile Number: 
-• Full Delivery Address (with District & Thana): 
+• Receiver Name:
+• Active Mobile Number:
+• Full Delivery Address (with District & Thana):
 
 💡 (Once you send the filled form, our designer will draft your card proof for your review! 🥰)`;
 
 // Delay helper for sequential sending
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
-// Helper to convert Bengali digits to English digits
-function normalizeBengaliDigits(str) {
-  if (!str) return '';
-  return str.toString().replace(/[০-৯]/g, d => "০১২৩৪৫৬৭৮৯".indexOf(d));
-}
-
-// Helper to convert English digits to Bengali digits
-const bngDigits = (num) => num.toString().replace(/\d/g, d => '০১২৩৪৫৬৭৮৯'[d]);
-
-// Helper to calculate price for a SINGLE category only
+// ============================================================
+// PRICING — thin wrappers kept so the rest of this file (and any
+// external code referencing these function names) doesn't need to
+// change; the actual numbers now live ONLY in lib/pricing.js (P2-1).
+// ============================================================
 function getCategoryPrice(qty, category) {
-  const isAffordable = category === 'affordable';
-  let perPiece;
-  
-  if (isAffordable) {
-    perPiece = qty >= 200 ? 35 : qty >= 100 ? 45 : 55;
-  } else {
-    perPiece = qty >= 200 ? 45 : qty >= 100 ? 55 : 65;
-  }
-
-  const total = qty * perPiece;
-  const freeGift = "";
-  const label = isAffordable ? "💚 সাশ্রয়ী (Affordable)" : "✨ প্রিমিয়াম (Premium)";
-
-  return `${label} কালেকশন:\n${bngDigits(qty)} পিসের দাম: ${bngDigits(total.toLocaleString('en-IN').replace(/,/g, ','))}৳ (পিস প্রতি ${bngDigits(perPiece)}৳)${freeGift}`;
+  return buildCategoryPriceText(qty, category, bngDigits);
 }
-
-// Low quantity custom pricing (less than 50 pcs)
 function getLowQtyPrice(qty) {
-  let rateMsg = '';
-  if (qty <= 5) {
-    rateMsg = `${bngDigits(qty)} পিসের সর্বমোট দাম: ১,০০০৳ (কম পরিমাণে ফিক্সড ডাইস ও মেকিং চার্জ সহ)`;
-  } else if (qty <= 10) {
-    rateMsg = `${bngDigits(qty)} পিসের সর্বমোট দাম: ১,৫০০৳ (ফিক্সড চার্জ)`;
-  } else {
-    const total = qty * 75;
-    rateMsg = `${bngDigits(qty)} পিসের দাম: ${bngDigits(total.toLocaleString('en-IN'))}৳ (পিস প্রতি ৭৫৳)`;
-  }
-
-  return `📦 ${bngDigits(qty)} পিস কার্ডের দামের হিসাব:\n\n${rateMsg}\n\n💡 পরামর্শ: ৫০ পিস বা তার বেশি অর্ডার করলে পিস প্রতি দাম অনেক কমে আসে (Affordable: ৫৫৳, Premium: ৬৫৳)।\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+  return buildLowQtyPriceText(qty, 'affordable', bngDigits); // rates are category-agnostic below 50pcs, matches original
 }
-
-// Full price table for a single category
 function getFullPriceTable(category) {
-  const isAffordable = category === 'affordable';
-  const label = isAffordable ? "💚 সাশ্রয়ী (Affordable)" : "✨ প্রিমিয়াম (Premium)";
-  
-  if (isAffordable) {
-    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)`;
-  } else {
-    return `${label} কালেকশনের রেট:\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)`;
-  }
-}
-
-// Evaluate customer bargaining offers and 50/100 tk discount requests (Owner authorized)
-function evaluateBargain(rawText, category = 'affordable') {
-  if (!rawText) return null;
-  const norm = normalizeBengaliDigits(rawText).toLowerCase().replace(/,/g, '');
-  
-  const getBasePrice = (q, cat) => {
-    if (cat === 'premium') {
-      if (q >= 200) return q * 45;
-      if (q >= 100) return q * 55;
-      if (q >= 50) return 3250;
-      return 1500;
-    } else {
-      if (q >= 200) return q * 35;
-      if (q >= 100) return q * 45;
-      if (q >= 50) return 2750;
-      return 1000;
-    }
-  };
-
-  const isBargainIntent = /(?:raikhen|rakhen|rakhben|rakhle|রাখেন|রাইখেন|রাখবেন|হবে|hobe|diben|দিবেন|দেন|den|কম|kom|ছাড়|ছাড়|char|chaar|discount|কমান|koman|nibo|নেব|নেবো|নিবো|নেওয়ার|নেয়ার)/i.test(norm);
-  if (!isBargainIntent) return null;
-
-  const numbers = (norm.match(/\d+/g) || []).map(Number);
-  if (numbers.length === 0) return null;
-
-  // Extract quantity
-  let qty = null;
-  const qtyMatch = norm.match(/(\d{2,4})\s*(?:pcs?|piece|পিস|পিসি|পিচ|টি|টা)?/i);
-  if (qtyMatch) {
-    const qCandidate = parseInt(qtyMatch[1], 10);
-    if ([50, 100, 150, 200, 250, 300, 400, 500].includes(qCandidate)) {
-      qty = qCandidate;
-    }
-  }
-
-  // Look for offered price (typically >= 1000 and != qty)
-  let offeredPrice = null;
-  for (const n of numbers) {
-    if (n >= 1000 && n <= 50000 && n !== qty) {
-      offeredPrice = n;
-      break;
-    }
-  }
-
-  // Check direct 50/100 tk discount request
-  const direct50or100Match = norm.match(/(?:50|100)\s*(?:টাকা|tk|taka)?\s*(?:কম|kom|ছাড়|ছাড়|char|chaar|discount|কমান|koman|কমিয়ে)/i) ||
-                             norm.match(/(?:কম|kom|ছাড়|ছাড়|char|chaar|discount|কমান|koman)\s*(?:হবে\s*)?(?:50|100)/i);
-  let directDiscount = null;
-  if (direct50or100Match) {
-    directDiscount = direct50or100Match[0].includes('100') ? 100 : 50;
-  }
-
-  if (!qty) qty = 50; // Default to 50 pcs
-
-  const basePrice = getBasePrice(qty, category);
-
-  let finalAcceptedPrice = null;
-  let discountAmount = 0;
-
-  if (offeredPrice) {
-    const diff = basePrice - offeredPrice;
-    if (diff > 0 && diff <= 150) { // Allowed 50 to 150 tk concession
-      finalAcceptedPrice = offeredPrice;
-      discountAmount = diff;
-    } else if (diff === 0) {
-      finalAcceptedPrice = basePrice;
-      discountAmount = 0;
-    }
-  } else if (directDiscount) {
-    discountAmount = directDiscount;
-    finalAcceptedPrice = basePrice - discountAmount;
-  }
-
-  if (finalAcceptedPrice) {
-    const advance30 = Math.round((finalAcceptedPrice * 0.3) / 10) * 10;
-    return {
-      accepted: true,
-      qty,
-      category,
-      basePrice,
-      finalPrice: finalAcceptedPrice,
-      discountAmount,
-      advance30
-    };
-  }
-
-  return null;
+  return buildPriceTableText(category, bngDigits);
 }
 
 // Gemini Vision Analysis for Customer-Uploaded Images
@@ -356,40 +207,32 @@ async function analyzeCardImage({ photoUrl, base64Data, mimeType, customerCaptio
       : `ড্রাইভ ক্যাটালগে সরাসরি কোনো কার্ড মেলেনি।`;
 
     const prompt = `তুমি "বন্ধন প্রিন্টিং হাউস" (BOONDHON Printing House, Manikganj & Dhaka)-এর একজন অত্যন্ত অভিজ্ঞ ও অমায়িক সিনিয়র সেলস কনসালট্যান্ট "অনন্যা"।
-কাস্টমার মেসেঞ্জারে একটি ছবি পাঠিয়েছে।
+কাস্টমার মেসেঞ্জারে একটি ছবি পাঠিয়েছে।
 ${captionContext}
 ${candidateHint}
 
-আমাদের বিয়ের কার্ডের দুটি প্রধান ক্যাটাগরি ও অফিশিয়াল ড্রাইভ রেট:
-১. 💚 সাশ্রয়ী (Affordable) — সাধারণ আর্ট কার্ড/ছোট সাইজের কার্ড:
-   • ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)
-   • ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)
-   • ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)
-২. ✨ প্রিমিয়াম (Premium / লাক্সারি) — বড় সাইজ, খিলান, ফয়েল, লেজার কাট, বক্স বা লাক্সারি কার্ড:
-   • ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)
-   • ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)
-   • ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)
-৩. অল্প পরিমাণ (১-৪৯ পিস): ১-৫ পিস ১,০০০৳, ৬-১০ পিস ১,৫০০৳, ১১-৪৯ পিস ৭৫৳/পিস।
+আমাদের বিয়ের কার্ডের দুটি প্রধান ক্যাটাগরি ও অফিশিয়াল ড্রাইভ রেট:
+${buildPricingBlurbForAI(bngDigits)}
 
 তোমার কাজ:
-১. ছবিটি মনোযোগ দিয়ে দেখো:
-   - এটি কি কোনো বিয়ের কার্ড? (লেজার কাট, খিলান, ফ্লোরাল, আর্ট কার্ড, বক্স কার্ড, গেটফোল্ড ইত্যাদি)
+১. ছবিটি মনোযোগ দিয়ে দেখো:
+   - এটি কি কোনো বিয়ের কার্ড? (লেজার কাট, খিলান, ফ্লোরাল, আর্ট কার্ড, বক্স কার্ড, গেটফোল্ড ইত্যাদি)
    - নাকি বিকাশ/নগদের টাকা পাঠানোর স্ক্রিনশট / রিসিট?
    - নাকি সম্পূর্ণ অপ্রাসঙ্গিক কোনো ছবি?
 
-২. যদি বিয়ের কার্ড হয়:
-   - আমাদের ড্রাইভ ক্যাটালগের সাথে মিলিয়ে সবার আগে ক্যাটাগরি (Affordable নাকি Premium) নিশ্চিত করো।
-   - ড্রাইভ ম্যাচ বা কার্ডের সাইজ ও ডিজাইন অনুযায়ী সঠিক ক্যাটাগরি সিলেক্ট করো।
+২. যদি বিয়ের কার্ড হয়:
+   - আমাদের ড্রাইভ ক্যাটালগের সাথে মিলিয়ে সবার আগে ক্যাটাগরি (Affordable নাকি Premium) নিশ্চিত করো।
+   - ড্রাইভ ম্যাচ বা কার্ডের সাইজ ও ডিজাইন অনুযায়ী সঠিক ক্যাটাগরি সিলেক্ট করো।
    - প্রথমে কাস্টমারকে আন্তরিক শুভেচ্ছা ও কার্ডের প্রশংসা করে ক্যাটাগরি স্পষ্ট করে জানাও (যেমন: "এটি আমাদের সাশ্রয়ী/প্রিমিয়াম কালেকশনের কার্ড...")।
-   - এরপর নিশ্চিত হওয়া ক্যাটাগরির রেট (৫০, ১০০, ২০০ পিসের দাম) সরাসরি তুলে ধরো।
-   - যদি কাস্টমার কোনো নির্দিষ্ট পিস (যেমন ১০০ পিস) জানতে চায়, সরাসরি সেই নির্দিষ্ট পিসের মোট ও পিস প্রতি হিসাব বলো।
+   - এরপর নিশ্চিত হওয়া ক্যাটাগরির রেট (৫০, ১০০, ২০০ পিসের দাম) সরাসরি তুলে ধরো।
+   - যদি কাস্টমার কোনো নির্দিষ্ট পিস (যেমন ১০০ পিস) জানতে চায়, সরাসরি সেই নির্দিষ্ট পিসের মোট ও পিস প্রতি হিসাব বলো।
    - কোনো দ্বিধা বা বিভ্রান্তি রাখবে না।
 
-৩. যদি পেমেন্ট স্ক্রিনশট হয়:
-   - আন্তরিক ধন্যবাদ জানিয়ে বিকাশ/নগদের শেষ ৪টি ডিজিট লিখে দিতে বলো (আমাদের অ্যাকাউন্টস টিম চেক করে দ্রুত নিশ্চিত করবে)।
+৩. যদি পেমেন্ট স্ক্রিনশট হয়:
+   - আন্তরিক ধন্যবাদ জানিয়ে বিকাশ/নগদের শেষ ৪টি ডিজিট লিখে দিতে বলো (আমাদের অ্যাকাউন্টস টিম চেক করে দ্রুত নিশ্চিত করবে)।
 
-৪. যদি অপ্রাসঙ্গিক ছবি হয়:
-   - ভদ্রভাবে ধন্যবাদ জানিয়ে জানতে চাও তিনি কি বিয়ের কার্ড দেখতে চাইছেন কিনা।
+৪. যদি অপ্রাসঙ্গিক ছবি হয়:
+   - ভদ্রভাবে ধন্যবাদ জানিয়ে জানতে চাও তিনি কি বিয়ের কার্ড দেখতে চাইছেন কিনা।
 
 STRICT JSON format:
 {
@@ -473,73 +316,76 @@ STRICT JSON format:
 }
 
 // ===== GEMINI AI SALES BRAIN =====
+// NOTE (STEP 26 / ABSOLUTE RULE #4): this function ONLY produces
+// natural-language reply TEXT. It never sets a price, quantity, or any
+// order/state field — those are all decided by deterministic code
+// elsewhere in this file and in lib/pricing.js / lib/order-parser.js
+// before this is ever called, or afterward when parsing this reply.
+// This function's own output is treated as inert text to send, nothing more.
 async function generateAISalesResponse(senderId, customerMessage, conversationHistory) {
   const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
   if (!GEMINI_API_KEY) return null;
-  
+
   const systemPrompt = `তুমি "বন্ধন প্রিন্টিং হাউস" (BOONDHON Printing House)-এর একজন অত্যন্ত অভিজ্ঞ, অমায়িক ও চটপটে সিনিয়র সেলস ও কাস্টমার রিলেশনশিপ এক্সপার্ট। তোমার নাম "অনন্যা"।
 
 তোমার দায়িত্ব: কাস্টমার যখনই সাধারণ কোনো বাটন বা কিওয়ার্ড ছাড়া নিজের ভাষায় যেকোনো কিছু জানতে চাইবে, দ্বিধাদ্বন্দ্বে থাকবে বা অপ্রাসঙ্গিক/অস্পষ্ট কথা বলবে, তখন তুমি একজন রক্ত-মাংসের দক্ষ সেলস প্রফেশনালের মতো আন্তরিক ও সাবলীল ভঙ্গিতে কথা বলে তাদের মনের কথা বুঝে অর্ডার পর্যন্ত এগিয়ে নেবে।
 
 🧠 তোমার চিন্তাভাবনা ও কথা বলার ধরন (Expert Sales Psychology):
 ১. মানুষের মতো স্বাভাবিক প্রতিক্রিয়া ও ইমোশন:
-   - কাস্টমারের মেসেজের ভেতরের অনুভূতি, দ্বিধা, ব্যস্ততা বা আনন্দ বুঝে সেই অনুযায়ী কথা শুরু করো। কখনোই রোবোটিক, মুখস্থ বা স্ক্রিপ্ট-বাঁধা উত্তর দেবে না।
+   - কাস্টমারের মেসেজের ভেতরের অনুভূতি, দ্বিধা, ব্যস্ততা বা আনন্দ বুঝে সেই অনুযায়ী কথা শুরু করো। কখনোই রোবোটিক, মুখস্থ বা স্ক্রিপ্ট-বাঁধা উত্তর দেবে না।
    - বিয়ে একটি আনন্দের উপলক্ষ—প্রাসঙ্গিক হলে আন্তরিক শুভেচ্ছা ও শুভকামনা জানাও।
 ২. কাস্টমার দ্বিধাদ্বন্দ্বে (Confused) বা সিদ্ধান্তহীনতায় থাকলে:
-   - সেলসম্যান যেমন বন্ধুসুলভ পরামর্শ দিয়ে পথ সহজ করে দেয়, ঠিক সেভাবে তাকে সাহায্য করো। যেমন: "বাজেট কি একটু সাশ্রয়ীর মধ্যে খুঁজছেন নাকি প্রিমিয়াম লাক্সারি লুক পছন্দ? কত পিস লাগতে পারে জানালে আমি সেরা অপশনটা সাজেস্ট করতে পারি!"
+   - সেলসম্যান যেমন বন্ধুসুলভ পরামর্শ দিয়ে পথ সহজ করে দেয়, ঠিক সেভাবে তাকে সাহায্য করো। যেমন: "বাজেট কি একটু সাশ্রয়ীর মধ্যে খুঁজছেন নাকি প্রিমিয়াম লাক্সারি লুক পছন্দ? কত পিস লাগতে পারে জানালে আমি সেরা অপশনটা সাজেস্ট করতে পারি!"
 ৩. অস্পষ্ট, সংক্ষিপ্ত বা পরোক্ষ (Indirect) কথা বললে — নো ডেড-এন্ড (NO Dead-ends):
-   - কখনোই "আমি বুঝতে পারিনি", "আমি এআই বট" বা "আপনার কথা স্পষ্ট নয়" জাতীয় কোনো নিষ্প্রাণ উত্তর দেবে না।
-   - একজন দক্ষ সেলসম্যান যেভাবে বুদ্ধি খাটিয়ে কাস্টমারের উদ্দেশ্য আন্দাজ করে প্রশ্ন করে বা অপশন এগিয়ে দেয়, সেভাবে কথা এগিয়ে নাও।
+   - কখনোই "আমি বুঝতে পারিনি", "আমি এআই বট" বা "আপনার কথা স্পষ্ট নয়" জাতীয় কোনো নিষ্প্রাণ উত্তর দেবে না।
+   - একজন দক্ষ সেলসম্যান যেভাবে বুদ্ধি খাটিয়ে কাস্টমারের উদ্দেশ্য আন্দাজ করে প্রশ্ন করে বা অপশন এগিয়ে দেয়, সেভাবে কথা এগিয়ে নাও।
 ৪. তথ্যের স্বাভাবিক উপস্থাপন (Natural Product Blend):
-   - প্রাইস, সাইজ, ডেলিভারি বা পেমেন্টের তথ্যগুলো জোর করে পুরো লিস্ট ধরিয়ে না দিয়ে, কাস্টমার যেটুকু জানতে চেয়েছে সেটার সাথে মিলিয়ে প্রাসঙ্গিকভাবে ১-৩ লাইনে বলো।
-   - উত্তর সবসময় সংক্ষিপ্ত ও প্রমিত বাংলায় (১-৩ লাইন) রাখবে, যাতে কাস্টমার পড়তে স্বাচ্ছন্দ্যবোধ করে।
+   - প্রাইস, সাইজ, ডেলিভারি বা পেমেন্টের তথ্যগুলো জোর করে পুরো লিস্ট ধরিয়ে না দিয়ে, কাস্টমার যেটুকু জানতে চেয়েছে সেটার সাথে মিলিয়ে প্রাসঙ্গিকভাবে ১-৩ লাইনে বলো।
+   - উত্তর সবসময় সংক্ষিপ্ত ও প্রমিত বাংলায় (১-৩ লাইন) রাখবে, যাতে কাস্টমার পড়তে স্বাচ্ছন্দ্যবোধ করে।
 ৫. কার্ডের পরিমাণের তারতম্যে দামের যুক্তি (Sales Logic for Quantity):
    - কাস্টমার যদি প্রশ্ন করে "১টা কার্ডের কমবেশিতে এত পার্থক্য কেন?", "৪৯ আর ৫০ এ এত ব্যবধান কেন?", বা "কম নিলে বেশি রেট কেন?":
-   - কাস্টমারকে সহজ ও মিষ্টি করে বুঝিয়ে বলো: প্রিন্টিং কারখানায় প্রতিটি কার্ডের জন্য কাটিং ডাইস, ফয়েল ব্লক ও স্ক্রিন প্রিন্টিংয়ের প্লেট তৈরির একটি নির্দিষ্ট ফিক্সড সেটআপ খরচ থাকে—যা ১টি কার্ড হলেও করতে হয়, ১০০টি বানালেও একই সেটআপ লাগে। তাই ৫০ বা ১০০ পিস বানালে সেই সেটআপ খরচটি ভাগ হয়ে প্রতি পিসের খরচ অনেক কমে যায় (৫৫৳ বা ৪৫৳)। কিন্তু ১-৪৯ পিসের ক্ষেত্রে ফিক্সড খরচের কারণে প্রতি পিস ৭৫৳ বা ফিক্সড মেকিং চার্জ পড়ে। তাই ৫০ পিস নেওয়া অনেক বেশি লাভজনক ও সাশ্রয়ী!
+   - কাস্টমারকে সহজ ও মিষ্টি করে বুঝিয়ে বলো: প্রিন্টিং কারখানায় প্রতিটি কার্ডের জন্য কাটিং ডাইস, ফয়েল ব্লক ও স্ক্রিন প্রিন্টিংয়ের প্লেট তৈরির একটি নির্দিষ্ট ফিক্সড সেটআপ খরচ থাকে—যা ১টি কার্ড হলেও করতে হয়, ১০০টি বানালেও একই সেটআপ লাগে। তাই ৫০ বা ১০০ পিস বানালে সেই সেটআপ খরচটি ভাগ হয়ে প্রতি পিসের খরচ অনেক কমে যায় (৫৫৳ বা ৪৫৳)। কিন্তু ১-৪৯ পিসের ক্ষেত্রে ফিক্সড খরচের কারণে প্রতি পিস ৭৫৳ বা ফিক্সড মেকিং চার্জ পড়ে। তাই ৫০ পিস নেওয়া অনেক বেশি লাভজনক ও সাশ্রয়ী!
 ৬. 💰 দাম নিয়ে আপত্তি ও হ্যান্ডলিং (Price Objection Handling):
    যখন কাস্টমার দাম নিয়ে আপত্তি করবে, নিচের কৌশলটি অনুসরণ করবে (ফ্ল্যাট ডিসকাউন্ট কখনো নিজে থেকে দেবে না):
    • ১. সাধারণ অভিযোগ — "দাম বেশি" / "price beshi" (প্রতিযোগীর নির্দিষ্ট রেফারেন্স ছাড়া):
-     - সহানুভূতিশীল (empathetic) হয়ে বাজেট জিজ্ঞেস করো এবং ম্যাটেরিয়াল ও প্রিন্টিং কোয়ালিটির ভ্যালু তুলে ধরো।
+     - সহানুভূতিশীল (empathetic) হয়ে বাজেট জিজ্ঞেস করো এবং ম্যাটেরিয়াল ও প্রিন্টিং কোয়ালিটির ভ্যালু তুলে ধরো।
      - যেমন: "আপনার budget বুঝতে পারছি। আমাদের দামে material ও printing quality-তে compromise নাই — laser cut, foil সব premium গ্রেডের। আপনি কত পিস আর কী budget ভাবছেন বললে, best option বের করে দিচ্ছি।"
-     - ফ্ল্যাট ডিসকাউন্ট অফার না করে কাস্টমারের আসল budget ও quantity বের করার দিকে আলোচনা এগিয়ে নাও।
+     - ফ্ল্যাট ডিসকাউন্ট অফার না করে কাস্টমারের আসল budget ও quantity বের করার দিকে আলোচনা এগিয়ে নাও।
    • ২. অন্য পেজের সাথে তুলনা — "অন্য জায়গায় কম দামে পাচ্ছি" / "onno page e kom":
-     - সরাসরি দামের লড়াই বা বিতর্কে না গিয়ে "হিডেন কস্ট" (hidden cost) এর দিকটি সুন্দর করে তুলে ধরো।
-     - বিনয়ের সাথে জিজ্ঞেস করো—ওই দামে প্রিন্টিং চার্জ বা প্লেট খরচ আলাদা কিনা?
-     - বুঝিয়ে বলো যে BOONDHON-এর দামে কার্ডের নিখুঁত প্রিন্টিং + ডেলিভারি সাপোর্ট + রিপ্রিন্ট গ্যারান্টি (কোনো ভুল হলে নিজ দায়িত্বে সমাধান) সব অন্তর্ভুক্ত থাকে, তাই সামগ্রিক হিসাব তুলনা করলে আমাদের সার্ভিস সমান বা আরও ভালো ও নিরাপদ পড়বে।
-   • ৩. সরাসরি ছাড় বা ডিসকাউন্ট চাইলে ("কিছু ছাড় দেন" / "discount হবে?"):
-     - আন্তরিকতার সাথে বলো যে প্রিমিয়াম মেটেরিয়াল ও মেকিং কস্ট ফিক্সড থাকায় ফ্ল্যাট ডিসকাউন্ট সম্ভব না (দুঃখ প্রকাশসহ)।
-     - কিন্তু বেশি পরিমাণ (যেমন: ১০০ পিস বা ২০০+ পিস) নিলে যে প্রতি পিসের রেট অনেক কমে যায় (যেমন: ৫০ পিসে ৫৫৳/৬৫৳ থেকে কমে ১০০ পিসে ৪৫৳/৫৫৳ এবং ২০০ পিসে ৩৫৳/৪৫৳ ও ফ্রি নিকাহনামা), সেদিকে আলোচনা শিফট করো। ফ্ল্যাট পার্সেন্টেজ ডিসকাউন্ট কখনো নিজে থেকে অফার করবে না।
-    • ⚠️ অত্যন্ত জরুরি নিয়ম (Strict Pricing & Discount Rule):
-      - ওনারের বিশেষ নির্দেশনা: কাস্টমার যদি অর্ডার করতে চায় এবং ৫০ বা ১০০ টাকা কম রাখতে বলে (যেমন: "৫০ পিস নিবো, ২৭০০ রাইখেন", "১০০ টাকা কম রাখেন", "৫০ টাকা ছাড় দেন"): তুমি সানন্দে কাস্টমারের সম্মানে সেই ৫০/১০০৳ ছাড় মেনে নেবে এবং বর-কনের নাম ও অনুষ্ঠানসূচীর তথ্য/ফর্ম পূরণ করার অনুরোধ জানাবে (তথ্য পাওয়ার পর অ্যাডভান্স নেওয়া হবে)।
-      - কিন্তু কাস্টমার যদি কোনো সুনির্দিষ্ট প্রস্তাব ছাড়া অনির্দিষ্ট বা খুব বড় ছাড় (যেমন ২০০-১০০০ টাকা) চায়, তবে নিজে থেকে বড় ছাড় দেবে না, কোয়ালিটি ও বেশি কোয়ান্টিটি নেওয়ার সাশ্রয়ী রেট বোঝাবে।
-৭. কঠোর আউটপুট নিয়ম (STRICT Output Rules):
-    - সবসময় খাঁটি, সাবলীল ও আন্তরিক বাংলায় (১-৩ লাইন) উত্তর দেবে।
-    - কোনো অবস্থাতেই ইংরেজি শিরোনাম, সিস্টেম নির্দেশনা, চিন্তা ভাবনা বা মেটা-প্ল্যানিং টেক্সট (যেমন: Provide a Simple Sales Logic, Explain why, Thought, Here is the response ইত্যাদি) উত্তরে লিখবে না। শুধুমাত্র কাস্টমারকে সরাসরি পাঠানোর চূড়ান্ত মেসেজটি লিখবে।
+     - সরাসরি দামের লড়াই বা বিতর্কে না গিয়ে "হিডেন কস্ট" (hidden cost) এর দিকটি সুন্দর করে তুলে ধরো।
+     - বিনয়ের সাথে জিজ্ঞেস করো—ওই দামে প্রিন্টিং চার্জ বা প্লেট খরচ আলাদা কিনা?
+     - বুঝিয়ে বলো যে BOONDHON-এর দামে কার্ডের নিখুঁত প্রিন্টিং + ডেলিভারি সাপোর্ট + রিপ্রিন্ট গ্যারান্টি (কোনো ভুল হলে নিজ দায়িত্বে সমাধান) সব অন্তর্ভুক্ত থাকে, তাই সামগ্রিক হিসাব তুলনা করলে আমাদের সার্ভিস সমান বা আরও ভালো ও নিরাপদ পড়বে।
+   • ৩. সরাসরি ছাড় বা ডিসকাউন্ট চাইলে ("কিছু ছাড় দেন" / "discount হবে?"):
+     - আন্তরিকতার সাথে বলো যে প্রিমিয়াম মেটেরিয়াল ও মেকিং কস্ট ফিক্সড থাকায় ফ্ল্যাট ডিসকাউন্ট সম্ভব না (দুঃখ প্রকাশসহ)।
+     - কিন্তু বেশি পরিমাণ (যেমন: ১০০ পিস বা ২০০+ পিস) নিলে যে প্রতি পিসের রেট অনেক কমে যায় (যেমন: ৫০ পিসে ৫৫৳/৬৫৳ থেকে কমে ১০০ পিসে ৪৫৳/৫৫৳ এবং ২০০ পিসে ৩৫৳/৪৫৳), সেদিকে আলোচনা শিফট করো। ফ্ল্যাট পার্সেন্টেজ ডিসকাউন্ট কখনো নিজে থেকে অফার করবে না।
+    • ⚠️ অত্যন্ত জরুরি নিয়ম (Strict Pricing & Discount Rule):
+      - ওনারের বিশেষ নির্দেশনা: কাস্টমার যদি অর্ডার করতে চায় এবং ৫০ বা ১০০ টাকা কম রাখতে বলে (যেমন: "৫০ পিস নিবো, ২৭০০ রাইখেন", "১০০ টাকা কম রাখেন", "৫০ টাকা ছাড় দেন"): তুমি সানন্দে কাস্টমারের সম্মানে সেই ৫০/১০০৳ ছাড় মেনে নেবে এবং বর-কনের নাম ও অনুষ্ঠানসূচীর তথ্য/ফর্ম পূরণ করার অনুরোধ জানাবে (তথ্য পাওয়ার পর অ্যাডভান্স নেওয়া হবে)।
+      - কিন্তু কাস্টমার যদি কোনো সুনির্দিষ্ট প্রস্তাব ছাড়া অনির্দিষ্ট বা খুব বড় ছাড় (যেমন ২০০-১০০০ টাকা) চায়, তবে নিজে থেকে বড় ছাড় দেবে না, কোয়ালিটি ও বেশি কোয়ান্টিটি নেওয়ার সাশ্রয়ী রেট বোঝাবে।
+      - ⚠️ তুমি কখনোই এই সিস্টেম প্রম্পটে উল্লেখ করা নয়, এমন কোনো দাম নিজে থেকে বানিয়ে বলবে না। উপরে যে রেটগুলো দেওয়া আছে সেগুলোই একমাত্র সঠিক দাম — এর বাইরে কোনো সংখ্যা তুমি নিজে থেকে হিসাব করবে না।
+৭. কঠোর আউটপুট নিয়ম (STRICT Output Rules):
+    - সবসময় খাঁটি, সাবলীল ও আন্তরিক বাংলায় (১-৩ লাইন) উত্তর দেবে।
+    - কোনো অবস্থাতেই ইংরেজি শিরোনাম, সিস্টেম নির্দেশনা, চিন্তা ভাবনা বা মেটা-প্ল্যানিং টেক্সট (যেমন: Provide a Simple Sales Logic, Explain why, Thought, Here is the response ইত্যাদি) উত্তরে লিখবে না। শুধুমাত্র কাস্টমারকে সরাসরি পাঠানোর চূড়ান্ত মেসেজটি লিখবে।
 
 🏢 বন্ধন প্রিন্টিং হাউসের ব্যবসায়িক তথ্য ও জ্ঞানভাণ্ডার:
 • অবস্থান: মানিকগঞ্জ অফিস (২/১-২, ভূমি অফিস লেন, মানিকগঞ্জ, ঢাকা) এবং ঢাকার কারখানা (ফকিরাপুল, বাবুবাজার, বঙ্গবাজার)।
 • প্রোডাক্ট ক্যাটালগ:
-  - দুটো ক্যাটাগরির ডিজাইন ও মেটেরিয়াল হুবহু এক (লেজার কাট, খিলান নকশা, ফয়েল, রিবন ইত্যাদি), কেবল সাইজের পার্থক্য:
-  1. 💚 Affordable (সাশ্রয়ী) — ছোট সাইজ: ৫০ পিস ২,৭৫০৳ (৫৫৳/পিস), ১০০ পিস ৪,৫০০৳ (৪৫৳/পিস), ২০০ পিস ৭,০০০৳ (৩৫৳/পিস)।
-  2. ✨ Premium (লাক্সারি) — বড় সাইজ: ৫০ পিস ৩,২৫০৳ (৬৫৳/পিস), ১০০ পিস ৫,৫০০৳ (৫৫৳/পিস), ২০০ পিস ৯,০০০৳ (৪৫৳/পিস)।
-  3. 🔹 অল্প পরিমাণ (১-৪৯ পিস): ১-৫ পিস ১,০০০৳, ৬-১০ পিস ১,৫০০৳ (ফিক্সড মেকিং চার্জ সহ), ১১-৪৯ পিস ৭৫৳/পিস।
+  - দুটো ক্যাটাগরির ডিজাইন ও মেটেরিয়াল হুবহু এক (লেজার কাট, খিলান নকশা, ফয়েল, রিবন ইত্যাদি), কেবল সাইজের পার্থক্য:
+${buildPricingBlurbForAI(bngDigits)}
 • অর্ডার ও ডেলিভারি প্রক্রিয়া (সহজ ৩টি ধাপ):
   - ধাপ ১: প্রথমে কাস্টমার অর্ডার ফর্ম পূরণ করে বর-কনের নাম, অনুষ্ঠানসূচী ইত্যাদি তথ্য লিখে পাঠাবে।
-  - ধাপ ২: তথ্য পাওয়ার পর অর্ডার কনফার্ম করতে ৩০% অগ্রিম (বিকাশ/নগদ/রকেট: 01682588856) নেওয়া হবে। অগ্রিমের পর আমাদের ডিজাইনার কাস্টমারের তথ্য দিয়ে ডিজাইন তৈরি করে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে।
+  - ধাপ ২: তথ্য পাওয়ার পর অর্ডার কনফার্ম করতে ৩০% অগ্রিম (বিকাশ/নগদ/রকেট: 01682588856) নেওয়া হবে। অগ্রিমের পর আমাদের ডিজাইনার কাস্টমারের তথ্য দিয়ে ডিজাইন তৈরি করে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে।
   - ধাপ ৩: কাস্টমার ডিজাইন 'ওকে' করার পরই কেবল প্রিন্ট হবে। সারা দেশে জেলা শহরে ক্যাশ অন ডেলিভারি (৫-৭ কর্মদিবস)।
-  - ⚠️ নিয়ম: শুরুতেই হুট করে পেমেন্ট নম্বর ধরিয়ে দেবে না। আগে অর্ডার সিস্টেম ও ফর্ম পূরণ করতে বলবে, ফর্মের তথ্য পাওয়ার পর ৩০% অ্যাডভান্স চাইবে।
+  - ⚠️ নিয়ম: শুরুতেই হুট করে পেমেন্ট নম্বর ধরিয়ে দেবে না। আগে অর্ডার সিস্টেম ও ফর্ম পূরণ করতে বলবে, ফর্মের তথ্য পাওয়ার পর ৩০% অ্যাডভান্স চাইবে।
 • হটলাইন: 01701016826 (বন্ধন হটলাইন)।
 
-🎯 তোমার লক্ষ্য: কাস্টমারকে আপন করে নেওয়া, তাদের দ্বিধা দূর করা এবং হাসিমুখে অর্ডারের দিকে এগিয়ে নিয়ে যাওয়া।`;
+🎯 তোমার লক্ষ্য: কাস্টমারকে আপন করে নেওয়া, তাদের দ্বিধা দূর করা এবং হাসিমুখে অর্ডারের দিকে এগিয়ে নিয়ে যাওয়া।`;
 
   try {
-    // Build conversation context (last 10 messages)
     const recentMsgs = (conversationHistory || []).slice(-10).map(msg => ({
       role: msg.sender === 'customer' ? 'user' : 'model',
       parts: [{ text: msg.text || '(media)' }]
     }));
 
-    // Add current message
     recentMsgs.push({ role: 'user', parts: [{ text: customerMessage }] });
 
     const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
@@ -569,12 +415,10 @@ async function generateAISalesResponse(senderId, customerMessage, conversationHi
         const data = await geminiRes.json();
         const candidate = data?.candidates?.[0];
         const parts = candidate?.content?.parts || [];
-        
-        // Filter out any parts marked as thought
+
         const textParts = parts.filter(p => !p.thought && p.text && typeof p.text === 'string');
         let reply = (textParts.length > 0 ? textParts.map(p => p.text).join('\n') : (parts[0]?.text || '')).trim();
 
-        // Sanitize reply: strip any leaked thought tags, reasoning prefixes, or meta-labels
         if (reply) {
           reply = reply
             .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
@@ -650,7 +494,12 @@ async function sendMessengerButtonBlock(recipientId, text, buttons = []) {
   }
 }
 
-// In-memory cache for sent card lookups by Facebook message ID (mid)
+// In-memory cache for sent card lookups by Facebook message ID (mid).
+// KEPT as a perf optimization only — every write here is also written
+// durably via recordSentCardMessage(), so losing this cache on a cold
+// start just means one extra durable-store read, not lost data (unlike
+// the original selectedCardMap/userCategoryMap/humanTakeoverMap, which
+// WERE the only place some state lived and are removed below — P0-3).
 const sentCardsCache = new Map();
 function cacheSentCard(mid, cardId, category, url) {
   if (!mid) return;
@@ -664,24 +513,25 @@ function getCachedSentCard(mid) {
   if (!mid) return null;
   return sentCardsCache.get(mid) || null;
 }
-function getSentCardInfo(phone, mid) {
+async function getSentCardInfo(phone, mid) {
   if (!mid) return null;
   const mem = getCachedSentCard(mid);
   if (mem) return mem;
   return getSentCardByMid(phone, mid);
 }
 
-// In-memory set for tracking users who clicked "পেমেন্ট করেছি" and are about to send last 4 digits
+// Same rationale as sentCardsCache above: fast local cache in front of
+// the durable setUserAwaitingPayment/isUserAwaitingPayment store calls.
 const awaitingPaymentSet = new Set();
-function setCustomerAwaitingPayment(senderId, status) {
+async function setCustomerAwaitingPayment(senderId, status) {
   if (status) {
     awaitingPaymentSet.add(senderId);
   } else {
     awaitingPaymentSet.delete(senderId);
   }
-  setUserAwaitingPayment(senderId, status);
+  await setUserAwaitingPayment(senderId, status);
 }
-function checkCustomerAwaitingPayment(senderId) {
+async function checkCustomerAwaitingPayment(senderId) {
   if (awaitingPaymentSet.has(senderId)) return true;
   return isUserAwaitingPayment(senderId);
 }
@@ -689,7 +539,7 @@ function checkCustomerAwaitingPayment(senderId) {
 // Send Direct Full-Size Image Attachment with Message ID Tracking
 async function sendMessengerImage(recipientId, id, category = null) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
-  
+
   const primaryUrl = `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`;
   const fallbackUrl = `https://lh3.googleusercontent.com/d/${id}`;
 
@@ -712,7 +562,7 @@ async function sendMessengerImage(recipientId, id, category = null) {
     const data = await res.json();
     if (res.ok && data?.message_id) {
       cacheSentCard(data.message_id, id, category, primaryUrl);
-      recordSentCardMessage(recipientId, data.message_id, id, category, primaryUrl);
+      await recordSentCardMessage(recipientId, data.message_id, id, category, primaryUrl);
     } else {
       console.error('Messenger Image Direct Send Primary Error:', JSON.stringify(data));
 
@@ -732,7 +582,7 @@ async function sendMessengerImage(recipientId, id, category = null) {
       const fbData = await fbRes.json();
       if (fbRes.ok && fbData?.message_id) {
         cacheSentCard(fbData.message_id, id, category, fallbackUrl);
-        recordSentCardMessage(recipientId, fbData.message_id, id, category, fallbackUrl);
+        await recordSentCardMessage(recipientId, fbData.message_id, id, category, fallbackUrl);
       }
     }
   } catch (err) {
@@ -757,7 +607,9 @@ async function sendMessengerText(recipientId, text) {
   }
 }
 
-// In-memory deduplication cache for Facebook Webhook retries
+// In-memory deduplication cache for Facebook Webhook retries. This is the
+// CORRECT dedup mechanism (keyed on Facebook's own unique message id) —
+// unchanged from the original. See P1-4 for what changed around it.
 const processedEvents = new Map();
 function isDuplicateEvent(eventId) {
   if (!eventId) return false;
@@ -772,63 +624,86 @@ function isDuplicateEvent(eventId) {
   return false;
 }
 
-// User-level Debounce Lock (prevents rapid duplicate webhook triggers per user)
-const userLastMsgMap = new Map();
-const userLastPhotoMap = new Map();
-const selectedCardMap = new Map();   // In-memory card selection (Vercel /tmp is ephemeral!)
-const userCategoryMap = new Map();   // In-memory category backup
-const humanTakeoverMap = new Map();  // In-memory human takeover { senderId: timestamp }
+// ============================================================
+// FIX NOTE (P1-4 / STEP 18): the original file also had a *second*,
+// time-based debounce (isUserDebounced) that silently DROPPED any text
+// message arriving within 1.5s of the previous one, and any text
+// arriving within 3s of a photo — with no queueing, no merging, just a
+// silent `continue`. That's real customer messages disappearing with
+// zero reply and zero indication anything happened, which is exactly
+// what STEP 18 / ABSOLUTE RULE #7 says must never happen.
+//
+// isDuplicateEvent() above (keyed on Facebook's own unique message id)
+// is the correct, sufficient guard against TRUE duplicate webhook
+// deliveries. A caption sent in the same bubble as a photo already
+// arrives as ONE event with both `attachments` and `text` populated
+// (handled via `customerPhotoCaption` below) — a separate subsequent
+// bubble is a genuinely distinct customer message and should just be
+// processed normally. So the extra time-based debounce is removed
+// entirely rather than "fixed", since it wasn't solving a real problem
+// isDuplicateEvent doesn't already solve.
+// ============================================================
 
-// Wrappers that write to BOTH in-memory Map AND file-based store
-function setSelectedCardSafe(senderId, cardInfo) {
-  selectedCardMap.set(senderId, cardInfo);
-  try { setSelectedCard(senderId, cardInfo); } catch(e) { console.error('setSelectedCard file err:', e.message); }
-}
-function getSelectedCardSafe(senderId) {
-  // In-memory first (survives within same serverless instance), then file-based fallback
-  return selectedCardMap.get(senderId) || getSelectedCard(senderId) || null;
-}
-function setCurrentCategorySafe(senderId, cat) {
-  userCategoryMap.set(senderId, cat);
-  try { setCurrentCategory(senderId, cat); } catch(e) { console.error('setCurrentCategory file err:', e.message); }
-}
-function getCurrentCategorySafe(senderId) {
-  return userCategoryMap.get(senderId) || getCurrentCategory(senderId) || null;
+// Fetch a customer's Facebook display name once, for admin usability
+// (P1-7 / STEP 17). Gracefully falls back to the existing generic name
+// (handled inside appendMessage/chat-store) if the call fails or the
+// token lacks the permission.
+async function fetchCustomerNameSafe(senderId) {
+  if (!PAGE_ACCESS_TOKEN || !senderId) return null;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(
+      `https://graph.facebook.com/v20.0/${senderId}?fields=first_name,last_name&access_token=${PAGE_ACCESS_TOKEN}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const name = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
+    return name || null;
+  } catch (err) {
+    console.warn('fetchCustomerNameSafe failed (non-fatal, falling back to generic name):', err.message);
+    return null;
+  }
 }
 
-// Human takeover wrappers — in-memory Map is PRIMARY, file-based is backup
+// Human takeover wrappers — durable store (Vercel KV) is now the source
+// of truth; a short in-memory cache sits in front purely to avoid a
+// network round trip on every single message from an already-known
+// takeover customer within the same warm instance (P0-3: NOT the primary
+// store anymore, unlike the original selectedCardMap/humanTakeoverMap).
+const humanTakeoverMemCache = new Map();
 const TAKEOVER_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
-function setHumanTakeoverSafe(userId, active) {
+async function setHumanTakeoverSafe(userId, active) {
   if (active) {
-    humanTakeoverMap.set(userId, Date.now());
+    humanTakeoverMemCache.set(userId, Date.now());
   } else {
-    humanTakeoverMap.delete(userId);
+    humanTakeoverMemCache.delete(userId);
   }
-  try { setHumanTakeover(userId, active); } catch(e) { console.error('setHumanTakeover file err:', e.message); }
+  await setHumanTakeover(userId, active);
 }
 
 async function isHumanTakeoverActive(userId) {
   const now = Date.now();
 
-  // 1. Fast check: in-memory map (0ms latency for warm container)
-  const memTime = humanTakeoverMap.get(userId);
+  const memTime = humanTakeoverMemCache.get(userId);
   if (memTime) {
     if (now - memTime < TAKEOVER_DURATION_MS) {
-      return true; // Still within 15 min
+      return true;
     } else {
-      humanTakeoverMap.delete(userId); // Expired
-      try { setHumanTakeover(userId, false); } catch(e) {}
-      return false;
+      humanTakeoverMemCache.delete(userId);
     }
   }
 
-  // 2. LIVE CHECK: Query Facebook Graph API directly (100% persistent across ALL Vercel serverless instances!)
+  // LIVE CHECK: Query Facebook Graph API directly for a human admin reply
+  // from Page Inbox / Messenger app in the last 15 minutes.
   if (PAGE_ACCESS_TOKEN && userId) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
-      const url = `https://graph.facebook.com/v20.0/100208292579845/conversations?user_id=${userId}&fields=messages.limit(5){from,created_time,message,tags}&access_token=${PAGE_ACCESS_TOKEN}`;
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const url = `https://graph.facebook.com/v20.0/${PAGE_ID}/conversations?user_id=${userId}&fields=messages.limit(5){from,created_time,message,tags}&access_token=${PAGE_ACCESS_TOKEN}`;
 
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -838,24 +713,19 @@ async function isHumanTakeoverActive(userId) {
         const messages = data?.data?.[0]?.messages?.data || [];
 
         for (const msg of messages) {
-          // Check if message was sent by the Page (Admin or Bot)
-          if (msg.from?.id === "100208292579845") {
+          if (msg.from?.id === PAGE_ID) {
             const msgTime = new Date(msg.created_time).getTime();
             const elapsed = now - msgTime;
-
-            // If message is older than 15 minutes, stop checking older messages
             if (elapsed >= TAKEOVER_DURATION_MS) break;
 
             const tagNames = (msg.tags?.data || []).map(t => (t.name || '').toLowerCase());
-            // Human admin replies from Messenger app, Meta Business Suite, or Desktop Page Inbox have 'messenger' or 'source:mobile' or 'source:page_inbox'
-            // Bot automated messages only have ['inbox', 'read', 'sent', 'source:web'] WITHOUT 'messenger'
             const isHumanReply = tagNames.includes('messenger') ||
                                  tagNames.includes('source:mobile') ||
                                  tagNames.includes('source:page_inbox');
 
             if (isHumanReply) {
-              console.log(`🙋 LIVE HUMAN TAKEOVER confirmed from Facebook for ${userId}! Admin replied ${Math.round(elapsed / 1000)}s ago: "${msg.message || ''}". Bot paused for 15 min.`);
-              humanTakeoverMap.set(userId, msgTime); // Cache in memory
+              console.log(`🙋 LIVE HUMAN TAKEOVER confirmed from Facebook for ${userId}! Admin replied ${Math.round(elapsed / 1000)}s ago. Bot paused for 15 min.`);
+              humanTakeoverMemCache.set(userId, msgTime);
               return true;
             }
           }
@@ -868,47 +738,21 @@ async function isHumanTakeoverActive(userId) {
     }
   }
 
-  // 3. Fallback: check file-based store (if available)
+  // Durable store (source of truth)
   try {
-    const conv = getConversation(userId);
+    const conv = await getConversation(userId);
     if (conv && conv.humanTakeover === true) {
       const lastAdmin = conv.lastAdminReplyTime || 0;
       if (now - lastAdmin < TAKEOVER_DURATION_MS) {
-        humanTakeoverMap.set(userId, lastAdmin); // Sync to memory
+        humanTakeoverMemCache.set(userId, lastAdmin);
         return true;
       } else {
-        setHumanTakeover(userId, false); // Expired
+        await setHumanTakeover(userId, false);
         return false;
       }
     }
-  } catch(e) {}
+  } catch (e) {}
 
-  return false;
-}
-
-function isUserDebounced(senderId, isPhoto) {
-  const now = Date.now();
-  const lastTime = userLastMsgMap.get(senderId) || 0;
-  const lastPhotoTime = userLastPhotoMap.get(senderId) || 0;
-
-  if (isPhoto) {
-    userLastPhotoMap.set(senderId, now);
-    userLastMsgMap.set(senderId, now);
-    return false; // Always process photo
-  }
-
-  // If user sent a photo within last 3 seconds, and now sends a text like "eita koto",
-  // it's part of the same photo message event from Messenger! Let photo handler do the talking.
-  if (now - lastPhotoTime < 3000) {
-    console.log(`⏩ Skipping duplicate text event right after photo for ${senderId}`);
-    return true;
-  }
-
-  if (now - lastTime < 1500) {
-    console.log(`⏩ Debouncing rapid webhook event for ${senderId} (${now - lastTime}ms since last event)`);
-    return true;
-  }
-  userLastMsgMap.set(senderId, now);
   return false;
 }
 
@@ -916,7 +760,7 @@ function isUserDebounced(senderId, isPhoto) {
 async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   const idsList = type === 'premium' ? PREMIUM_IDS : AFFORDABLE_IDS;
   const totalCount = idsList.length;
-  
+
   let offset = requestedOffset !== null ? parseInt(requestedOffset, 10) : 0;
   if (isNaN(offset) || offset < 0) {
     offset = 0;
@@ -928,7 +772,6 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
     ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
     : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
 
-  // If customer has ALREADY seen all cards in this category, DO NOT LOOP!
   if (offset >= totalCount) {
     const finishMsg = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের সবকটি আপনি ইতিমধ্যে দেখে ফেলেছেন! 🎉😍\n\nকোন কার্ডটি আপনার সবচেয়ে পছন্দ হয়েছে? কত পিস লাগবে বলুন, সুন্দরভাবে বানিয়ে দেবো! 😊\n(অথবা ${altTypeName} কালেকশন দেখতে পারেন)`;
     await sendMessengerButtonBlock(recipientId, finishMsg, [
@@ -936,7 +779,7 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
       { title: "দাম জানুন", payload: "BTN_PRICE" },
       { title: "অর্ডার করবো", payload: "BTN_ORDER" }
     ]);
-    appendMessage(recipientId, 'bot', finishMsg);
+    await appendMessage(recipientId, 'bot', finishMsg);
     return;
   }
 
@@ -945,9 +788,12 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   const isFinished = seenCount >= totalCount;
   const nextOffset = offset + batch.length;
 
-  // Track current category
-  setCurrentCategory(recipientId, type);
-  
+  await setCurrentCategory(recipientId, type);
+  // NEW (STEP 7/8): remember exactly which cards were just shown, in
+  // order, so a later "৩ নম্বরটা চাই" / "এইটা ভালো" can be resolved
+  // without the customer needing to reply-to/quote the specific photo.
+  await setLastShownCards(recipientId, batch);
+
   for (const id of batch) {
     await sendMessengerImage(recipientId, id, type);
     await delay(180);
@@ -959,7 +805,6 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   let buttons = [];
 
   if (isFinished) {
-    // All cards in this collection have been shown! NO LOOP! NO "আরও দেখুন" BUTTON!
     progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের সবকটি আপনি দেখে ফেলেছেন! 🎉😍\n\nকোন কার্ডটি আপনার সবচেয়ে পছন্দ হয়েছে? কত পিস লাগবে বলুন, নিখুঁতভাবে বানিয়ে দেবো! 😊\n(অথবা ${altTypeName} কালেকশন দেখতে পারেন)`;
 
     buttons = [
@@ -968,7 +813,6 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
       { title: "অর্ডার করবো", payload: "BTN_ORDER" }
     ];
   } else {
-    // Still more cards remaining
     progressText = `আমাদের মোট ${bngDigits(totalCount)}টি ${typeName} ডিজাইনের মধ্যে আপনি ${bngDigits(seenCount)}টি দেখেছেন। 😍\n\nআরও দেখতে 'আরও দেখুন' বাটনে চাপুন। কত পিস লাগবে আপনার? 😊`;
     const morePayload = `MORE_${type.toUpperCase()}_${nextOffset}`;
 
@@ -980,7 +824,178 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   }
 
   await sendMessengerButtonBlock(recipientId, progressText, buttons);
-  appendMessage(recipientId, 'bot', progressText);
+  await appendMessage(recipientId, 'bot', progressText);
+}
+
+// ============================================================
+// NEW (P0-4 / P0-5 / STEP 5/6/11/12/13/14): structured order collection,
+// summary, and correction flow. All state transitions are deterministic
+// (conversationStage + order fields in the durable store) — the AI layer
+// is never consulted for any of this.
+// ============================================================
+
+/** Build the STEP 11-format order summary text from a customer's stored order + selection. */
+function buildOrderSummaryText(order, selectedCard, category) {
+  const catLabel = category === 'premium' ? '✨ Premium' : (category === 'affordable' ? '💚 Affordable' : '—');
+  const cardLabel = selectedCard?.code || selectedCard?.cardId || catLabel;
+  const qty = order.quantity;
+  // FIX: previously only computed a price for qty>=50 and showed nothing
+  // (null) for 1-49 piece orders, even though those are explicitly
+  // supported (see getOrderTotal's doc comment). getOrderTotal/
+  // getOrderPerPiece correctly dispatch to the low-qty fixed-band pricing
+  // for those.
+  const perPiece = qty ? getOrderPerPiece(qty, category || 'affordable') : null;
+  const total = qty ? getOrderTotal(qty, category || 'affordable') : null;
+
+  const lines = [
+    `📋 আপনার অর্ডারের তথ্য:`,
+    ``,
+    `💌 কার্ড: ${cardLabel} (${catLabel})`,
+    `📦 পরিমাণ: ${qty ? bngDigits(qty) + ' পিস' : '❓ (এখনও দেওয়া হয়নি)'}`,
+  ];
+  if (total) {
+    lines.push(`💰 প্রতি পিস: ${bngDigits(perPiece)}৳`);
+    lines.push(`💵 মোট: ${bngDigits(total.toLocaleString('en-IN'))}৳`);
+  }
+  lines.push(``);
+  for (const field of Parser.WEDDING_FIELD_ORDER) {
+    const label = Parser.WEDDING_FIELD_LABELS_BN[field];
+    lines.push(`${label}: ${order[field] || '❓ (এখনও দেওয়া হয়নি)'}`);
+  }
+  lines.push(``);
+  lines.push(`সব তথ্য ঠিক আছে?`);
+  return lines.join('\n');
+}
+
+async function sendOrderSummary(senderId) {
+  const order = await getOrder(senderId);
+  const selectedCard = await getSelectedCard(senderId);
+  const category = await getCurrentCategory(senderId);
+  const text = buildOrderSummaryText(order, selectedCard, category);
+  await setConversationStage(senderId, 'reviewing');
+  await setAwaitingField(senderId, null);
+  await sendMessengerButtonBlock(senderId, text, [
+    { title: "✅ কনফার্ম করছি", payload: "BTN_CONFIRM_ORDER" },
+    { title: "✏️ তথ্য ঠিক করতে চাই", payload: "BTN_EDIT_ORDER" },
+    { title: "❌ বাতিল করব", payload: "BTN_CANCEL_ORDER" },
+  ]);
+  await appendMessage(senderId, 'bot', text);
+}
+
+const QUANTITY_QUESTION = 'মোট কত পিস কার্ড লাগবে সেটা বলবেন? (যেমন: ৫০ পিস)';
+
+/**
+ * Ask for whichever field is still missing, one at a time (STEP 6).
+ * Quantity is treated as just another slot in the same walk (via
+ * Parser.nextMissingOrderField) instead of being special-cased ahead of
+ * every other field on every turn — that used to make the bot re-ask
+ * "কত পিস লাগবে?" after EVERY answer until quantity specifically was
+ * given, derailing collection of the other fields. Also records which
+ * field this question is about (setAwaitingField) so a bare, keyword-free
+ * reply to it can still be understood in handleWeddingInfoMessage below.
+ */
+async function askNextMissingField(senderId) {
+  const order = await getOrder(senderId);
+  const missing = Parser.nextMissingOrderField(order);
+  if (!missing) {
+    await sendOrderSummary(senderId);
+    return;
+  }
+  await setAwaitingField(senderId, missing);
+  const question = missing === 'quantity' ? QUANTITY_QUESTION : Parser.WEDDING_FIELD_QUESTIONS[missing];
+  await setConversationStage(senderId, 'collecting_info');
+  await sendMessengerText(senderId, question);
+  await appendMessage(senderId, 'bot', question);
+}
+
+/**
+ * Handle a message while we're actively collecting order info (or the
+ * customer just pasted the whole form). Extracts whatever fields are
+ * present (STEP 5/6 — full paste, single field, or several fields in one
+ * line all work through the same extractor), saves them, and continues
+ * to the next missing field or the summary. Returns true if it handled
+ * the message (so the caller's big if/else chain can skip everything else).
+ *
+ * FIX: the previous version (a) re-asked for quantity on every single
+ * turn until it was specifically given, even after other fields had just
+ * been saved, breaking the natural one-field-at-a-time flow, and
+ * (b) required quantity to be >= 50 to be accepted at all, silently
+ * dropping legitimate low-quantity orders (the bot explicitly tells
+ * customers "১-৪৯ পিস অল্প পরিমাণেও নিতে পারবেন!" elsewhere — 1-49 piece
+ * orders are a real, supported case). Both are fixed here. It also now
+ * falls back to Parser.getAwaitingField so a bare reply with no keyword
+ * ("গুলশান কমিউনিটি সেন্টার" with nothing else) is still understood as
+ * the answer to whichever single question was just asked, rather than
+ * only working when the customer happens to repeat a label like "ভেন্যু:".
+ */
+async function handleWeddingInfoMessage(senderId, text) {
+  const extracted = Parser.extractWeddingFields(text);
+  const qtyResult = Parser.extractQuantity(text);
+
+  const toSave = { ...extracted };
+  const currentOrder = await getOrder(senderId);
+  if (qtyResult && qtyResult.qty > 0) {
+    // Only trust a quantity mention here if we don't already have a
+    // confirmed one — avoids accidentally overwriting an already-set
+    // quantity with an unrelated number mentioned in passing (a phone
+    // number, an address house-number, etc). Deliberate quantity CHANGES
+    // are handled separately by the dedicated quantity-change branch
+    // before this function is ever reached.
+    if (!currentOrder.quantity) toSave.quantity = qtyResult.qty;
+  }
+
+  if (Object.keys(toSave).length === 0) {
+    // Nothing recognizable via labels/keywords — if we know exactly which
+    // single field our last message asked about, treat this whole message
+    // as a bare answer for THAT field (guarded so we never swallow an
+    // intent/greeting/empty message as if it were field data).
+    const awaiting = await getAwaitingField(senderId);
+    if (awaiting && awaiting !== 'quantity' && Parser.isPlausibleBareFieldAnswer(text)) {
+      toSave[awaiting] = text.trim();
+    }
+  }
+
+  if (Object.keys(toSave).length === 0) {
+    // Still nothing recognizable — re-ask the current question instead of
+    // silently doing nothing (ABSOLUTE RULE #10: don't guess, don't go silent).
+    const missing = Parser.nextMissingOrderField(currentOrder) || 'quantity';
+    const msg = missing === 'quantity'
+      ? `দুঃখিত, বুঝতে পারিনি। ${QUANTITY_QUESTION}`
+      : `দুঃখিত, ঠিক বুঝতে পারিনি। ${Parser.WEDDING_FIELD_QUESTIONS[missing]}`;
+    await sendMessengerText(senderId, msg);
+    await appendMessage(senderId, 'bot', msg);
+    return true;
+  }
+
+  await updateOrder(senderId, toSave);
+  await askNextMissingField(senderId);
+  return true;
+}
+
+// ============================================================
+// Webhook signature verification (P1-5 / STEP 19)
+// ============================================================
+// NOT FIXED / pending credential: this only actively rejects requests
+// once FB_APP_SECRET is set in the environment. Until then it logs a
+// warning and lets requests through, so deploying this fix doesn't lock
+// out the existing webhook before the secret is configured. Once
+// FB_APP_SECRET is set, invalid/missing signatures are rejected with 403.
+function verifyWebhookSignature(req) {
+  if (!FB_APP_SECRET) {
+    return { ok: true, skipped: true };
+  }
+  const signature = req.headers['x-hub-signature-256'];
+  if (!signature || !signature.startsWith('sha256=')) {
+    return { ok: false, reason: 'missing signature header' };
+  }
+  const rawBody = req.rawBody || JSON.stringify(req.body || {});
+  const expected = 'sha256=' + crypto.createHmac('sha256', FB_APP_SECRET).update(rawBody).digest('hex');
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return { ok: false, reason: 'signature mismatch' };
+  }
+  return { ok: true, skipped: false };
 }
 
 export default async function handler(req, res) {
@@ -999,6 +1014,19 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
+      const sigCheck = verifyWebhookSignature(req);
+      if (!sigCheck.ok) {
+        logError({ route: 'messenger.webhook', error: `Rejected: ${sigCheck.reason}` });
+        return res.status(403).send('Invalid signature');
+      }
+      if (sigCheck.skipped) {
+        // Logged once per cold start, not per request, to avoid log spam.
+        if (!globalThis.__boondhonWarnedNoAppSecret) {
+          globalThis.__boondhonWarnedNoAppSecret = true;
+          console.warn('[security] FB_APP_SECRET not set — webhook signature verification is DISABLED. Set FB_APP_SECRET to enable it.');
+        }
+      }
+
       const body = req.body;
 
       if (body.object === 'page') {
@@ -1007,970 +1035,33 @@ export default async function handler(req, res) {
         for (const entry of entries) {
           const messagingEvents = entry.messaging || [];
           for (const webhookEvent of messagingEvents) {
-            if (webhookEvent.delivery || webhookEvent.read) continue;
-
-            // ===== ECHO DETECTION: Admin manual reply → auto-takeover =====
-            if (webhookEvent.message?.is_echo) {
-              const echoAppId = String(webhookEvent.message?.app_id || '');
-              const BOT_APP_ID = "2563899990649523";
-              
-              if (echoAppId === BOT_APP_ID) {
-                // Bot's own echo → skip silently
-                continue;
-              }
-              
-              // Admin/human replied from Page Inbox → activate human takeover
-              const recipientId = webhookEvent.recipient?.id;
-              if (recipientId) {
-                appendMessage(recipientId, 'admin', webhookEvent.message?.text || '(admin reply)');
-                setHumanTakeoverSafe(recipientId, true);
-                console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — bot OFF for 15 min`);
-              }
-              continue;
-            }
-
-            const senderId = webhookEvent.sender?.id;
-            if (!senderId) continue;
-
-            const eventId = webhookEvent.message?.mid || (webhookEvent.postback ? `${senderId}_${webhookEvent.timestamp}_${webhookEvent.postback.payload}` : null);
-            if (eventId && isDuplicateEvent(eventId)) {
-              console.log(`⏩ Duplicate webhook event skipped: ${eventId}`);
-              continue;
-            }
-
-            const postbackPayload = webhookEvent.postback?.payload || '';
-            const quickReplyPayload = webhookEvent.message?.quick_reply?.payload || '';
-
-            const message = webhookEvent.message;
-            const postback = webhookEvent.postback;
-
-            let text = message?.text || postback?.payload || postback?.title || '';
-            let payload = quickReplyPayload || postbackPayload || '';
-            const txt = text.toLowerCase();
-
-            appendMessage(senderId, 'customer', text);
-
-            // ===== HUMAN TAKEOVER CHECK (in-memory + Facebook Graph API live check) =====
-            if (await isHumanTakeoverActive(senderId)) {
-              console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
-              continue;
-            }
-
-            const attachments = message?.attachments;
-            let isPhoto = false;
-            let photoUrl = null;
-            let isLinkOrShare = false;
-
-            const replyTo = message?.reply_to;
-            const isQuotedReply = !!replyTo;
-            let quotedCard = null;
-
-            if (replyTo) {
-              // 1. Direct image attachment in reply_to object
-              if (replyTo.attachments && Array.isArray(replyTo.attachments)) {
-                const qImg = replyTo.attachments.find(att => (att.type === 'image' || att.image_data) && !att.payload?.sticker_id);
-                if (qImg?.payload?.url) {
-                  photoUrl = qImg.payload.url;
-                  isPhoto = true;
-                } else if (qImg?.image_data?.url) {
-                  photoUrl = qImg.image_data.url;
-                  isPhoto = true;
+            // ============================================================
+            // FIX (P0-2 / STEP 3): per-event isolation. Every event below
+            // is now wrapped in its own try/catch so that one event
+            // throwing (including any bug of the same shape as the
+            // existingConv crash this replaces, P0-1) can NEVER prevent
+            // the other events in this same webhook batch — which can
+            // belong to a completely different customer — from being
+            // processed and replied to.
+            // ============================================================
+            try {
+              await processOneEvent(webhookEvent);
+            } catch (evErr) {
+              logError({
+                route: 'messenger.webhook.event',
+                eventId: webhookEvent?.message?.mid || null,
+                customerId: webhookEvent?.sender?.id || null,
+                error: evErr,
+              });
+              try {
+                const fallbackSenderId = webhookEvent?.sender?.id;
+                if (fallbackSenderId) {
+                  await sendMessengerText(
+                    fallbackSenderId,
+                    'দুঃখিত, একটু সমস্যা হয়েছে। 🙏 আবার লিখুন, অথবা সরাসরি কল/হোয়াটসঅ্যাপ করুন: 📞 01701016826'
+                  );
                 }
-              }
-
-              // 2. Check if reply_to.mid matches a card sent by our bot
-              if (replyTo.mid) {
-                quotedCard = getSentCardInfo(senderId, replyTo.mid);
-                if (quotedCard) {
-                  if (quotedCard.url && !photoUrl) {
-                    photoUrl = quotedCard.url;
-                  }
-                  isPhoto = true;
-                }
-              }
-
-              // 3. If still no image and we have reply_to.mid, try querying Meta Graph API
-              if (!isPhoto && replyTo.mid && PAGE_ACCESS_TOKEN) {
-                try {
-                  const graphMidUrl = `https://graph.facebook.com/v20.0/${replyTo.mid}?fields=attachments,message&access_token=${PAGE_ACCESS_TOKEN}`;
-                  const midRes = await fetch(graphMidUrl, {
-                    headers: { 'Accept': 'application/json' },
-                    signal: AbortSignal.timeout(2000)
-                  });
-                  if (midRes.ok) {
-                    const midData = await midRes.json();
-                    const atts = midData?.attachments?.data || midData?.attachments || [];
-                    const foundImg = Array.isArray(atts) ? atts.find(a => a.image_data?.url || a.file_url || (a.type === 'image' && a.payload?.url)) : null;
-                    const fetchedUrl = foundImg?.image_data?.url || foundImg?.file_url || foundImg?.payload?.url;
-                    if (fetchedUrl) {
-                      photoUrl = fetchedUrl;
-                      isPhoto = true;
-                    }
-                  }
-                } catch (e) {
-                  console.warn('Could not fetch reply_to message from Graph API:', e.message);
-                }
-              }
-            }
-
-            const referral = webhookEvent.referral || webhookEvent.message?.referral || null;
-            const isAdReferral = !!(referral && (referral.source === 'ADS' || referral.ad_id || referral.ads_context_data)) ||
-              (text && (text.includes('গোল্ড ফয়েল') || text.includes('হ্যান্ড-ফিনিশড ডিজাইন') || text.includes('#WeddingCard') || (text.includes('WhatsApp:') && text.includes('01701016826'))));
-
-            const isSticker = !!(message?.sticker_id || (attachments && attachments.some(att => att.payload?.sticker_id)));
-            const isLikeThumbsUp = isSticker || /^(👍|👍🏻|👍🏼|👍🏽|👍🏾|👍🏿|\(like\)|like)$/i.test(text.trim());
-
-            if (attachments && attachments.length > 0 && !isSticker && !isLikeThumbsUp && !isAdReferral) {
-              const imgAtt = attachments.find(att => att.type === 'image' && !att.payload?.sticker_id);
-              if (imgAtt) {
-                isPhoto = true;
-                photoUrl = imgAtt.payload?.url;
-              }
-              const nonImgAtt = attachments.find(att => att.type === 'fallback' || att.type === 'video' || att.type === 'share' || att.type === 'template');
-              if (nonImgAtt) {
-                isLinkOrShare = true;
-              }
-            }
-
-            // If user event is debounced (within 2s of previous event), skip
-            if (isUserDebounced(senderId, isPhoto)) {
-              continue;
-            }
-
-            // If sending a photo or replying to a card, preserve caption/text
-            const customerPhotoCaption = isPhoto ? (text || '').trim() : '';
-            if (isPhoto) {
-              payload = '';
-              text = '';
-            }
-
-            // Check if this is a button click (postback) or free-text
-            const isButtonClick = !!(payload || postbackPayload || quickReplyPayload);
-
-            const normalizedTxt = normalizeBengaliDigits(text).toLowerCase();
-            if (normalizedTxt.includes('facebook.com') || normalizedTxt.includes('fb.watch') || normalizedTxt.includes('/reel/') || normalizedTxt.includes('/videos/') || normalizedTxt.includes('fb.me')) {
-              isLinkOrShare = true;
-            }
-
-            // Detect if this message is a filled wedding card order form
-            const isFormSubmission = (
-              (text.includes('বর') && text.includes('কনে')) ||
-              (text.includes('নামঃ') && text.includes('পিতাঃ')) ||
-              (text.includes('অনুষ্ঠানসূচী') || text.includes('ওয়ালিমা') || text.includes('গায়ে হলুদ') || text.includes('বউ-ভাত') || text.includes('কনের বাড়ি')) ||
-              (text.includes('প্রিন্ট কার্ডের সংখ্যা') || text.includes('কার্ডের সংখ্যা') || text.includes('কার্ডের পরিমাণ')) ||
-              ((normalizedTxt.includes('groom') || normalizedTxt.includes('bride')) && (normalizedTxt.includes('father') || normalizedTxt.includes('wedding') || normalizedTxt.includes('courier'))) ||
-              (normalizedTxt.includes('wedding card') && (normalizedTxt.includes('courier') || normalizedTxt.includes('quantity'))) ||
-              (normalizedTxt.includes('card quantity') || normalizedTxt.includes('how many pcs'))
-            );
-
-            // Standard card quantities (50, 100, 150, 200, 250, 300, etc.)
-            const isStandardCardQty = (num) => {
-              if (!num || num < 50) return false;
-              return [50, 60, 70, 75, 80, 100, 120, 150, 200, 250, 300, 350, 400, 500, 600, 700, 750, 800, 900, 1000, 1500, 2000].includes(num);
-            };
-
-            const hasQtyUnit = /\b(pcs?|piece|পিস|পিসি|পিচ|টি|টা|কপি|copy|copies)\b/i.test(normalizedTxt);
-            const anyDigitsMatch = normalizedTxt.match(/\b\d{3,8}\b/);
-            const pureDigitsMatch = normalizedTxt.trim().match(/^(\d{3,8})$/);
-            const pureDigitsNum = pureDigitsMatch ? parseInt(pureDigitsMatch[1], 10) : null;
-            const awaitingPayment = checkCustomerAwaitingPayment(senderId);
-
-            // Check if user says they already paid / sent money (past tense):
-            const isPaymentDonePhrase = (
-              /(?:পেমেন্ট|টাকা|advance|এডভান্স|payment|paid|bKash|bkash|বিকাশ|nagad|নগদ|rocket|রকেট|taka)\s*(?:করেছি|করছি|দিলাম|দিছি|পাঠালাম|পাঠাইছি|পাঠিয়েছি|দিয়েছি|হয়েছে|হইছে|হলো|done|completed|send|sent|disi|diasi|dilam|pathaisi|pathalam|koresi|korsi|korechi)/i.test(normalizedTxt) ||
-              /\b(paid|payment\s*done|taka\s*send|advance\s*done|payment\s*completed|money\s*sent|advance\s*paid)\b/i.test(normalizedTxt) ||
-              normalizedTxt.match(/^(?:পেমেন্ট\s*করেছি|টাকা\s*পাঠিয়েছি|টাকা\s*পাঠাইছি|paid|advance\s*paid)$/i) !== null
-            );
-
-            // Mentioned last digits / last number / transaction:
-            const mentionsLastDigits = /(?:লাস্ট|last|শেষের|লাস্টের|শেষ|shesh|sesh)\s*(?:৪|4)?\s*(?:ডিজিট|digit|নম্বর|নাম্বার|number|no|num)?/i.test(normalizedTxt) ||
-              /(?:ডিজিট|digit|trx\s*id|transaction\s*id|ট্রানজেকশন|পেমেন্ট\s*কোড|trx)/i.test(normalizedTxt);
-
-            // Detect if this message is payment confirmation / transaction info (e.g. "payment koresi last number 5874", "last 4 digit 1234", "4532", "trxid 9XYZ...")
-            const isPaymentInfoSubmission = !hasQtyUnit && (
-              (mentionsLastDigits && anyDigitsMatch !== null) ||
-              (isPaymentDonePhrase && anyDigitsMatch !== null) ||
-              (awaitingPayment && anyDigitsMatch !== null) ||
-              (pureDigitsMatch !== null && (pureDigitsMatch[1].length === 4 || !isStandardCardQty(pureDigitsNum))) ||
-              /trx\s*id|transaction\s*id|ট্রানজেকশন|পেমেন্ট\s*কোড/i.test(normalizedTxt)
-            );
-
-            // Detect if message is a price objection, competitor comparison, or discount request
-            const isPriceObjectionOrDiscount = (
-              /(?:দাম|dam|price|rate).*?(?:বেশি|beshi|besi|high)|(?:বেশি|beshi|besi|high).*?(?:দাম|dam|price)|eto\s*da+m|এত\s*দাম|খুব\s*বেশি|khub\s*besi|অনেক\s*দাম|onek\s*da+m/i.test(normalizedTxt) ||
-              /(?:অন্য|onno|other).*?(?:পেজ|page|জায়গা|জায়গা|jayga|jaiga|দোকান|shop|কম|kom)|অন্যত্র\s*কম/i.test(normalizedTxt) ||
-              /discount|ডিসকাউন্ট|ছাড়|ছাড়|\bchar\b|\bchaar\b|কম\s*রাখা|কমান|কিছু\s*কম|একটু\s*কম|কম\s*হবে|kom\s*hobe|kom\s*dhen|kom\s*rakh|komano|raikhen|rakhen|rakhben|রাইখেন|রাখেন|রাখলে/i.test(normalizedTxt)
-            );
-
-            // Check if customer is making an acceptable 50-100 tk bargain offer
-            const bargainOffer = evaluateBargain(text, getCurrentCategorySafe(senderId) || 'affordable');
-
-            let quantity = null;
-            if (payload.startsWith('QTY_')) {
-              quantity = parseInt(payload.replace('QTY_', ''), 10);
-            } else if (isFormSubmission) {
-              const formQtyMatch = normalizedTxt.match(/(?:কার্ডের\s*(?:পরিমাণ|সংখ্যা)|card\s*quantity|quantity|কত\s*পিস)\s*[:ঃ]?\s*(\d{1,5})/i) ||
-                                  normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)\b/i);
-              if (formQtyMatch) {
-                const num = parseInt(formQtyMatch[1], 10);
-                if (num > 0 && num < 10000) quantity = num;
-              }
-            } else if (!isPaymentInfoSubmission) {
-              const explicitQtyMatch = normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ|টি|টা)\b/i);
-              if (explicitQtyMatch) {
-                const num = parseInt(explicitQtyMatch[1], 10);
-                if (num > 0 && num < 10000) quantity = num;
-              } else if (pureDigitsNum !== null && (isStandardCardQty(pureDigitsNum) || pureDigitsNum < 50)) {
-                quantity = pureDigitsNum;
-              }
-            }
-
-            // ===== PHOTO UPLOADED OR QUOTED CARD REPLY =====
-            if (isPhoto && (photoUrl || quotedCard)) {
-              // Case 1: Exact card already identified via quoted/swiped message
-              if (quotedCard) {
-                const category = quotedCard.category || 'affordable';
-                setCurrentCategorySafe(senderId, category);
-                setSelectedCardSafe(senderId, { category, cardId: quotedCard.cardId, url: quotedCard.url });
-
-                const priceTable = getFullPriceTable(category);
-                const emoji = category === 'premium' ? '✨' : '💚';
-                const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                const altCat = category === 'premium' ? 'affordable' : 'premium';
-                const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
-
-                let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
-
-                if (customerPhotoCaption) {
-                  const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
-                  if (capQtyMatch) {
-                    const q = parseInt(capQtyMatch[1], 10);
-                    if (q >= 50 && q < 10000) {
-                      reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
-                    }
-                  }
-                }
-
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
-                  { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-                  { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              } else {
-                // Case 2: photoUrl available (fresh upload or external quote)
-                let photoBase64 = null;
-                let photoMime = 'image/jpeg';
-                try {
-                  const imgRes = await fetch(photoUrl, {
-                    headers: {
-                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                  });
-                  if (imgRes.ok) {
-                    const arrayBuffer = await imgRes.arrayBuffer();
-                    photoBase64 = Buffer.from(arrayBuffer).toString('base64');
-                    photoMime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
-                  } else {
-                    console.error('Failed to fetch photo from Messenger:', imgRes.status);
-                  }
-                } catch (fetchErr) {
-                  console.error('Error fetching photo from Messenger:', fetchErr.message);
-                }
-
-                let matchResult = null;
-                if (photoBase64 && isCatalogIndexReady()) {
-                  try {
-                    matchResult = await findCatalogMatch(photoBase64, photoMime);
-                  } catch (matchErr) {
-                    console.error('Catalog match error:', matchErr.message);
-                  }
-                }
-
-                // Step 1: Check Drive Catalog Match first!
-                // High confidence: similarity >= 0.65 → directly confirmed from Google Drive
-                // Medium confidence: similarity 0.48-0.65 → verify with Gemini Vision first
-                const driveHighMatch = matchResult && matchResult.similarity >= 0.65;
-                const driveMediumMatch = matchResult && matchResult.similarity >= 0.48 && matchResult.similarity < 0.65;
-
-                if (driveHighMatch) {
-                  const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
-                  const matchCode = matchResult.code;
-                  setCurrentCategorySafe(senderId, category);
-                  setSelectedCardSafe(senderId, { category, code: matchCode, url: photoUrl });
-
-                  const priceTable = getFullPriceTable(category);
-                  const emoji = category === 'premium' ? '✨' : '💚';
-                  const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                  const altCat = category === 'premium' ? 'affordable' : 'premium';
-                  const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
-
-                  let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
-
-                  if (customerPhotoCaption) {
-                    const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
-                    if (capQtyMatch) {
-                      const q = parseInt(capQtyMatch[1], 10);
-                      if (q >= 50 && q < 10000) {
-                        reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
-                      }
-                    }
-                  }
-
-                  await sendMessengerButtonBlock(senderId, reply, [
-                    { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
-                    { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-                    { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
-                  ]);
-                  appendMessage(senderId, 'bot', reply);
-                } else if (driveMediumMatch) {
-                  // Medium confidence — verify with Gemini Vision that it's actually a wedding card
-                  const visionCheck = await analyzeCardImage({
-                    photoUrl,
-                    base64Data: photoBase64,
-                    mimeType: photoMime,
-                    customerCaption: customerPhotoCaption,
-                    topCandidate: matchResult
-                  });
-
-                  if (visionCheck?.type === 'WEDDING_CARD') {
-                    // Gemini confirmed it IS a wedding card — use Drive's category
-                    const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
-                    const matchCode = matchResult.code;
-                    setCurrentCategorySafe(senderId, category);
-                    setSelectedCardSafe(senderId, { category, code: matchCode, url: photoUrl });
-
-                    const priceTable = getFullPriceTable(category);
-                    const emoji = category === 'premium' ? '✨' : '💚';
-                    const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-                    const altCat = category === 'premium' ? 'affordable' : 'premium';
-                    const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
-
-                    let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
-
-                    if (customerPhotoCaption) {
-                      const capQtyMatch = customerPhotoCaption.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
-                      if (capQtyMatch) {
-                        const q = parseInt(capQtyMatch[1], 10);
-                        if (q >= 50 && q < 10000) {
-                          reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
-                        }
-                      }
-                    }
-
-                    await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
-                      { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-                      { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
-                    ]);
-                    appendMessage(senderId, 'bot', reply);
-                  } else if (visionCheck?.type === 'PAYMENT_RECEIPT') {
-                    setCustomerAwaitingPayment(senderId, true);
-                    setHumanTakeoverSafe(senderId, true);
-                    const reply = visionCheck.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন।`;
-                    await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
-                      { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
-                      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
-                    ]);
-                    appendMessage(senderId, 'bot', reply);
-                  } else {
-                    // NOT a wedding card — don't give price
-                    const reply = visionCheck?.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি বিয়ের কার্ড দেখতে চাইছেন? আমাদের কালেকশন দেখুন! 😊`;
-                    await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                      { title: "দাম জানুন", payload: "BTN_PRICE" }
-                    ]);
-                    appendMessage(senderId, 'bot', reply);
-                  }
-                } else {
-                  // Step 2: For external photos or lower similarity, analyze via Gemini Vision with Drive catalog context
-                  const visionRes = await analyzeCardImage({
-                    photoUrl,
-                    base64Data: photoBase64,
-                    mimeType: photoMime,
-                    customerCaption: customerPhotoCaption,
-                    topCandidate: matchResult
-                  });
-
-                  if (visionRes?.type === 'PAYMENT_RECEIPT') {
-                    setCustomerAwaitingPayment(senderId, true);
-                    setHumanTakeoverSafe(senderId, true); // Hand over to human agent for manual check
-                    const reply = visionRes.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।`;
-                    await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
-                      { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
-                      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
-                    ]);
-                    appendMessage(senderId, 'bot', reply);
-                  } else if (visionRes?.type === 'OTHER') {
-                    const reply = visionRes.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড তৈরি করতে চাইছেন? আমাদের কালেকশন দেখতে পারেন অথবা আপনার পছন্দের কার্ডের ছবি বা কত পিস লাগবে জানাতে পারেন!`;
-                    await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                      { title: "দাম জানুন", payload: "BTN_PRICE" }
-                    ]);
-                    appendMessage(senderId, 'bot', reply);
-                  } else {
-                    // Wedding Card detected by Vision BUT NOT matched in our Drive catalog!
-                    // Per user directive: "jeno image dekhlei price bolbena amder drive er sathe na mille bolbena"
-                    // DON'T assign category/price — ask customer to choose from our collection
-                    const reply = `সুন্দর কার্ড! 😍 তবে এই ডিজাইনটি আমাদের বর্তমান কালেকশনে নেই।\n\nআমাদের কালেকশন থেকে পছন্দের কার্ড দেখুন এবং সেই ছবি পাঠান — তাহলে সাথে সাথে দাম জানাবো! 😊`;
-                    await sendMessengerButtonBlock(senderId, reply, [
-                      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                      { title: "দাম জানুন", payload: "BTN_PRICE" }
-                    ]);
-                    appendMessage(senderId, 'bot', reply);
-                  }
-                }
-              }
-            }
-            // ===== QUOTED/SWIPED CARD REPLY (FALLBACK IF NO DIRECT IMAGE URL ATTACHED) =====
-            else if (isQuotedReply && (
-              normalizedTxt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto)\b/i) ||
-              normalizedTxt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস|eita|aita|etar|eitar/i) ||
-              normalizedTxt === 'pp' || normalizedTxt === 'pp?' || normalizedTxt === 'p?'
-            )) {
-              const cat = getCurrentCategorySafe(senderId) || 'affordable';
-              setCurrentCategorySafe(senderId, cat);
-
-              const priceTable = getFullPriceTable(cat);
-              const emoji = cat === 'premium' ? '✨' : '💚';
-              const catName = cat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-              const altCat = cat === 'premium' ? 'affordable' : 'premium';
-              const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
-
-              let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
-
-              const qtyMatch = normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)?\b/i);
-              if (qtyMatch) {
-                const q = parseInt(qtyMatch[1], 10);
-                if (q >= 50 && q < 10000) {
-                  reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(q, cat)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
-                }
-              }
-
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-                { title: "কার্ড দেখুন", payload: cat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== FACEBOOK AD / POST REFERRAL ENTRY =====
-            else if (isAdReferral && (!payload || payload === '' || payload === 'BTN_AD_ENTRY' || !text || text.includes('গোল্ড ফয়েল') || text.includes('WhatsApp:'))) {
-              const reply = `আসসালামু আলাইকুম! 🌸 বন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআমাদের গোল্ড ফয়েল ও প্রিমিয়াম বিয়ের কার্ডের বিজ্ঞাপনটি দেখে যোগাযোগ করার জন্য ধন্যবাদ! আপনি কি এই ধরনের কার্ডের কালেকশন দেখতে চাইছেন?`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== LIKE / THUMBS UP STICKER OR EMOJI =====
-            else if (isLikeThumbsUp) {
-              const reply = `লাইক দেওয়ার জন্য অনেক ধন্যবাদ! 🌸😊\nবন্ধন প্রিন্টিং হাউসে স্বাগতম। আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড দেখতে চাইছেন?`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== SHARED REEL / VIDEO / POST FROM PAGE =====
-            else if (isLinkOrShare) {
-              const reply = `আমাদের ভিডিও/পোস্টের ডিজাইনটি পছন্দ করার জন্য ধন্যবাদ! 😍🌸\n\nএই কার্ডটির দামের হিসাব:\n💚 Affordable (সাশ্রয়ী): ৫০ পিস ২,৭৫০৳ (৫৫৳/পিস)\n✨ Premium (লাক্সারি): ৫০ পিস ৩,২৫০৳ (৬৫৳/পিস)\n\n(১-৪৯ পিস অল্প পরিমাণেও নিতে পারবেন!)\nআপনার কত পিস কার্ড লাগবে বলুন, সঠিক হিসাব জানিয়ে দিচ্ছি! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== ORDER FORM SUBMITTED BY CUSTOMER =====
-            else if (isFormSubmission) {
-              let qtyNote = '';
-              if (quantity) {
-                qtyNote = `\n📦 আপনার উল্লেখিত কার্ডের পরিমাণ: ${bngDigits(quantity)} পিস।`;
-              } else {
-                qtyNote = `\n💡 আপনার মোট কত পিস কার্ড লাগবে তা দয়া করে জানিয়ে দিন (যেমন: ১০০ পিস বা ১৫০ পিস)।`;
-              }
-
-              const reply = `আলহামদুলিল্লাহ! আপনার কার্ডের তথ্যগুলো আমরা সুন্দরভাবে পেয়েছি। 🌸${qtyNote}\n\nঅর্ডারটি কনফার্ম করে ডিজাইনের কাজ শুরু করার নিয়ম:\n১. ৩০% অ্যাডভান্স পেমেন্ট পাঠান:\n   📲 বিকাশ / নগদ / রকেট (পার্সোনাল): 01682588856\n২. পেমেন্ট সম্পন্ন করে লাস্ট ৪ ডিজিট বা স্ক্রিনশট এখানে পাঠিয়ে দিন।\n\nআমাদের অভিজ্ঞ ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে। আপনার ফাইনাল অনুমোদনের পরই কেবল প্রিন্ট হবে! 😊`;
-
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "পেমেন্ট করেছি", payload: "BTN_PAID" },
-                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
-                { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== LOW QUANTITY / MINIMUM ORDER QUERY ("আমার অল্প লাগবে" / "ন্যূনতম অর্ডার পরিমাণ" / "minimum order") =====
-            else if (!isFormSubmission && text.length < 70 && (
-              /\b(olpo\s*lagbe|kom\s*lagbe|olpo\s*pisi|kom\s*pcs|kom\s*pisi|minimum|min\s*order)\b/i.test(txt) ||
-              /(^|\s)(অল্প|কম|ন্যূনতম|নূন্যতম|মিনিমাম|কমপক্ষে)\s*(লাগবে|হবে|পিস|কার্ড|পরিমাণ|অর্ডার|কিছু)/.test(txt) ||
-              /^(আমার\s*)?(অল্প|কম|ন্যূনতম|নূন্যতম)(\s*লাগবে|\s*হবে|\s*অর্ডার|\s*পরিমাণ)?$/i.test(txt.trim()) ||
-              txt.includes('ন্যূনতম') || txt.includes('নূন্যতম') || txt.includes('মিনিমাম') || txt.includes('minimum')
-            ) && !/(কমিউনিটি|কম্পিউটার|কম্পানি|কমপ্লিট|কমেন্ট|ইনকাম|স্বাগতম)/i.test(txt)) {
-              const reply = `জি, আমাদের কাছে অল্প পরিমাণেও (১-৪৯ পিস) বিয়ের কার্ড অর্ডার করতে পারবেন! 😊\n\nঅল্প পরিমাণের প্রাইসিং রেট:\n• ১-৫ পিস: ১,০০০৳ (ফিক্সড মেকিং চার্জ সহ)\n• ৬-১০ পিস: ১,৫০০৳ (ফিক্সড চার্জ)\n• ১১-৪৯ পিস: পিস প্রতি ৭৫৳ (যেমন ২৫ পিস = ১,৮৭৫৳)\n\n💡 পরামর্শ: ৫০+ পিস নিলে পিস প্রতি দাম অনেক কমে আসে (Affordable: ৫৫৳, Premium: ৬৫৳)।\n\nআপনার কত পিস লাগবে বলুন! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "৫ পিস (১০০০৳)", payload: "QTY_5" },
-                { title: "১০ পিস (১৫০০৳)", payload: "QTY_10" },
-                { title: "২৫ পিস (১৮৭৫৳)", payload: "QTY_25" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== PAYMENT LAST DIGITS / CONFIRMATION SUBMITTED BY USER =====
-            else if (isPaymentInfoSubmission) {
-              const digitsMatch = normalizedTxt.match(/\b\d{3,8}\b/);
-              const digits = digitsMatch ? digitsMatch[0] : '';
-              const digitsText = digits ? ` (${bngDigits(digits)})` : '';
-
-              setCustomerAwaitingPayment(senderId, false);
-              setOrderStatus(senderId, 'Payment_Submitted');
-              setHumanTakeoverSafe(senderId, true); // Hand over to human agent for manual check
-
-              const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের লাস্ট ৪ ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।\n\nপেমেন্ট নিশ্চিত হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের কাজ শুরু করে দেবে! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
-                { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
-                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== PAYMENT CLAIMED (NO DIGITS YET) OR BTN_PAID CLICKED =====
-            else if (payload === 'BTN_PAID' || isPaymentDonePhrase) {
-              setCustomerAwaitingPayment(senderId, true);
-              const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের স্ক্রিনশট বা বিকাশ/নগদ লাস্ট ৪ ডিজিট এখানে লিখে দিন। 😊\nআমাদের টিম দ্রুত যাচাই করে আপনার অর্ডারটি নিশ্চিত করবে এবং ডিজাইনার কাজ শুরু করবে! 🌸`;
-              await sendMessengerText(senderId, reply);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== 50/100 TK CONCESSION / BARGAIN ACCEPTANCE (OWNER AUTHORIZED) =====
-            else if (bargainOffer && bargainOffer.accepted) {
-              const diffText = bargainOffer.discountAmount > 0 ? `${bngDigits(bargainOffer.discountAmount)}৳ কমিয়ে ` : '';
-              const reply = `জি ঠিক আছে ভাইয়া! আপনার সম্মানে আমরা ${diffText}${bngDigits(bargainOffer.finalPrice)}৳-তেই রাখছি! 🎉🤝\n\nতাহলে আপনার ${bngDigits(bargainOffer.qty)} পিস কার্ডের অর্ডারটি কনফার্ম করার জন্য এগিয়ে নিচ্ছি।\n\n📋 অর্ডার করার সহজ ৩টি ধাপ:\n১️⃣ তথ্য পূরণ: প্রথমে নিচের 'ফর্ম পূরণ' বাটনে চাপ দিয়ে বর-কনের নাম ও অনুষ্ঠানসূচী লিখে পাঠান।\n২️⃣ অ্যাডভান্স: তথ্য পাওয়ার পর ৩০% অ্যাডভান্স (${bngDigits(bargainOffer.advance30)}৳) দিতে হবে।\n৩️⃣ ডিজাইন ও প্রিন্ট: ডিজাইনার আপনাকে ড্রাফট প্রুফ দেখাবে। পছন্দ হলে প্রিন্ট হবে!\n\n👇 অর্ডারটি শুরু করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন:`;
-
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
-                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
-                { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== QUANTITY — Show price for CURRENT category or Min 50 Pcs Warning =====
-            else if (quantity && !isPriceObjectionOrDiscount) {
-              if (quantity < 50) {
-                const reply = getLowQtyPrice(quantity);
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                  { title: "৫০ পিস রেট", payload: "QTY_50" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              } else {
-                const currentCat = getCurrentCategorySafe(senderId) || 'affordable';
-                const reply = getCategoryPrice(quantity, currentCat) + "\n\nঅর্ডার করতে চাইলে বলুন! 😊";
-                
-                const oppositeBtn = currentCat === 'premium'
-                  ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
-                  : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
-                
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                  oppositeBtn,
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              }
-            }
-            // ===== GENERAL DESIGN / CARD VIEW REQUEST ("কার্ড দেখতে চাই", "ডিজাইন দেখতে চাই", "কালেকশন") =====
-            else if (
-              !txt.includes('affordable') && !txt.includes('premium') && !txt.includes('সাশ্রয়ী') && !txt.includes('প্রিমিয়াম') &&
-              (txt.match(/(?:কার্ড|card|ডিজাইন|design|কালেকশন|collection).*?(?:দেখব|দেখবো|দেখতে|দেখান|দেখা|show|ছবি|pic)/i) ||
-               txt.match(/^(কার্ড\s*দেখব|কার্ড\s*দেখবো|কার্ড\s*দেখতে\s*চাই|কার্ডের\s*ডিজাইন\s*দেখতে\s*চাই|ডিজাইন\s*দেখব|ডিজাইন\s*দেখতে\s*চাই|কালেকশন\s*দেখব|কালেকশন\s*দেখতে\s*চাই|ডিজাইন\s*গুলো\s*দেখতে\s*চাই)$/i))
-            ) {
-              const reply = `আমাদের বিয়ের কার্ডের দুটি চমৎকার কালেকশন রয়েছে: 🌸\n\n💚 সাশ্রয়ী (Affordable) — সেরা বাজেটে আধুনিক লেজার-কাট ডিজাইন\n✨ প্রিমিয়াম (Premium) — বড় সাইজের লাক্সারি ও রাজকীয় লুক\n\nআপনি কোন কালেকশনের ডিজাইন দেখতে চান? 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== AFFORDABLE COLLECTION =====
-            else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')) {
-              let offset = 0;
-              if (payload.startsWith('MORE_AFFORDABLE_')) {
-                offset = parseInt(payload.replace('MORE_AFFORDABLE_', ''), 10) || 0;
-              }
-              await sendSequentialGallery(senderId, 'affordable', offset);
-            }
-            // ===== PREMIUM COLLECTION =====
-            else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
-              let offset = 0;
-              if (payload.startsWith('MORE_PREMIUM_')) {
-                offset = parseInt(payload.replace('MORE_PREMIUM_', ''), 10) || 0;
-              }
-              await sendSequentialGallery(senderId, 'premium', offset);
-            }
-            // ===== PRICE — Context-aware or complete price table (NO LOOPS!) =====
-            else if ((
-              payload === 'BTN_PRICE' ||
-              txt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto|koto\s*tk)\b/i) ||
-              txt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
-              txt === 'pp' || txt === 'pp?' || txt === 'p?' || txt === 'দাম' || txt === 'দাম?' || txt === 'কত?' || txt === 'কতো?'
-            ) && !isPriceObjectionOrDiscount) {
-              const currentCat = getCurrentCategorySafe(senderId);
-              
-              if (currentCat) {
-                const priceTable = getFullPriceTable(currentCat);
-                const altCat = currentCat === 'premium' ? 'affordable' : 'premium';
-                const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
-                const reply = `${priceTable}\n\n💡 (${altName} কালেকশনের দামও দেখতে পারেন)\nকত পিস লাগবে বলুন! 😊`;
-                
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-                  { title: "কার্ড দেখুন", payload: currentCat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" },
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              } else {
-                // Show BOTH categories clearly — NO AMBIGUITY, ZERO LOOPS!
-                const reply = `আমাদের বিয়ের কার্ডের দামের তালিকা: 🌸\n\n💚 সাশ্রয়ী (Affordable):\n• ৫০ পিস: ২,৭৫০৳ (৫৫৳/পিস)\n• ১০০ পিস: ৪,৫০০৳ (৪৫৳/পিস)\n• ২০০ পিস: ৭,০০০৳ (৩৫৳/পিস)\n\n✨ প্রিমিয়াম (Premium):\n• ৫০ পিস: ৩,২৫০৳ (৬৫৳/পিস)\n• ১০০ পিস: ৫,৫০০৳ (৫৫৳/পিস)\n• ২০০ পিস: ৯,০০০৳ (৪৫৳/পিস)\n\n(১-৪৯ পিস অল্প পরিমাণেও নিতে পারবেন!)\nআপনার কত পিস লাগবে বলুন? 😊`;
-                
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                  { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              }
-            }
-            // ===== CATEGORY-SPECIFIC PRICE BUTTONS =====
-            else if (payload === 'BTN_AFFORDABLE_PRICE') {
-              setCurrentCategorySafe(senderId, 'affordable');
-              const reply = getFullPriceTable('affordable') + "\n\nকত পিস লাগবে বলুন! 😊";
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "✨ Premium রেট", payload: "BTN_PREMIUM_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            else if (payload === 'BTN_PREMIUM_PRICE') {
-              setCurrentCategorySafe(senderId, 'premium');
-              const reply = getFullPriceTable('premium') + "\n\nকত পিস লাগবে বলুন! 😊";
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "💚 Affordable রেট", payload: "BTN_AFFORDABLE_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
-            else if (payload === 'BTN_ORDER' || payload === 'BTN_ORDER_PREMIUM' || payload === 'BTN_ORDER_AFFORDABLE' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
-              // Extract category directly from payload (stateless — works across Vercel instances!)
-              let orderCategory = null;
-              if (payload === 'BTN_ORDER_PREMIUM') orderCategory = 'premium';
-              else if (payload === 'BTN_ORDER_AFFORDABLE') orderCategory = 'affordable';
-
-              // Fallback: try in-memory or file-based state
-              if (!orderCategory) {
-                const sc = getSelectedCardSafe(senderId);
-                if (sc) orderCategory = sc.category;
-              }
-              if (!orderCategory) {
-                orderCategory = getCurrentCategorySafe(senderId);
-              }
-
-              // If clicked BTN_ORDER button (no category suffix), they already saw prices — proceed anyway!
-              const isButtonClick = payload && payload.startsWith('BTN_ORDER');
-
-              if (!orderCategory && !isButtonClick) {
-                // Customer TYPED "অর্ডার" without prior card interaction — ask for card
-                const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 আমাদের পেজ বা পোস্টের যে কার্ডটি আপনার পছন্দ হয়েছে, দয়া করে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন!\n👀 কালেকশন দেখতে চাইলে নিচের বাটন চাপুন: 😊`;
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
-                  { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              } else {
-                // Proceed to order! (category known from payload, state, or button click)
-                const catLabel = orderCategory === 'premium' ? '✨ Premium' : (orderCategory === 'affordable' ? '💚 Affordable' : '🌸');
-                const cardDesc = orderCategory ? `(${catLabel})` : '';
-
-                await sendMessengerText(senderId, ORDER_RULES_MSG);
-                appendMessage(senderId, 'bot', ORDER_RULES_MSG);
-
-                const followUp = `দারুণ! আপনার পছন্দের কার্ড ${cardDesc} সিলেক্ট হয়েছে। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
-                await sendMessengerButtonBlock(senderId, followUp, [
-                  { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
-                  { title: "অন্য ডিজাইন দেখুন", payload: "BTN_AFFORDABLE" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
-                ]);
-                appendMessage(senderId, 'bot', followUp);
-              }
-            }
-            // ===== CUSTOMER SAYS THEY SENT PHOTO BY TEXT (CHECK IF REAL PHOTO EXISTS) =====
-            else if (payload === 'BTN_HAS_PHOTO' || txt.match(/ছবি\s*(দিয়েছি|দিছি|পাঠিয়েছি|পাঠাইছি)|chobi\s*(disi|diasi|dichi|pathaisi)/i)) {
-              const existingCard = getSelectedCardSafe(senderId);
-              if (!existingCard) {
-                // Customer did NOT actually upload a photo yet!
-                const reply = `আমরা তো এখনো আপনার পছন্দের কার্ডের কোনো ছবি পাইনি ভাইয়া! 🌸\n\nদয়া করে মেসেঞ্জারের ক্যামেরা বা গ্যালারি আইকন চেপে আপনার পছন্দের কার্ডটির ছবি বা স্ক্রিনশট এখানে পাঠিয়ে দিন। ছবি পেলেই আমরা সাথে সাথে ফর্ম দেবো! 😊`;
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
-                  { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              } else {
-                const reply = `জি অনেক ধন্যবাদ! আপনার পাঠানো ছবি অনুযায়ী ডিজাইনার কাজ করবে। 🌸\n\nএবার বর-কনের নাম ও অনুষ্ঠানসূচীর তথ্য পাঠাতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন: 👇`;
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
-                  { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
-                  { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              }
-            }
-            // ===== BOTH FORMS / ORDER FORM & INFORMATION REQUEST =====
-            else if (payload === 'BTN_BOTH_FORMS' || (!isFormSubmission && (
-              txt.match(/bangla\s*(and|&|\+|,|o|\s+)\s*english\s*form/i) ||
-              txt.match(/english\s*(and|&|\+|,|o|\s+)\s*bangla\s*form/i) ||
-              txt.match(/বাংলা\s*(এবং|ও|আর|\+|,)\s*(ইংরেজি|ইংলিশ)\s*(ফর্ম|ফরম)/i) ||
-              txt.match(/(ইংরেজি|ইংলিশ)\s*(এবং|ও|আর|\+|,)\s*বাংলা\s*(ফর্ম|ফরম)/i) ||
-              txt.match(/দুটো\s*ফর্ম|দুইটা\s*ফর্ম|উভয়\s*ফর্ম|both\s*forms?/i)
-            ))) {
-              // Send Bangla Form first, then English Form, followed by options
-              await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
-              appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
-              await delay(300);
-
-              await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT);
-              appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
-              await delay(300);
-
-              const bothTipMsg = "উপরে বাংলা ও ইংরেজি দুটি ফর্মই দেওয়া হলো। 🌸\nযেকোনো একটি ফর্ম কপি করে আপনার কার্ডের তথ্য ও পরিমাণ (কত পিস লাগবে) লিখে পাঠিয়ে দিন! 🥰";
-              await sendMessengerButtonBlock(senderId, bothTipMsg, [
-                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', bothTipMsg);
-            }
-            // ===== BANGLA ORDER FORM =====
-            else if (payload === 'BTN_FORM_BN' || (!isFormSubmission && (
-              txt.match(/bangla\s*form|বাংলা\s*ফর্ম|বাংলা\s*ফরম/i) ||
-              (txt.match(/বাংলা|bangla/i) && txt.match(/ফর্ম|form|ফরম/i)) ||
-              txt === 'বাংলা' || txt === 'বাংলায়' || txt === 'bangla' || txt === 'banglay' ||
-              txt.match(/^(bangla\s*hobe|বাংলা\s*হবে|বাংলাতে)$/i)
-            ))) {
-              await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
-              appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
-
-              const tipMsg = "উপরের ফর্মটি কপি করে তথ্য ও কার্ডের পরিমাণ (কত পিস লাগবে) লিখে পাঠিয়ে দিন! 🥰";
-              await sendMessengerButtonBlock(senderId, tipMsg, [
-                { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" },
-                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', tipMsg);
-            }
-            // ===== ENGLISH ORDER FORM =====
-            else if (payload === 'BTN_FORM_EN' || (!isFormSubmission && (
-              txt.match(/english\s*form|ইংরেজি\s*ফর্ম|ইংলিশ\s*ফর্ম|ইংরেজি\s*ফরম|ইংলিশ\s*ফরম/i) ||
-              (txt.match(/english|ইংরেজি|ইংলিশ/i) && txt.match(/ফর্ম|form|ফরম/i)) ||
-              txt === 'english' || txt === 'ইংরেজি' || txt === 'ইংলিশ' || txt === 'ইংরেজিতে' ||
-              txt.match(/^(english\s*hobe|ইংরেজিতে\s*হবে|ইংলিশে\s*হবে)$/i)
-            ))) {
-              await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT);
-              appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
-
-              const tipMsgEn = "Please copy the form above, fill in the details & quantity, and send it here! 🥰";
-              await sendMessengerButtonBlock(senderId, tipMsgEn, [
-                { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
-                { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', tipMsgEn);
-            }
-            // ===== GENERAL FORM OR INFORMATION CHECKLIST QUERY =====
-            else if (payload === 'BTN_FORM' || (!isFormSubmission && (
-              txt.match(/ফর্ম|form|ফরম/i) ||
-              txt.match(/তথ্য|information|info|ডিটেইলস|details|কি\s*কি\s*লাগবে|কী\s*কী\s*লাগবে|কি\s*লাগবে|কী\s*লাগবে|কি\s*তথ্য|কী\s*তথ্য|তথ্য\s*লাগবে|info\s*lagbe|information\s*lagbe/i)
-            ))) {
-              const infoNotice = `📋 বিয়ের কার্ড তৈরিতে যেসব তথ্য প্রয়োজন হয়:\n\n১. 📦 কার্ডের পরিমাণ (কত পিস লাগবে)\n২. 🤵 বরের নাম, পিতা, মাতা ও ঠিকানা\n৩. 👰 কনের নাম, পিতা, মাতা ও ঠিকানা\n৪. 📅 অনুষ্ঠানসূচী (হলুদ, বিবাহ, বৌ-ভাত: তারিখ, সময় ও স্থান)\n৫. 💌 আমন্ত্রণে (ছোটদের নাম, যোগাযোগ নম্বর)\n৬. 🚚 কুরিয়ার ডেলিভারি ঠিকানা ও মোবাইল\n\nআপনার কার্ডটি কি বাংলায় করবেন নাকি ইংরেজিতে? নিচের বাটন থেকে ফর্ম সিলেক্ট করুন: 👇`;
-              await sendMessengerButtonBlock(senderId, infoNotice, [
-                { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
-                { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" },
-                { title: "উভয় ফর্ম দেখুন", payload: "BTN_BOTH_FORMS" }
-              ]);
-              appendMessage(senderId, 'bot', infoNotice);
-            }
-            // ===== DELIVERY TIMELINE QUERY ("ডেলিভারি সময় কত", "কতদিন লাগে", "কবে পাব") =====
-            else if (txt.match(/ডেলিভারি\s*(সময়|সময়|কতদিন|কবে)|কত\s*দিন\s*(লাগবে|লাগে)|কতদিনে\s*(পাব|পৌঁছাবে)|কবে\s*(পাব|পৌঁছাবে)|delivery\s*(time|koto|din)/i)) {
-              const reply = `🚚 আমাদের ডেলিভারি সময় ও প্রক্রিয়া:\n\n• ডিজাইন ও প্রুফ চেক: কার্ডের তথ্য পাওয়ার পর ১-২ দিনের মধ্যে ডিজাইনার প্রুফ দেখাবে।\n• প্রিন্ট ও ডেলিভারি: আপনার ডিজাইন ওকে হওয়ার পর ৫-৭ কর্মদিবসের মধ্যে জেলা শহরে ক্যাশ অন ডেলিভারিতে হোম ডেলিভারি পৌঁছে যাবে!\n\n(জরুরি প্রয়োজনে মানিকগঞ্জ অফিস বা ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন) 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "দাম জানুন", payload: "BTN_PRICE" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            else if (payload === 'BTN_POLICY' || txt.match(/পলিসি|policy|কুরিয়ার/)) {
-              await sendMessengerText(senderId, ORDER_RULES_MSG);
-              appendMessage(senderId, 'bot', ORDER_RULES_MSG);
-
-              const followUp = "কার্ডের তথ্য পাঠাতে নিচের বাটনে চাপুন: 👇";
-              await sendMessengerButtonBlock(senderId, followUp, [
-                { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', followUp);
-            }
-            // ===== DIRECT CARD CODE QUERY (e.g. AFF-012, PREM-005, AFF 12) =====
-            else if (txt.match(/\b(aff|prem)[-_\s]*(\d{1,3})\b/i)) {
-              const codeMatch = txt.match(/\b(aff|prem)[-_\s]*(\d{1,3})\b/i);
-              const prefix = codeMatch[1].toLowerCase() === 'prem' ? 'PREM' : 'AFF';
-              const num = String(parseInt(codeMatch[2], 10)).padStart(3, '0');
-              const cardCode = prefix + '-' + num;
-              const category = prefix === 'PREM' ? 'premium' : 'affordable';
-              setCurrentCategorySafe(senderId, category);
-              setSelectedCardSafe(senderId, { category, code: cardCode });
-
-              const priceTable = getFullPriceTable(category);
-              const emoji = category === 'premium' ? '✨' : '💚';
-              const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-
-                            const reply = `আমাদের ${emoji} ${catName} কালেকশনের কার্ড:\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" },
-                { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== NIKAHNAMA QUERY =====
-            else if (txt.match(/nikahnama|নিকাহনামা|নিকাহ নামা/i)) {
-              const reply = `📜 নিকাহনামা তথ্য:\n\nনিকাহনামা সার্ভিস সম্পর্কে জানতে বা আলাদাভাবে নিকাহনামা প্রিন্ট করতে আমাদের হটলাইনে কল বা হোয়াটসঅ্যাপ করুন! 😊\n\n📞 হটলাইন: 01701016826 (বন্ধন হটলাইন)`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== CUSTOM DESIGN / PROOFING QUERY =====
-            else if (txt.match(/custom|কাস্টম|ডিজাইন চেঞ্জ|ডিজাইনার|লেখা/i)) {
-              const reply = `🎨 কাস্টম ডিজাইন সুবিধা:
-
-অর্ডার কনফার্ম (৩০% অ্যাডভান্স) করার পর আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে হোয়াটসঅ্যাপ/মেসেঞ্জারে চেক করাবে।
-
-আপনার পছন্দ ও ওকে হওয়ার পরই প্রিন্ট শুরু হবে! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-                { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== LOCATION / ADDRESS =====
-            else if (payload === 'BTN_LOCATION' || txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom|কারখানা|karkhana/i)) {
-              const reply = `📍 আমাদের অফিস ও ঠিকানার তথ্য:\n\n🏢 অফিস: ২/১-২, ভূমি অফিস লেন, মানিকগঞ্জ, ঢাকা।\n🏭 কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)।\n\n🛒 অর্ডার প্রক্রিয়া:\nঅনলাইনে অথবা মানিকগঞ্জ অফিসে সরাসরি এসে অর্ডার করতে পারবেন।\n\n📦 প্রোডাক্ট ডেলিভারি/সংগ্রহ:\n• কুরিয়ারের মাধ্যমে (সারাদেশে হোম ডেলিভারি)\n• মানিকগঞ্জ অফিসে সরাসরি\n• অথবা কার্ডের ধরন অনুযায়ী ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন!\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== HOTLINE BUTTON =====
-            else if (payload === 'BTN_HOTLINE') {
-              const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ধন হটলাইন)\n\nআমরা সার্বক্ষণিক সহায়তায় আছি! 😊`;
-              await sendMessengerText(senderId, reply);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== PAYMENT / BKASH NUMBER QUERY =====
-            else if (txt.match(/bkash|bKash|বিকাশ|nagad|নগদ|rocket|রকেট|payment|পেমেন্ট|এডভান্স|advance/i) && !isPaymentDonePhrase) {
-              const reply = `💳 পেমেন্ট তথ্য:\n\nঅর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স পেমেন্ট করতে হবে।\n\n📲 পেমেন্ট নম্বর (পার্সোনাল):\n01682588856 (বিকাশ / নগদ / রকেট)\n\nপেমেন্ট করার পর এখানে স্ক্রিনশট বা ট্রানজেকশন আইডি পাঠান! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
-                { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== CONTACT / PHONE / HOTLINE =====
-            else if (txt.match(/phone|mobile|ফোন|মোবাইল|contact|যোগাযোগ|hotline|whatsapp|হোয়াটসঅ্যাপ|কথা বলব|call/i)) {
-              const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ধন হটলাইন)\n\nআপনার যেকোনো প্রশ্নের জন্য আমরা রেডি আছি! 😊`;
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== ACKNOWLEDGEMENTS ("ok", "okay", "ঠিক আছে", "জি", "আচ্ছা", "হুম", "ধন্যবাদ") =====
-            else if (txt.match(/^(ok|okay|ওকে|ঠিক আছে|জি|আচ্ছা|accha|acha|হুম|hum|thik ase|thik|হয়তো|থাক)$/i)) {
-              const reply = "জি ধন্যবাদ! 😊 আমাদের বিয়ের কার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন!";
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            else if (txt.match(/^(thanks|thank you|ধন্যবাদ|ধন্যবাদ।)$/i)) {
-              const reply = "আপনাকেও অনেক ধন্যবাদ! 🌸 বিয়ের কার্ড সংক্রান্ত যেকোনো দরকারে আমাদের জানাতে পারেন।";
-              await sendMessengerButtonBlock(senderId, reply, [
-                { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                { title: "দাম জানুন", payload: "BTN_PRICE" }
-              ]);
-              appendMessage(senderId, 'bot', reply);
-            }
-            // ===== DEFAULT — Welcome or fallback =====
-            else {
-              const isGreeting = txt.match(/^(hi|hello|hey|হাই|হ্যালো|আসসালামু|assalamu|get started|start|শুরু)$/i);
-
-              if (isGreeting || isButtonClick) {
-                // Welcome message
-                const reply = "আসসালামু আলাইকুম! 🌸\nবন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
-                await sendMessengerButtonBlock(senderId, reply, [
-                  { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-                  { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-                  { title: "দাম জানুন", payload: "BTN_PRICE" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              } else {
-                // ===== AI SALES BRAIN — Smart conversational reply =====
-                const currentCat = getCurrentCategorySafe(senderId);
-                const catBtn = currentCat === 'premium'
-                  ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
-                  : currentCat === 'affordable'
-                    ? { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
-                    : { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" };
-
-                // Get AI response using conversation history
-                const convHistory = existingConv?.messages || [];
-                const aiReply = await generateAISalesResponse(senderId, text, convHistory);
-                
-                let fallbackMsg = "ধন্যবাদ! 😊 আমাদের কালেকশন দেখতে নিচের বাটনে ক্লিক করুন!";
-                if (isPriceObjectionOrDiscount) {
-                  fallbackMsg = "আপনার বাজেট ও দিকটা বুঝতে পারছি। আমাদের কার্ডগুলোতে প্রিমিয়াম মেটেরিয়াল ও নিখুঁত ফিনিশিং নিশ্চিত করা হয়। আপনি মোট কত পিস নিতে চাইছেন আর কেমন বাজেট ভাবছেন জানালে, সেরা অপশনটি বের করে দিচ্ছি! 😊";
-                }
-                const reply = aiReply || fallbackMsg;
-                await sendMessengerButtonBlock(senderId, reply, [
-                  catBtn,
-                  { title: "দাম জানুন", payload: "BTN_PRICE" },
-                  { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-                ]);
-                appendMessage(senderId, 'bot', reply);
-              }
+              } catch (_) { /* best-effort only, never let the fallback itself crash the loop */ }
             }
           }
         }
@@ -1980,10 +1071,1183 @@ export default async function handler(req, res) {
 
       return res.status(404).send('Not a Messenger Event');
     } catch (err) {
-      console.error('Error handling Messenger webhook:', err);
+      logError({ route: 'messenger.webhook', error: err });
       return res.status(500).json({ error: err.message });
     }
   }
 
   return res.status(405).send('Method Not Allowed');
+}
+
+// ============================================================
+// The full per-event handling logic, extracted into its own function so
+// it can be wrapped in a try/catch per event (P0-2) without a giant
+// nested try block inside the main loop.
+// ============================================================
+async function processOneEvent(webhookEvent) {
+  if (webhookEvent.delivery || webhookEvent.read) return;
+
+  // ===== ECHO DETECTION: Admin manual reply → auto-takeover =====
+  if (webhookEvent.message?.is_echo) {
+    const echoAppId = String(webhookEvent.message?.app_id || '');
+
+    if (echoAppId === BOT_APP_ID) {
+      return; // Bot's own echo → skip silently
+    }
+
+    const recipientId = webhookEvent.recipient?.id;
+    if (recipientId) {
+      await appendMessage(recipientId, 'admin', webhookEvent.message?.text || '(admin reply)');
+      await setHumanTakeoverSafe(recipientId, true);
+      console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — bot OFF for 15 min`);
+    }
+    return;
+  }
+
+  const senderId = webhookEvent.sender?.id;
+  if (!senderId) return;
+
+  const eventId = webhookEvent.message?.mid || (webhookEvent.postback ? `${senderId}_${webhookEvent.timestamp}_${webhookEvent.postback.payload}` : null);
+  if (eventId && isDuplicateEvent(eventId)) {
+    console.log(`⏩ Duplicate webhook event skipped: ${eventId}`);
+    return;
+  }
+
+  const postbackPayload = webhookEvent.postback?.payload || '';
+  const quickReplyPayload = webhookEvent.message?.quick_reply?.payload || '';
+
+  const message = webhookEvent.message;
+  const postback = webhookEvent.postback;
+
+  let text = message?.text || postback?.payload || postback?.title || '';
+  let payload = quickReplyPayload || postbackPayload || '';
+  const txt = text.toLowerCase();
+
+  // P1-7 / STEP 17: capture the customer's real Facebook name on first
+  // contact, gracefully falling back to the generic name if unavailable.
+  const existingConvBeforeAppend = await getConversation(senderId);
+  let extraName = '';
+  if (!existingConvBeforeAppend) {
+    const fetchedName = await fetchCustomerNameSafe(senderId);
+    if (fetchedName) extraName = fetchedName;
+  }
+
+  await appendMessage(senderId, 'customer', text, null, extraName);
+
+  // ===== HUMAN TAKEOVER CHECK (in-memory cache + durable store + live Facebook Graph API check) =====
+  if (await isHumanTakeoverActive(senderId)) {
+    console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
+    return;
+  }
+
+  const attachments = message?.attachments;
+  let isPhoto = false;
+  let photoUrl = null;
+  let isLinkOrShare = false;
+
+  const replyTo = message?.reply_to;
+  const isQuotedReply = !!replyTo;
+  let quotedCard = null;
+
+  if (replyTo) {
+    if (replyTo.attachments && Array.isArray(replyTo.attachments)) {
+      const qImg = replyTo.attachments.find(att => (att.type === 'image' || att.image_data) && !att.payload?.sticker_id);
+      if (qImg?.payload?.url) {
+        photoUrl = qImg.payload.url;
+        isPhoto = true;
+      } else if (qImg?.image_data?.url) {
+        photoUrl = qImg.image_data.url;
+        isPhoto = true;
+      }
+    }
+
+    if (replyTo.mid) {
+      quotedCard = await getSentCardInfo(senderId, replyTo.mid);
+      if (quotedCard) {
+        if (quotedCard.url && !photoUrl) {
+          photoUrl = quotedCard.url;
+        }
+        isPhoto = true;
+      }
+    }
+
+    if (!isPhoto && replyTo.mid && PAGE_ACCESS_TOKEN) {
+      try {
+        const graphMidUrl = `https://graph.facebook.com/v20.0/${replyTo.mid}?fields=attachments,message&access_token=${PAGE_ACCESS_TOKEN}`;
+        const midRes = await fetch(graphMidUrl, {
+          headers: { 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(2000)
+        });
+        if (midRes.ok) {
+          const midData = await midRes.json();
+          const atts = midData?.attachments?.data || midData?.attachments || [];
+          const foundImg = Array.isArray(atts) ? atts.find(a => a.image_data?.url || a.file_url || (a.type === 'image' && a.payload?.url)) : null;
+          const fetchedUrl = foundImg?.image_data?.url || foundImg?.file_url || foundImg?.payload?.url;
+          if (fetchedUrl) {
+            photoUrl = fetchedUrl;
+            isPhoto = true;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch reply_to message from Graph API:', e.message);
+      }
+    }
+  }
+
+  const referral = webhookEvent.referral || webhookEvent.message?.referral || null;
+  const isAdReferral = !!(referral && (referral.source === 'ADS' || referral.ad_id || referral.ads_context_data)) ||
+    (text && (text.includes('গোল্ড ফয়েল') || text.includes('হ্যান্ড-ফিনিশড ডিজাইন') || text.includes('#WeddingCard') || (text.includes('WhatsApp:') && text.includes('01701016826'))));
+
+  const isSticker = !!(message?.sticker_id || (attachments && attachments.some(att => att.payload?.sticker_id)));
+  const isLikeThumbsUp = isSticker || /^(👍|👍🏻|👍🏼|👍🏽|👍🏾|👍🏿|\(like\)|like)$/i.test(text.trim());
+
+  if (attachments && attachments.length > 0 && !isSticker && !isLikeThumbsUp && !isAdReferral) {
+    const imgAtt = attachments.find(att => att.type === 'image' && !att.payload?.sticker_id);
+    if (imgAtt) {
+      isPhoto = true;
+      photoUrl = imgAtt.payload?.url;
+    }
+    const nonImgAtt = attachments.find(att => att.type === 'fallback' || att.type === 'video' || att.type === 'share' || att.type === 'template');
+    if (nonImgAtt) {
+      isLinkOrShare = true;
+    }
+  }
+
+  // If sending a photo or replying to a card, preserve caption/text
+  const customerPhotoCaption = isPhoto ? (text || '').trim() : '';
+  if (isPhoto) {
+    payload = '';
+    text = '';
+  }
+
+  const isButtonClick = !!(payload || postbackPayload || quickReplyPayload);
+
+  const normalizedTxt = normalizeBengaliDigits(text).toLowerCase();
+  if (normalizedTxt.includes('facebook.com') || normalizedTxt.includes('fb.watch') || normalizedTxt.includes('/reel/') || normalizedTxt.includes('/videos/') || normalizedTxt.includes('fb.me')) {
+    isLinkOrShare = true;
+  }
+
+  const isFormSubmission = (
+    (text.includes('বর') && text.includes('কনে')) ||
+    (text.includes('নামঃ') && text.includes('পিতাঃ')) ||
+    (text.includes('অনুষ্ঠানসূচী') || text.includes('ওয়ালিমা') || text.includes('গায়ে হলুদ') || text.includes('বউ-ভাত') || text.includes('কনের বাড়ি')) ||
+    (text.includes('প্রিন্ট কার্ডের সংখ্যা') || text.includes('কার্ডের সংখ্যা') || text.includes('কার্ডের পরিমাণ')) ||
+    ((normalizedTxt.includes('groom') || normalizedTxt.includes('bride')) && (normalizedTxt.includes('father') || normalizedTxt.includes('wedding') || normalizedTxt.includes('courier'))) ||
+    (normalizedTxt.includes('wedding card') && (normalizedTxt.includes('courier') || normalizedTxt.includes('quantity'))) ||
+    (normalizedTxt.includes('card quantity') || normalizedTxt.includes('how many pcs'))
+  );
+
+  // FIX (P0-4 / STEP 7): quantity + unit-word detection now goes through
+  // lib/order-parser.js, which fixes a real bug discovered while
+  // rebuilding this: JavaScript's `\b` word boundary never matches next
+  // to Bengali script, so the ORIGINAL `/\b(...পিস|টা...)\b/` patterns
+  // here could never actually match "৫০ পিস", "১০০ পিস", etc. — only a
+  // bare, unit-less number worked before. See delivery report for detail.
+  const hasQtyUnit = Parser.hasQuantityUnit(normalizedTxt);
+  const anyDigitsMatch = normalizedTxt.match(/\b\d{3,8}\b/);
+  const pureDigitsMatch = normalizedTxt.trim().match(/^(\d{3,8})$/);
+  const pureDigitsNum = pureDigitsMatch ? parseInt(pureDigitsMatch[1], 10) : null;
+  const awaitingPayment = await checkCustomerAwaitingPayment(senderId);
+
+  const isPaymentDonePhrase = (
+    /(?:পেমেন্ট|টাকা|advance|এডভান্স|payment|paid|bKash|bkash|বিকাশ|nagad|নগদ|rocket|রকেট|taka)\s*(?:করেছি|করছি|দিলাম|দিছি|পাঠালাম|পাঠাইছি|পাঠিয়েছি|দিয়েছি|হয়েছে|হইছে|হলো|done|completed|send|sent|disi|diasi|dilam|pathaisi|pathalam|koresi|korsi|korechi)/i.test(normalizedTxt) ||
+    /\b(paid|payment\s*done|taka\s*send|advance\s*done|payment\s*completed|money\s*sent|advance\s*paid)\b/i.test(normalizedTxt) ||
+    normalizedTxt.match(/^(?:পেমেন্ট\s*করেছি|টাকা\s*পাঠিয়েছি|টাকা\s*পাঠাইছি|paid|advance\s*paid)$/i) !== null
+  );
+
+  const mentionsLastDigits = /(?:লাস্ট|last|শেষের|লাস্টের|শেষ|shesh|sesh)\s*(?:৪|4)?\s*(?:ডিজিট|digit|নম্বর|নাম্বার|number|no|num)?/i.test(normalizedTxt) ||
+    /(?:ডিজিট|digit|trx\s*id|transaction\s*id|ট্রানজেকশন|পেমেন্ট\s*কোড|trx)/i.test(normalizedTxt);
+
+  const isPaymentInfoSubmission = !hasQtyUnit && (
+    (mentionsLastDigits && anyDigitsMatch !== null) ||
+    (isPaymentDonePhrase && anyDigitsMatch !== null) ||
+    (awaitingPayment && anyDigitsMatch !== null) ||
+    (pureDigitsMatch !== null && (pureDigitsMatch[1].length === 4 || !Parser.isStandardCardQty(pureDigitsNum))) ||
+    /trx\s*id|transaction\s*id|ট্রানজেকশন|পেমেন্ট\s*কোড/i.test(normalizedTxt)
+  );
+
+  // FIX (P2-2 / audit A-side finding): "আরও কম হবে?" style price
+  // negotiation was previously misrouted into the MINIMUM-ORDER-QUANTITY
+  // branch because both shared the word "কম". isMinimumOrderQuery and
+  // isPriceObjectionOrDiscount are now mutually exclusive (see
+  // lib/order-parser.js) so this can't happen again.
+  const isMinimumOrderQuery = Parser.isMinimumOrderQuery(txt);
+  const isPriceObjectionOrDiscount = Parser.isPriceObjectionOrDiscount(normalizedTxt);
+
+  const bargainOffer = evaluateBargain(text, (await getCurrentCategory(senderId)) || 'affordable');
+
+  let quantity = null;
+  if (payload.startsWith('QTY_')) {
+    quantity = parseInt(payload.replace('QTY_', ''), 10);
+  } else if (isFormSubmission) {
+    const formQtyMatch = normalizedTxt.match(/(?:কার্ডের\s*(?:পরিমাণ|সংখ্যা)|card\s*quantity|quantity|কত\s*পিস)\s*[:ঃ]?\s*(\d{1,5})/i) ||
+                        normalizedTxt.match(/\b(\d{1,5})\s*(pcs?|piece|পিস|পিসি|পিচ)\b/i);
+    if (formQtyMatch) {
+      const num = parseInt(formQtyMatch[1], 10);
+      if (num > 0 && num < 10000) quantity = num;
+    }
+  } else if (!isPaymentInfoSubmission) {
+    const qtyResult = Parser.extractQuantity(text);
+    if (qtyResult) quantity = qtyResult.qty;
+  }
+
+  const existingConv = existingConvBeforeAppend; // FIX (P0-1): this is the crash this whole rewrite started from.
+  const conversationStage = await getConversationStage(senderId);
+
+  // ================================================================
+  // NEW (P0-5 / STEP 12/13/14/15/16): high-priority intents that must be
+  // recognized regardless of what stage the conversation is in — restart,
+  // human handoff, and explicit corrections. Checked BEFORE the rest of
+  // the routing so they can interrupt any in-progress flow, matching
+  // "customer can go back / correct / restart at any time" (Part C).
+  // ================================================================
+
+  if (!isPhoto && Parser.isRestartIntent(text)) {
+    await resetCustomerState(senderId);
+    const reply = "ঠিক আছে, আবার নতুন করে শুরু করছি! 🌸\nআসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউসে স্বাগতম। আপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
+  if (!isPhoto && Parser.isHumanHandoffIntent(text)) {
+    await setHumanTakeoverSafe(senderId, true);
+    const reply = "জি অবশ্যই! 🙏 আপনাকে আমাদের টিমের একজন সদস্যের সাথে সংযুক্ত করে দিচ্ছি। একটু সময় দিন, আমাদের কেউ শীঘ্রই আপনার সাথে সরাসরি কথা বলবেন।\n\n📞 জরুরি হলে সরাসরি কল/হোয়াটসঅ্যাপ করতে পারেন: 01701016826";
+    await sendMessengerText(senderId, reply);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
+  if (!isPhoto && conversationStage === 'reviewing' && Parser.isCancelIntent(text)) {
+    await resetCustomerState(senderId);
+    const reply = "অর্ডারটি বাতিল করা হলো। 🌸 কোনো সমস্যা নেই — যেকোনো সময় আবার শুরু করতে পারেন। আমাদের কালেকশন দেখতে চাইলে জানান!";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
+  if (!isPhoto && conversationStage === 'reviewing' && (payload === 'BTN_CONFIRM_ORDER' || Parser.isConfirmIntent(text))) {
+    const order = await getOrder(senderId);
+    const stillMissing = Parser.nextMissingField(order);
+    if (stillMissing || !order.quantity) {
+      // Don't guess / don't silently proceed with incomplete info (ABSOLUTE RULE #10)
+      if (!order.quantity) {
+        const msg = 'কনফার্ম করার আগে একটা তথ্য বাকি আছে — মোট কত পিস কার্ড লাগবে সেটা বলবেন?';
+        await sendMessengerText(senderId, msg);
+        await appendMessage(senderId, 'bot', msg);
+      } else {
+        await askNextMissingField(senderId);
+      }
+      return;
+    }
+    await setConversationStage(senderId, 'payment_pending');
+    // FIX: previously used 0 as the total for any order under 50 pieces,
+    // which would have asked a low-quantity customer to pay a 0৳ advance.
+    // getOrderTotal correctly prices 1-49 piece orders via the low-qty
+    // fixed-price bands (see lib/pricing.js).
+    const advance = getAdvanceAmount(getOrderTotal(order.quantity, (await getCurrentCategory(senderId)) || 'affordable'));
+    const reply = `আলহামদুলিল্লাহ! আপনার অর্ডারটি কনফার্ম হলো। 🌸\n\nঅর্ডারটি এগিয়ে নিতে ৩০% অ্যাডভান্স পেমেন্ট পাঠান:\n📲 বিকাশ / নগদ / রকেট (পার্সোনাল): 01682588856\n\nপেমেন্ট সম্পন্ন করে লাস্ট ৪ ডিজিট বা স্ক্রিনশট এখানে পাঠিয়ে দিন।\n\nআমাদের অভিজ্ঞ ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে। আপনার ফাইনাল অনুমোদনের পরই কেবল প্রিন্ট হবে! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "পেমেন্ট করেছি", payload: "BTN_PAID" },
+      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+      { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
+  if (!isPhoto && conversationStage === 'reviewing' && (payload === 'BTN_EDIT_ORDER' || Parser.isEditIntent(text))) {
+    const correction = Parser.detectCorrection(text);
+    if (correction && correction.field && correction.field !== 'card' && correction.field !== 'quantity' && correction.newValue) {
+      await updateOrder(senderId, { [correction.field]: correction.newValue });
+      const label = Parser.WEDDING_FIELD_LABELS_BN[correction.field] || correction.field;
+      const reply = `ঠিক আছে, ${label} আপডেট করে দিলাম: ${correction.newValue}। অন্য কিছু ঠিক করতে চান, নাকি সব ঠিক আছে?`;
+      await sendMessengerText(senderId, reply);
+      await appendMessage(senderId, 'bot', reply);
+      await sendOrderSummary(senderId);
+    } else {
+      const reply = "কোন তথ্যটি ঠিক করতে চান? সরাসরি লিখুন, যেমন:\n\"বরের নাম ভুল হয়েছে, রাকিব না, সাকিব\"\n\"৫০ না, ১০০ পিস\"\n\"তারিখটা ২৬ ডিসেম্বর হবে\"";
+      await sendMessengerText(senderId, reply);
+      await appendMessage(senderId, 'bot', reply);
+    }
+    return;
+  }
+
+  // Correction / quantity-change / card-change usable from ANY stage once
+  // an order is already in progress (STEP 12/13/14) — not just while
+  // reviewing, since a customer might notice a mistake mid-collection too.
+  if (!isPhoto && (conversationStage === 'collecting_info' || conversationStage === 'reviewing' || conversationStage === 'payment_pending')) {
+    const correction = Parser.detectCorrection(text);
+    if (correction) {
+      if (correction.field === 'quantity' && typeof correction.newValue === 'number') {
+        await updateOrder(senderId, { quantity: correction.newValue });
+        const cat = (await getCurrentCategory(senderId)) || 'affordable';
+        // FIX: getCategoryPrice/buildCategoryPriceText is only correct for
+        // qty >= 50 (it always uses the >=50 tier table). A quantity
+        // CHANGE down to under 50 pieces used to still show >=50 tier
+        // pricing here (wrong number shown to the customer) instead of the
+        // low-quantity fixed-band price every other quantity-price path in
+        // this file already branches to.
+        const priceMsg = correction.newValue >= 50
+          ? getCategoryPrice(correction.newValue, cat)
+          : getLowQtyPrice(correction.newValue);
+        const reply = `ঠিক আছে, পরিমাণ ${bngDigits(correction.newValue)} পিস করে দিলাম। নতুন হিসাব:\n\n${priceMsg}`;
+        await sendMessengerText(senderId, reply);
+        await appendMessage(senderId, 'bot', reply);
+        await sendOrderSummary(senderId);
+        return;
+      }
+      if (correction.field === 'card') {
+        if (correction.reference === 'previous') {
+          const lastShown = await getLastShownCards(senderId);
+          if (lastShown.length >= 2) {
+            const prevId = lastShown[lastShown.length - 2];
+            const cat = (await getCurrentCategory(senderId)) || 'affordable';
+            await setSelectedCard(senderId, { category: cat, cardId: prevId });
+            const reply = "ঠিক আছে, আগের কার্ডটাই সিলেক্ট করে দিলাম। ✅";
+            await sendMessengerText(senderId, reply);
+            await appendMessage(senderId, 'bot', reply);
+            await sendOrderSummary(senderId);
+            return;
+          }
+        }
+        // Ambiguous — don't guess (ABSOLUTE RULE #10)
+        const reply = "কোন ডিজাইনটি নিতে চান? চাইলে কার্ডের ছবি পাঠাতে পারেন, অথবা কালেকশন থেকে আবার বেছে নিতে পারেন। 😊";
+        await sendMessengerButtonBlock(senderId, reply, [
+          { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+          { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+          { title: "দাম জানুন", payload: "BTN_PRICE" }
+        ]);
+        await appendMessage(senderId, 'bot', reply);
+        return;
+      }
+      if (correction.field && correction.newValue) {
+        await updateOrder(senderId, { [correction.field]: correction.newValue });
+        const label = Parser.WEDDING_FIELD_LABELS_BN[correction.field] || correction.field;
+        const reply = `ঠিক আছে, ${label} আপডেট করে দিলাম: ${correction.newValue}। ✅`;
+        await sendMessengerText(senderId, reply);
+        await appendMessage(senderId, 'bot', reply);
+        if (conversationStage === 'reviewing') {
+          await sendOrderSummary(senderId);
+        }
+        return;
+      }
+    }
+  }
+
+  // ================================================================
+  // NEW (P0-4 / STEP 5/6): if we're actively collecting wedding info (or
+  // the customer just pasted the full form), route free text through the
+  // structured extractor instead of the generic "thanks, please pay"
+  // message the original bot always sent regardless of what was actually
+  // provided.
+  // ================================================================
+  if (!isPhoto && !isButtonClick && (conversationStage === 'collecting_info' || (isFormSubmission))) {
+    const handled = await handleWeddingInfoMessage(senderId, text);
+    if (handled) return;
+  }
+
+  // NEW (STEP 7/8): design selection purely by words — "এইটা ভালো",
+  // "এই ডিজাইনটা চাই", "আগেরটা", "৩ নম্বরটা চাই", "এই কার্ডটা নিব" — all
+  // of these previously either did nothing recognizable (crash via the
+  // existingConv bug) or were simply not understood. Resolved against
+  // `lastShownCards` (the most recent gallery batch) rather than
+  // requiring the customer to reply-to/quote the specific photo message.
+  if (!isPhoto && !isButtonClick) {
+    const designRef = Parser.detectDesignReference(text);
+    if (designRef) {
+      const lastShown = await getLastShownCards(senderId);
+      const cat = (await getCurrentCategory(senderId)) || 'affordable';
+      let resolvedId = null;
+
+      if (designRef.type === 'ordinal' && lastShown[designRef.index - 1]) {
+        resolvedId = lastShown[designRef.index - 1];
+      } else if ((designRef.type === 'last' || designRef.type === 'take') && lastShown.length > 0) {
+        resolvedId = lastShown[lastShown.length - 1];
+      } else if (designRef.type === 'previous' && lastShown.length >= 2) {
+        resolvedId = lastShown[lastShown.length - 2];
+      }
+
+      if (resolvedId) {
+        await setSelectedCard(senderId, { category: cat, cardId: resolvedId });
+        const priceTable = getFullPriceTable(cat);
+        const emoji = cat === 'premium' ? '✨' : '💚';
+        const catName = cat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+
+        if (designRef.type === 'take') {
+          const reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন, তাহলে অর্ডারটা এগিয়ে নিই! 😊`;
+          await sendMessengerButtonBlock(senderId, reply, [
+            { title: "অর্ডার করবো", payload: `BTN_ORDER_${cat.toUpperCase()}` },
+            { title: "দাম জানুন", payload: "BTN_PRICE" },
+            { title: "কার্ড দেখুন", payload: cat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+          ]);
+          await appendMessage(senderId, 'bot', reply);
+        } else {
+          const reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
+          await sendMessengerButtonBlock(senderId, reply, [
+            { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+            { title: "দাম জানুন", payload: "BTN_PRICE" },
+            { title: "কার্ড দেখুন", payload: cat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+          ]);
+          await appendMessage(senderId, 'bot', reply);
+        }
+        return;
+      } else if (designRef.type === 'ordinal' || designRef.type === 'previous') {
+        // Referenced a design we have no record of showing — don't guess.
+        const reply = "দুঃখিত, ঠিক কোন ডিজাইনটা বলছেন বুঝতে পারিনি। 🙏 আমাদের কালেকশন আরেকবার দেখে নিন, অথবা কার্ডের ছবি পাঠান!";
+        await sendMessengerButtonBlock(senderId, reply, [
+          { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+          { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+          { title: "দাম জানুন", payload: "BTN_PRICE" }
+        ]);
+        await appendMessage(senderId, 'bot', reply);
+        return;
+      }
+      // else: fall through to the rest of the router (e.g. "এইটা ভালো"
+      // with nothing shown yet isn't actually a design reference).
+    }
+  }
+
+  // ===== PHOTO UPLOADED OR QUOTED CARD REPLY =====
+  if (isPhoto && (photoUrl || quotedCard)) {
+    if (quotedCard) {
+      const category = quotedCard.category || 'affordable';
+      await setCurrentCategory(senderId, category);
+      await setSelectedCard(senderId, { category, cardId: quotedCard.cardId, url: quotedCard.url });
+
+      // FIX (P1-3 / STEP 9 / audit A11): VISUAL_CATALOG_RULES says the
+      // same design can exist in both sizes and a photo can't show size —
+      // so show BOTH category price tables instead of asserting one,
+      // wiring in a business rule the original file imported but never
+      // actually used.
+      let reply;
+      if (VISUAL_CATALOG_RULES?.IDENTICAL_DESIGNS) {
+        reply = `দারুণ পছন্দ! 😍 এই ডিজাইনটি আমাদের দুই সাইজেই পাওয়া যায় — শুধু কার্ডের ফিজিক্যাল সাইজে পার্থক্য, ডিজাইন একই:\n\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\nকোনটা নিতে চান? আর কত পিস লাগবে বলুন! 😊`;
+      } else {
+        const priceTable = getFullPriceTable(category);
+        const emoji = category === 'premium' ? '✨' : '💚';
+        const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+        reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
+      }
+
+      if (customerPhotoCaption) {
+        const capQtyResult = Parser.extractQuantity(customerPhotoCaption);
+        if (capQtyResult && capQtyResult.qty >= 50) {
+          reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${category === 'premium' ? '✨ Premium' : '💚 Affordable'} কালেকশনের কার্ড।\n\n${getCategoryPrice(capQtyResult.qty, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+        }
+      }
+
+      const altCat = category === 'premium' ? 'affordable' : 'premium';
+      const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
+        { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+        { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    } else {
+      let photoBase64 = null;
+      let photoMime = 'image/jpeg';
+      try {
+        const imgRes = await fetch(photoUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        });
+        if (imgRes.ok) {
+          const arrayBuffer = await imgRes.arrayBuffer();
+          photoBase64 = Buffer.from(arrayBuffer).toString('base64');
+          photoMime = (imgRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
+        } else {
+          console.error('Failed to fetch photo from Messenger:', imgRes.status);
+        }
+      } catch (fetchErr) {
+        console.error('Error fetching photo from Messenger:', fetchErr.message);
+      }
+
+      let matchResult = null;
+      if (photoBase64 && isCatalogIndexReady()) {
+        try {
+          matchResult = await findCatalogMatch(photoBase64, photoMime);
+        } catch (matchErr) {
+          console.error('Catalog match error:', matchErr.message);
+        }
+      }
+
+      const driveHighMatch = matchResult && matchResult.similarity >= 0.65;
+      const driveMediumMatch = matchResult && matchResult.similarity >= 0.48 && matchResult.similarity < 0.65;
+
+      // Shared reply-builder for a confirmed catalog match, now honoring
+      // VISUAL_CATALOG_RULES the same way as the quoted-card path above (P1-3).
+      const buildMatchedReply = async (category, matchCode) => {
+        await setCurrentCategory(senderId, category);
+        await setSelectedCard(senderId, { category, code: matchCode, url: photoUrl });
+
+        let reply;
+        if (VISUAL_CATALOG_RULES?.IDENTICAL_DESIGNS) {
+          reply = `দারুণ পছন্দ! 😍 এই ডিজাইনটি আমাদের দুই সাইজেই পাওয়া যায় — শুধু কার্ডের ফিজিক্যাল সাইজে পার্থক্য, ডিজাইন একই:\n\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\nকোনটা নিতে চান? আর কত পিস লাগবে বলুন! 😊`;
+        } else {
+          const priceTable = getFullPriceTable(category);
+          const emoji = category === 'premium' ? '✨' : '💚';
+          const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+          reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
+        }
+
+        if (customerPhotoCaption) {
+          const capQtyResult = Parser.extractQuantity(customerPhotoCaption);
+          if (capQtyResult && capQtyResult.qty >= 50) {
+            reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${category === 'premium' ? '✨ Premium' : '💚 Affordable'} কালেকশনের কার্ড।\n\n${getCategoryPrice(capQtyResult.qty, category)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+          }
+        }
+
+        const altCat = category === 'premium' ? 'affordable' : 'premium';
+        const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+        await sendMessengerButtonBlock(senderId, reply, [
+          { title: "অর্ডার করবো", payload: `BTN_ORDER_${category.toUpperCase()}` },
+          { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+          { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+        ]);
+        await appendMessage(senderId, 'bot', reply);
+      };
+
+      if (driveHighMatch) {
+        const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
+        await buildMatchedReply(category, matchResult.code);
+      } else if (driveMediumMatch) {
+        const visionCheck = await analyzeCardImage({
+          photoUrl, base64Data: photoBase64, mimeType: photoMime,
+          customerCaption: customerPhotoCaption, topCandidate: matchResult
+        });
+
+        if (visionCheck?.type === 'WEDDING_CARD') {
+          const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
+          await buildMatchedReply(category, matchResult.code);
+        } else if (visionCheck?.type === 'PAYMENT_RECEIPT') {
+          await setCustomerAwaitingPayment(senderId, true);
+          await setHumanTakeoverSafe(senderId, true);
+          const reply = visionCheck.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন।`;
+          await sendMessengerButtonBlock(senderId, reply, [
+            { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+            { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+            { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+          ]);
+          await appendMessage(senderId, 'bot', reply);
+        } else {
+          const reply = visionCheck?.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি বিয়ের কার্ড দেখতে চাইছেন? আমাদের কালেকশন দেখুন! 😊`;
+          await sendMessengerButtonBlock(senderId, reply, [
+            { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+            { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+            { title: "দাম জানুন", payload: "BTN_PRICE" }
+          ]);
+          await appendMessage(senderId, 'bot', reply);
+        }
+      } else {
+        const visionRes = await analyzeCardImage({
+          photoUrl, base64Data: photoBase64, mimeType: photoMime,
+          customerCaption: customerPhotoCaption, topCandidate: matchResult
+        });
+
+        if (visionRes?.type === 'PAYMENT_RECEIPT') {
+          await setCustomerAwaitingPayment(senderId, true);
+          await setHumanTakeoverSafe(senderId, true);
+          const reply = visionRes.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।`;
+          await sendMessengerButtonBlock(senderId, reply, [
+            { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+            { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+            { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+          ]);
+          await appendMessage(senderId, 'bot', reply);
+        } else if (visionRes?.type === 'OTHER') {
+          const reply = visionRes.reply || `ছবিটির জন্য ধন্যবাদ! 🌸 আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড তৈরি করতে চাইছেন? আমাদের কালেকশন দেখতে পারেন অথবা আপনার পছন্দের কার্ডের ছবি বা কত পিস লাগবে জানাতে পারেন!`;
+          await sendMessengerButtonBlock(senderId, reply, [
+            { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+            { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+            { title: "দাম জানুন", payload: "BTN_PRICE" }
+          ]);
+          await appendMessage(senderId, 'bot', reply);
+        } else {
+          const reply = `সুন্দর কার্ড! 😍 তবে এই ডিজাইনটি আমাদের বর্তমান কালেকশনে নেই।\n\nআমাদের কালেকশন থেকে পছন্দের কার্ড দেখুন এবং সেই ছবি পাঠান — তাহলে সাথে সাথে দাম জানাবো! 😊`;
+          await sendMessengerButtonBlock(senderId, reply, [
+            { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+            { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+            { title: "দাম জানুন", payload: "BTN_PRICE" }
+          ]);
+          await appendMessage(senderId, 'bot', reply);
+        }
+      }
+    }
+  }
+  // ===== QUOTED/SWIPED CARD REPLY (FALLBACK IF NO DIRECT IMAGE URL ATTACHED) =====
+  else if (isQuotedReply && (
+    normalizedTxt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto)\b/i) ||
+    normalizedTxt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস|eita|aita|etar|eitar/i) ||
+    normalizedTxt === 'pp' || normalizedTxt === 'pp?' || normalizedTxt === 'p?'
+  )) {
+    const cat = (await getCurrentCategory(senderId)) || 'affordable';
+    await setCurrentCategory(senderId, cat);
+
+    const priceTable = getFullPriceTable(cat);
+    const emoji = cat === 'premium' ? '✨' : '💚';
+    const catName = cat === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+    const altCat = cat === 'premium' ? 'affordable' : 'premium';
+    const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+
+    let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
+
+    const qtyResult = Parser.extractQuantity(normalizedTxt);
+    if (qtyResult && qtyResult.qty >= 50) {
+      reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${getCategoryPrice(qtyResult.qty, cat)}\n\nঅর্ডার করতে চাইলে বলুন! 😊`;
+    }
+
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+      { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+      { title: "কার্ড দেখুন", payload: cat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== FACEBOOK AD / POST REFERRAL ENTRY =====
+  else if (isAdReferral && (!payload || payload === '' || payload === 'BTN_AD_ENTRY' || !text || text.includes('গোল্ড ফয়েল') || text.includes('WhatsApp:'))) {
+    const reply = `আসসালামু আলাইকুম! 🌸 বন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআমাদের গোল্ড ফয়েল ও প্রিমিয়াম বিয়ের কার্ডের বিজ্ঞাপনটি দেখে যোগাযোগ করার জন্য ধন্যবাদ! আপনি কি এই ধরনের কার্ডের কালেকশন দেখতে চাইছেন?`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== LIKE / THUMBS UP STICKER OR EMOJI =====
+  else if (isLikeThumbsUp) {
+    const reply = `লাইক দেওয়ার জন্য অনেক ধন্যবাদ! 🌸😊\nবন্ধন প্রিন্টিং হাউসে স্বাগতম। আপনি কি কোনো নির্দিষ্ট ডিজাইনের বিয়ের কার্ড দেখতে চাইছেন?`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== SHARED REEL / VIDEO / POST FROM PAGE =====
+  else if (isLinkOrShare) {
+    const reply = `আমাদের ভিডিও/পোস্টের ডিজাইনটি পছন্দ করার জন্য ধন্যবাদ! 😍🌸\n\nএই কার্ডটির দামের হিসাব:\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\n(১-৪৯ পিস অল্প পরিমাণেও নিতে পারবেন!)\nআপনার কত পিস কার্ড লাগবে বলুন, সঠিক হিসাব জানিয়ে দিচ্ছি! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== ORDER FORM SUBMITTED BY CUSTOMER (full paste) =====
+  // FIX (P0-4 / STEP 5/6/11): the original bot only ever pattern-matched
+  // that *something form-shaped* arrived and replied with a fixed "thanks,
+  // pay 30% now" message regardless of what was actually filled in — no
+  // parsing, no validation, no summary. Now routes through the same
+  // structured extractor as incremental collection, and only asks for
+  // payment after showing a summary the customer has explicitly confirmed
+  // (see sendOrderSummary / BTN_CONFIRM_ORDER above).
+  else if (isFormSubmission) {
+    await handleWeddingInfoMessage(senderId, text);
+  }
+  // ===== LOW QUANTITY / MINIMUM ORDER QUERY =====
+  else if (!isFormSubmission && isMinimumOrderQuery) {
+    const reply = `জি, আমাদের কাছে অল্প পরিমাণেও (১-৪৯ পিস) বিয়ের কার্ড অর্ডার করতে পারবেন! 😊\n\nঅল্প পরিমাণের প্রাইসিং রেট:\n• ১-৫ পিস: ১,০০০৳ (ফিক্সড মেকিং চার্জ সহ)\n• ৬-১০ পিস: ১,৫০০৳ (ফিক্সড চার্জ)\n• ১১-৪৯ পিস: পিস প্রতি ৭৫৳ (যেমন ২৫ পিস = ১,৮৭৫৳)\n\n💡 পরামর্শ: ৫০+ পিস নিলে পিস প্রতি দাম অনেক কমে আসে (Affordable: ৫৫৳, Premium: ৬৫৳)।\n\nআপনার কত পিস লাগবে বলুন! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "৫ পিস (১০০০৳)", payload: "QTY_5" },
+      { title: "১০ পিস (১৫০০৳)", payload: "QTY_10" },
+      { title: "২৫ পিস (১৮৭৫৳)", payload: "QTY_25" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== PAYMENT LAST DIGITS / CONFIRMATION SUBMITTED BY USER =====
+  else if (isPaymentInfoSubmission) {
+    const digitsMatch = normalizedTxt.match(/\b\d{3,8}\b/);
+    const digits = digitsMatch ? digitsMatch[0] : '';
+    const digitsText = digits ? ` (${bngDigits(digits)})` : '';
+
+    await setCustomerAwaitingPayment(senderId, false);
+    await setOrderStatus(senderId, 'Payment_Submitted');
+    await setPaymentStatus(senderId, 'Submitted');
+    await setConversationStage(senderId, 'payment_submitted');
+    await setHumanTakeoverSafe(senderId, true);
+
+    const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের লাস্ট ৪ ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।\n\nপেমেন্ট নিশ্চিত হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের কাজ শুরু করে দেবে! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+      { title: "📍 অফিসের ঠিকানা", payload: "BTN_LOCATION" },
+      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== PAYMENT CLAIMED (NO DIGITS YET) OR BTN_PAID CLICKED =====
+  else if (payload === 'BTN_PAID' || isPaymentDonePhrase) {
+    await setCustomerAwaitingPayment(senderId, true);
+    const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের স্ক্রিনশট বা বিকাশ/নগদ লাস্ট ৪ ডিজিট এখানে লিখে দিন। 😊\nআমাদের টিম দ্রুত যাচাই করে আপনার অর্ডারটি নিশ্চিত করবে এবং ডিজাইনার কাজ শুরু করবে! 🌸`;
+    await sendMessengerText(senderId, reply);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== 50/100 TK CONCESSION / BARGAIN ACCEPTANCE (OWNER AUTHORIZED) =====
+  else if (bargainOffer && bargainOffer.accepted) {
+    const diffText = bargainOffer.discountAmount > 0 ? `${bngDigits(bargainOffer.discountAmount)}৳ কমিয়ে ` : '';
+    const reply = `জি ঠিক আছে ভাইয়া! আপনার সম্মানে আমরা ${diffText}${bngDigits(bargainOffer.finalPrice)}৳-তেই রাখছি! 🎉🤝\n\nতাহলে আপনার ${bngDigits(bargainOffer.qty)} পিস কার্ডের অর্ডারটি কনফার্ম করার জন্য এগিয়ে নিচ্ছি।\n\n📋 অর্ডার করার সহজ ৩টি ধাপ:\n১️⃣ তথ্য পূরণ: প্রথমে নিচের 'ফর্ম পূরণ' বাটনে চাপ দিয়ে বর-কনের নাম ও অনুষ্ঠানসূচী লিখে পাঠান।\n২️⃣ অ্যাডভান্স: তথ্য পাওয়ার পর ৩০% অ্যাডভান্স (${bngDigits(bargainOffer.advance30)}৳) দিতে হবে।\n৩️⃣ ডিজাইন ও প্রিন্ট: ডিজাইনার আপনাকে ড্রাফট প্রুফ দেখাবে। পছন্দ হলে প্রিন্ট হবে!\n\n👇 অর্ডারটি শুরু করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন:`;
+
+    await updateOrder(senderId, { quantity: bargainOffer.qty });
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== QUANTITY — Show price for CURRENT category or Min 50 Pcs Warning =====
+  else if (quantity && !isPriceObjectionOrDiscount) {
+    if (quantity < 50) {
+      const reply = getLowQtyPrice(quantity);
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+        { title: "৫০ পিস রেট", payload: "QTY_50" },
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    } else {
+      const currentCat = (await getCurrentCategory(senderId)) || 'affordable';
+      const reply = getCategoryPrice(quantity, currentCat) + "\n\nঅর্ডার করতে চাইলে বলুন! 😊";
+
+      const oppositeBtn = currentCat === 'premium'
+        ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+        : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
+
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+        oppositeBtn,
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    }
+  }
+  // ===== GENERAL DESIGN / CARD VIEW REQUEST =====
+  else if (
+    !txt.includes('affordable') && !txt.includes('premium') && !txt.includes('সাশ্রয়ী') && !txt.includes('প্রিমিয়াম') &&
+    (txt.match(/(?:কার্ড|card|ডিজাইন|design|কালেকশন|collection).*?(?:দেখব|দেখবো|দেখতে|দেখান|দেখা|show|ছবি|pic)/i) ||
+     txt.match(/^(কার্ড\s*দেখব|কার্ড\s*দেখবো|কার্ড\s*দেখতে\s*চাই|কার্ডের\s*ডিজাইন\s*দেখতে\s*চাই|ডিজাইন\s*দেখব|ডিজাইন\s*দেখতে\s*চাই|কালেকশন\s*দেখব|কালেকশন\s*দেখতে\s*চাই|ডিজাইন\s*গুলো\s*দেখতে\s*চাই)$/i) ||
+     // FIX (P2-2 / STEP 7): the most natural opener of all — "কার্ড লাগবে",
+     // "বিয়ের কার্ড লাগবে" — previously matched NOTHING here and fell all
+     // the way through to the broken AI fallback (the #1 finding from the
+     // audit). Recognized explicitly now.
+     txt.match(/^(কার্ড|বিয়ের\s*কার্ড|বিয়ে\s*কার্ড)\s*(লাগবে|দরকার|চাই)$/i))
+  ) {
+    const reply = `আমাদের বিয়ের কার্ডের দুটি চমৎকার কালেকশন রয়েছে: 🌸\n\n💚 সাশ্রয়ী (Affordable) — সেরা বাজেটে আধুনিক লেজার-কাট ডিজাইন\n✨ প্রিমিয়াম (Premium) — বড় সাইজের লাক্সারি ও রাজকীয় লুক\n\nআপনি কোন কালেকশনের ডিজাইন দেখতে চান? 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== AFFORDABLE COLLECTION =====
+  else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')) {
+    let offset = 0;
+    if (payload.startsWith('MORE_AFFORDABLE_')) {
+      offset = parseInt(payload.replace('MORE_AFFORDABLE_', ''), 10) || 0;
+    }
+    await sendSequentialGallery(senderId, 'affordable', offset);
+  }
+  // ===== PREMIUM COLLECTION =====
+  else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
+    let offset = 0;
+    if (payload.startsWith('MORE_PREMIUM_')) {
+      offset = parseInt(payload.replace('MORE_PREMIUM_', ''), 10) || 0;
+    }
+    await sendSequentialGallery(senderId, 'premium', offset);
+  }
+  // ===== PRICE — Context-aware or complete price table (NO LOOPS!) =====
+  else if ((
+    payload === 'BTN_PRICE' ||
+    txt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto|koto\s*tk)\b/i) ||
+    txt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
+    txt === 'pp' || txt === 'pp?' || txt === 'p?' || txt === 'দাম' || txt === 'দাম?' || txt === 'কত?' || txt === 'কতো?'
+  ) && !isPriceObjectionOrDiscount) {
+    const currentCat = await getCurrentCategory(senderId);
+
+    if (currentCat) {
+      const priceTable = getFullPriceTable(currentCat);
+      const altCat = currentCat === 'premium' ? 'affordable' : 'premium';
+      const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
+      const reply = `${priceTable}\n\n💡 (${altName} কালেকশনের দামও দেখতে পারেন)\nকত পিস লাগবে বলুন! 😊`;
+
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
+        { title: "কার্ড দেখুন", payload: currentCat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" },
+        { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    } else {
+      const reply = buildBothCategoriesPriceText(bngDigits) + "\nআপনার কত পিস লাগবে বলুন? 😊";
+
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+        { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+        { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    }
+  }
+  // ===== CATEGORY-SPECIFIC PRICE BUTTONS =====
+  else if (payload === 'BTN_AFFORDABLE_PRICE') {
+    await setCurrentCategory(senderId, 'affordable');
+    const reply = getFullPriceTable('affordable') + "\n\nকত পিস লাগবে বলুন! 😊";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+      { title: "✨ Premium রেট", payload: "BTN_PREMIUM_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  else if (payload === 'BTN_PREMIUM_PRICE') {
+    await setCurrentCategory(senderId, 'premium');
+    const reply = getFullPriceTable('premium') + "\n\nকত পিস লাগবে বলুন! 😊";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+      { title: "💚 Affordable রেট", payload: "BTN_AFFORDABLE_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
+  else if (payload === 'BTN_ORDER' || payload === 'BTN_ORDER_PREMIUM' || payload === 'BTN_ORDER_AFFORDABLE' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
+    let orderCategory = null;
+    if (payload === 'BTN_ORDER_PREMIUM') orderCategory = 'premium';
+    else if (payload === 'BTN_ORDER_AFFORDABLE') orderCategory = 'affordable';
+
+    if (!orderCategory) {
+      const sc = await getSelectedCard(senderId);
+      if (sc) orderCategory = sc.category;
+    }
+    if (!orderCategory) {
+      orderCategory = await getCurrentCategory(senderId);
+    }
+
+    const isOrderButtonClick = payload && payload.startsWith('BTN_ORDER');
+
+    if (!orderCategory && !isOrderButtonClick) {
+      const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 আমাদের পেজ বা পোস্টের যে কার্ডটি আপনার পছন্দ হয়েছে, দয়া করে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন!\n👀 কালেকশন দেখতে চাইলে নিচের বাটন চাপুন: 😊`;
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
+        { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    } else {
+      const catLabel = orderCategory === 'premium' ? '✨ Premium' : (orderCategory === 'affordable' ? '💚 Affordable' : '🌸');
+      const cardDesc = orderCategory ? `(${catLabel})` : '';
+
+      await sendMessengerText(senderId, ORDER_RULES_MSG);
+      await appendMessage(senderId, 'bot', ORDER_RULES_MSG);
+
+      const followUp = `দারুণ! আপনার পছন্দের কার্ড ${cardDesc} সিলেক্ট হয়েছে। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
+      await setConversationStage(senderId, 'card_selected');
+      await sendMessengerButtonBlock(senderId, followUp, [
+        { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+        { title: "অন্য ডিজাইন দেখুন", payload: "BTN_AFFORDABLE" },
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', followUp);
+    }
+  }
+  // ===== CUSTOMER SAYS THEY SENT PHOTO BY TEXT (CHECK IF REAL PHOTO EXISTS) =====
+  else if (payload === 'BTN_HAS_PHOTO' || txt.match(/ছবি\s*(দিয়েছি|দিছি|পাঠিয়েছি|পাঠাইছি)|chobi\s*(disi|diasi|dichi|pathaisi)/i)) {
+    const existingCard = await getSelectedCard(senderId);
+    if (!existingCard) {
+      const reply = `আমরা তো এখনো আপনার পছন্দের কার্ডের কোনো ছবি পাইনি ভাইয়া! 🌸\n\nদয়া করে মেসেঞ্জারের ক্যামেরা বা গ্যালারি আইকন চেপে আপনার পছন্দের কার্ডটির ছবি বা স্ক্রিনশট এখানে পাঠিয়ে দিন। ছবি পেলেই আমরা সাথে সাথে ফর্ম দেবো! 😊`;
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
+        { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    } else {
+      const reply = `জি অনেক ধন্যবাদ! আপনার পাঠানো ছবি অনুযায়ী ডিজাইনার কাজ করবে। 🌸\n\nএবার বর-কনের নাম ও অনুষ্ঠানসূচীর তথ্য পাঠাতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন: 👇`;
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+        { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+        { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    }
+  }
+  // ===== BOTH FORMS / ORDER FORM & INFORMATION REQUEST =====
+  else if (payload === 'BTN_BOTH_FORMS' || (!isFormSubmission && (
+    txt.match(/bangla\s*(and|&|\+|,|o|\s+)\s*english\s*form/i) ||
+    txt.match(/english\s*(and|&|\+|,|o|\s+)\s*bangla\s*form/i) ||
+    txt.match(/বাংলা\s*(এবং|ও|আর|\+|,)\s*(ইংরেজি|ইংলিশ)\s*(ফর্ম|ফরম)/i) ||
+    txt.match(/(ইংরেজি|ইংলিশ)\s*(এবং|ও|আর|\+|,)\s*বাংলা\s*(ফর্ম|ফরম)/i) ||
+    txt.match(/দুটো\s*ফর্ম|দুইটা\s*ফর্ম|উভয়\s*ফর্ম|both\s*forms?/i)
+  ))) {
+    await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
+    await appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
+    await delay(300);
+
+    await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT);
+    await appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
+    await delay(300);
+
+    const bothTipMsg = "উপরে বাংলা ও ইংরেজি দুটি ফর্মই দেওয়া হলো। 🌸\nযেকোনো একটি ফর্ম কপি করে আপনার কার্ডের তথ্য ও পরিমাণ (কত পিস লাগবে) লিখে পাঠিয়ে দিন! 🥰";
+    await setConversationStage(senderId, 'collecting_info');
+    await sendMessengerButtonBlock(senderId, bothTipMsg, [
+      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+      { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', bothTipMsg);
+  }
+  // ===== BANGLA ORDER FORM =====
+  else if (payload === 'BTN_FORM_BN' || (!isFormSubmission && (
+    txt.match(/bangla\s*form|বাংলা\s*ফর্ম|বাংলা\s*ফরম/i) ||
+    (txt.match(/বাংলা|bangla/i) && txt.match(/ফর্ম|form|ফরম/i)) ||
+    txt === 'বাংলা' || txt === 'বাংলায়' || txt === 'bangla' || txt === 'banglay' ||
+    txt.match(/^(bangla\s*hobe|বাংলা\s*হবে|বাংলাতে)$/i)
+  ))) {
+    await sendMessengerText(senderId, BANGLA_ORDER_FORM_TEXT);
+    await appendMessage(senderId, 'bot', BANGLA_ORDER_FORM_TEXT);
+
+    const tipMsg = "উপরের ফর্মটি কপি করে তথ্য ও কার্ডের পরিমাণ (কত পিস লাগবে) লিখে পাঠিয়ে দিন! 🥰";
+    await setConversationStage(senderId, 'collecting_info');
+    await sendMessengerButtonBlock(senderId, tipMsg, [
+      { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" },
+      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', tipMsg);
+  }
+  // ===== ENGLISH ORDER FORM =====
+  else if (payload === 'BTN_FORM_EN' || (!isFormSubmission && (
+    txt.match(/english\s*form|ইংরেজি\s*ফর্ম|ইংলিশ\s*ফর্ম|ইংরেজি\s*ফরম|ইংলিশ\s*ফরম/i) ||
+    (txt.match(/english|ইংরেজি|ইংলিশ/i) && txt.match(/ফর্ম|form|ফরম/i)) ||
+    txt === 'english' || txt === 'ইংরেজি' || txt === 'ইংলিশ' || txt === 'ইংরেজিতে' ||
+    txt.match(/^(english\s*hobe|ইংরেজিতে\s*হবে|ইংলিশে\s*হবে)$/i)
+  ))) {
+    await sendMessengerText(senderId, ENGLISH_ORDER_FORM_TEXT);
+    await appendMessage(senderId, 'bot', ENGLISH_ORDER_FORM_TEXT);
+
+    const tipMsgEn = "Please copy the form above, fill in the details & quantity, and send it here! 🥰";
+    await setConversationStage(senderId, 'collecting_info');
+    await sendMessengerButtonBlock(senderId, tipMsgEn, [
+      { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
+      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', tipMsgEn);
+  }
+  // ===== GENERAL FORM OR INFORMATION CHECKLIST QUERY =====
+  else if (payload === 'BTN_FORM' || (!isFormSubmission && (
+    txt.match(/ফর্ম|form|ফরম/i) ||
+    txt.match(/তথ্য|information|info|ডিটেইলস|details|কি\s*কি\s*লাগবে|কী\s*কী\s*লাগবে|কি\s*লাগবে|কী\s*লাগবে|কি\s*তথ্য|কী\s*তথ্য|তথ্য\s*লাগবে|info\s*lagbe|information\s*lagbe/i)
+  ))) {
+    const infoNotice = `📋 বিয়ের কার্ড তৈরিতে যেসব তথ্য প্রয়োজন হয়:\n\n১. 📦 কার্ডের পরিমাণ (কত পিস লাগবে)\n২. 🤵 বরের নাম, পিতা, মাতা ও ঠিকানা\n৩. 👰 কনের নাম, পিতা, মাতা ও ঠিকানা\n৪. 📅 অনুষ্ঠানসূচী (হলুদ, বিবাহ, বৌ-ভাত: তারিখ, সময় ও স্থান)\n৫. 💌 আমন্ত্রণে (ছোটদের নাম, যোগাযোগ নম্বর)\n৬. 🚚 কুরিয়ার ডেলিভারি ঠিকানা ও মোবাইল\n\nআপনার কার্ডটি কি বাংলায় করবেন নাকি ইংরেজিতে? নিচের বাটন থেকে ফর্ম সিলেক্ট করুন: 👇\n\n💡 (চাইলে পুরো ফর্ম একসাথে না লিখে, একটা একটা করে তথ্য দিলেও চলবে — আমি জিজ্ঞেস করে করে নিয়ে নেব!)`;
+    await sendMessengerButtonBlock(senderId, infoNotice, [
+      { title: "🇧🇩 বাংলা ফর্ম", payload: "BTN_FORM_BN" },
+      { title: "🇬🇧 English Form", payload: "BTN_FORM_EN" },
+      { title: "উভয় ফর্ম দেখুন", payload: "BTN_BOTH_FORMS" }
+    ]);
+    await appendMessage(senderId, 'bot', infoNotice);
+  }
+  // ===== DELIVERY TIMELINE QUERY =====
+  else if (txt.match(/ডেলিভারি\s*(সময়|সময়|কতদিন|কবে)|কত\s*দিন\s*(লাগবে|লাগে)|কতদিনে\s*(পাব|পৌঁছাবে)|কবে\s*(পাব|পৌঁছাবে)|delivery\s*(time|koto|din)/i)) {
+    const reply = `🚚 আমাদের ডেলিভারি সময় ও প্রক্রিয়া:\n\n• ডিজাইন ও প্রুফ চেক: কার্ডের তথ্য পাওয়ার পর ১-২ দিনের মধ্যে ডিজাইনার প্রুফ দেখাবে।\n• প্রিন্ট ও ডেলিভারি: আপনার ডিজাইন ওকে হওয়ার পর ৫-৭ কর্মদিবসের মধ্যে জেলা শহরে ক্যাশ অন ডেলিভারিতে হোম ডেলিভারি পৌঁছে যাবে!\n\n(জরুরি প্রয়োজনে মানিকগঞ্জ অফিস বা ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন) 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "দাম জানুন", payload: "BTN_PRICE" },
+      { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  else if (payload === 'BTN_POLICY' || txt.match(/পলিসি|policy|কুরিয়ার/)) {
+    await sendMessengerText(senderId, ORDER_RULES_MSG);
+    await appendMessage(senderId, 'bot', ORDER_RULES_MSG);
+
+    const followUp = "কার্ডের তথ্য পাঠাতে নিচের বাটনে চাপুন: 👇";
+    await sendMessengerButtonBlock(senderId, followUp, [
+      { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+      { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', followUp);
+  }
+  // ===== DIRECT CARD CODE QUERY (e.g. AFF-012, PREM-005, AFF 12) =====
+  else if (txt.match(/\b(aff|prem)[-_\s]*(\d{1,3})\b/i)) {
+    const codeMatch = txt.match(/\b(aff|prem)[-_\s]*(\d{1,3})\b/i);
+    const prefix = codeMatch[1].toLowerCase() === 'prem' ? 'PREM' : 'AFF';
+    const num = String(parseInt(codeMatch[2], 10)).padStart(3, '0');
+    const cardCode = prefix + '-' + num;
+    const category = prefix === 'PREM' ? 'premium' : 'affordable';
+    await setCurrentCategory(senderId, category);
+    await setSelectedCard(senderId, { category, code: cardCode });
+
+    const priceTable = getFullPriceTable(category);
+    const emoji = category === 'premium' ? '✨' : '💚';
+    const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+
+    const reply = `আমাদের ${emoji} ${catName} কালেকশনের কার্ড:\n\n${priceTable}\n\nকত পিস লাগবে বলুন! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" },
+      { title: "কার্ড দেখুন", payload: category === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== NIKAHNAMA QUERY =====
+  else if (txt.match(/nikahnama|নিকাহনামা|নিকাহ নামা/i)) {
+    const reply = `📜 নিকাহনামা তথ্য:\n\nনিকাহনামা সার্ভিস সম্পর্কে জানতে বা আলাদাভাবে নিকাহনামা প্রিন্ট করতে আমাদের হটলাইনে কল বা হোয়াটসঅ্যাপ করুন! 😊\n\n📞 হটলাইন: 01701016826 (বন্ধন হটলাইন)`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== CUSTOM DESIGN / PROOFING QUERY =====
+  else if (txt.match(/custom|কাস্টম|ডিজাইন চেঞ্জ|ডিজাইনার|লেখা/i)) {
+    const reply = `🎨 কাস্টম ডিজাইন সুবিধা:
+
+অর্ডার কনফার্ম (৩০% অ্যাডভান্স) করার পর আমাদের ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে হোয়াটসঅ্যাপ/মেসেঞ্জারে চেক করাবে।
+
+আপনার পছন্দ ও ওকে হওয়ার পরই প্রিন্ট শুরু হবে! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+      { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== LOCATION / ADDRESS =====
+  // FIX (P2-2 / Part F finding): only treat "ঠিকানা" as an office-location
+  // QUESTION, not a statement about the customer's OWN delivery address
+  // ("আমি ঠিকানা পরে দিব" = "I'll give the address later" — was
+  // previously misrouted into reciting the shop's own address).
+  else if (payload === 'BTN_LOCATION' || (
+    txt.match(/location|লোকেশন|ঠিকানা|address|kothay|কোথায়|office|অফিস|shop|দোকান|shoroom|শো-রুম|showroom|কারখানা|karkhana/i) &&
+    !Parser.isWaitOrDeferIntent(text)
+  )) {
+    const reply = `📍 আমাদের অফিস ও ঠিকানার তথ্য:\n\n🏢 অফিস: ২/১-২, ভূমি অফিস লেন, মানিকগঞ্জ, ঢাকা।\n🏭 কারখানা: ফকিরাপুল, বাবুবাজার, বঙ্গবাজার (ঢাকা)।\n\n🛒 অর্ডার প্রক্রিয়া:\nঅনলাইনে অথবা মানিকগঞ্জ অফিসে সরাসরি এসে অর্ডার করতে পারবেন।\n\n📦 প্রোডাক্ট ডেলিভারি/সংগ্রহ:\n• কুরিয়ারের মাধ্যমে (সারাদেশে হোম ডেলিভারি)\n• মানিকগঞ্জ অফিসে সরাসরি\n• অথবা কার্ডের ধরন অনুযায়ী ঢাকার নির্দিষ্ট কারখানা থেকেও সংগ্রহ করতে পারবেন!\n\n🗺️ গুগল ম্যাপ লিংক:\nhttps://maps.app.goo.gl/CnyRST5KxHjWDAtd9\n\nকার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== HOTLINE BUTTON =====
+  else if (payload === 'BTN_HOTLINE') {
+    const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ধন হটলাইন)\n\nআমরা সার্বক্ষণিক সহায়তায় আছি! 😊`;
+    await sendMessengerText(senderId, reply);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== PAYMENT / BKASH NUMBER QUERY =====
+  else if (txt.match(/bkash|bKash|বিকাশ|nagad|নগদ|rocket|রকেট|payment|পেমেন্ট|এডভান্স|advance/i) && !isPaymentDonePhrase) {
+    const reply = `💳 পেমেন্ট তথ্য:\n\nঅর্ডার কনফার্ম করতে ৩০% অ্যাডভান্স পেমেন্ট করতে হবে।\n\n📲 পেমেন্ট নম্বর (পার্সোনাল):\n01682588856 (বিকাশ / নগদ / রকেট)\n\nপেমেন্ট করার পর এখানে স্ক্রিনশট বা ট্রানজেকশন আইডি পাঠান! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "ফর্ম পূরণ", payload: "BTN_FORM" },
+      { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== CONTACT / PHONE / HOTLINE =====
+  else if (txt.match(/phone|mobile|ফোন|মোবাইল|contact|যোগাযোগ|hotline|whatsapp|হোয়াটসঅ্যাপ|কথা বলব|call/i)) {
+    const reply = `📞 আমাদের সাথে সরাসরি কথা বলতে কল বা হোয়াটসঅ্যাপ করুন:\n01701016826 (বন্ধন হটলাইন)\n\nআপনার যেকোনো প্রশ্নের জন্য আমরা রেডি আছি! 😊`;
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== CUSTOMER IS CONFUSED — offer help + human option instead of going silent =====
+  // NEW (Part E/G finding): the original bot had NO branch at all for
+  // "আমি বুঝি নাই" style messages — they fell through to the (broken)
+  // AI fallback. Handled explicitly now, always with a way to reach a human.
+  else if (Parser.isConfusedIntent(text)) {
+    const reply = "কোনো সমস্যা নেই, আবার সহজভাবে বলি! 😊 আপনি কি বিয়ের কার্ড দেখতে চান, দাম জানতে চান, নাকি অর্ডার করতে চান? অথবা সরাসরি আমাদের একজনের সাথে কথা বলতে চাইলে জানান।";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" },
+      { title: "📞 মানুষের সাথে কথা বলব", payload: "BTN_HOTLINE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== CUSTOMER SAYS THEY'LL ANSWER LATER / ASKS TO WAIT =====
+  // NEW: previously fell through to the broken AI fallback too. A
+  // "wait"/"I'll tell you later" message deserves a light acknowledgment,
+  // not silence or an unrelated reply.
+  else if (Parser.isWaitOrDeferIntent(text)) {
+    const reply = "জি, কোনো তাড়া নেই! 😊 যখন সময় হবে জানাবেন, আমি এখানেই আছি।";
+    await sendMessengerText(senderId, reply);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== ACKNOWLEDGEMENTS ("ok", "okay", "ঠিক আছে", "জি", "আচ্ছা", "হুম", "ধন্যবাদ") =====
+  else if (txt.match(/^(ok|okay|ওকে|ঠিক আছে|জি|আচ্ছা|accha|acha|হুম|hum|thik ase|thik|হয়তো|থাক)$/i)) {
+    const reply = "জি ধন্যবাদ! 😊 আমাদের বিয়ের কার্ড দেখতে বা অর্ডার করতে নিচের বাটনে চাপুন!";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  else if (txt.match(/^(thanks|thank you|ধন্যবাদ|ধন্যবাদ।)$/i)) {
+    const reply = "আপনাকেও অনেক ধন্যবাদ! 🌸 বিয়ের কার্ড সংক্রান্ত যেকোনো দরকারে আমাদের জানাতে পারেন।";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== DEFAULT — Welcome or AI fallback =====
+  else {
+    const isGreeting = Parser.isGreeting(text);
+
+    if (isGreeting || isButtonClick) {
+      const reply = "আসসালামু আলাইকুম! 🌸\nবন্ধন প্রিন্টিং হাউসে স্বাগতম।\nআপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+        { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    } else {
+      // ===== AI SALES BRAIN — Smart conversational reply =====
+      // FIX (P0-1): this branch used to crash on every message that
+      // reached it — `existingConv` was referenced without ever being
+      // declared. `existingConv` is now loaded at the top of this
+      // function (before appendMessage), so this works correctly.
+      const currentCat = await getCurrentCategory(senderId);
+      const catBtn = currentCat === 'premium'
+        ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
+        : currentCat === 'affordable'
+          ? { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
+          : { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" };
+
+      const convHistory = existingConv?.messages || [];
+      const aiReply = await generateAISalesResponse(senderId, text, convHistory);
+
+      let fallbackMsg = "ধন্যবাদ! 😊 আমাদের কালেকশন দেখতে নিচের বাটনে ক্লিক করুন, অথবা সরাসরি মানুষের সাথে কথা বলতে চাইলে জানান!";
+      if (isPriceObjectionOrDiscount) {
+        fallbackMsg = "আপনার বাজেট ও দিকটা বুঝতে পারছি। আমাদের কার্ডগুলোতে প্রিমিয়াম মেটেরিয়াল ও নিখুঁত ফিনিশিং নিশ্চিত করা হয়। আপনি মোট কত পিস নিতে চাইছেন আর কেমন বাজেট ভাবছেন জানালে, সেরা অপশনটি বের করে দিচ্ছি! 😊";
+      }
+      const reply = aiReply || fallbackMsg;
+      await sendMessengerButtonBlock(senderId, reply, [
+        catBtn,
+        { title: "দাম জানুন", payload: "BTN_PRICE" },
+        { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    }
+  }
 }

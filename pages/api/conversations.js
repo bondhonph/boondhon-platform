@@ -4,10 +4,10 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { phone } = req.query;
     if (phone) {
-      const conv = getConversation(phone);
+      const conv = await getConversation(phone);
       return res.status(200).json({ conversation: conv });
     }
-    const conversations = getConversations();
+    const conversations = await getConversations();
     return res.status(200).json({ conversations });
   }
 
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const { action, phone, humanTakeover, orderStatus, text, sender, name } = req.body;
 
     if (action === 'clear_all') {
-      clearAllStore();
+      await clearAllStore();
       return res.status(200).json({ success: true, conversations: [] });
     }
 
@@ -24,17 +24,17 @@ export default async function handler(req, res) {
     }
 
     if (action === 'toggle_bot') {
-      const updated = setHumanTakeover(phone, humanTakeover);
+      const updated = await setHumanTakeover(phone, humanTakeover);
       return res.status(200).json({ success: true, conversation: updated });
     }
 
     if (action === 'update_status') {
-      const updated = setOrderStatus(phone, orderStatus);
+      const updated = await setOrderStatus(phone, orderStatus);
       return res.status(200).json({ success: true, conversation: updated });
     }
 
     if (action === 'append_msg') {
-      const updated = appendMessage(phone, sender || 'admin', text, null, name);
+      const updated = await appendMessage(phone, sender || 'admin', text, null, name);
       return res.status(200).json({ success: true, conversation: updated });
     }
 
