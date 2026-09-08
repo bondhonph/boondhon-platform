@@ -870,12 +870,16 @@ function buildOrderSummaryText(order, selectedCard, category) {
 async function sendOrderSummary(senderId) {
   const order = await getOrder(senderId);
   const selectedCard = await getSelectedCard(senderId);
-  const category = await getCurrentCategory(senderId);
+  const category = (await getCurrentCategory(senderId)) || selectedCard?.category || 'affordable';
+  const qty = order?.quantity || 100;
+  const total = qty ? getOrderTotal(qty, category) : 0;
+  const advance = getAdvanceAmount(total);
+
   const text = buildOrderSummaryText(order, selectedCard, category);
   await setConversationStage(senderId, 'reviewing');
   await setAwaitingField(senderId, null);
   await sendMessengerButtonBlock(senderId, text, [
-    { title: "✅ কনফার্ম করছি", payload: "BTN_CONFIRM_ORDER" },
+    { title: "✅ কনফার্ম করছি", payload: `BTN_CONFIRM_ORDER|${category}|${qty}|${advance}` },
     { title: "✏️ তথ্য ঠিক করতে চাই", payload: "BTN_EDIT_ORDER" },
     { title: "❌ বাতিল করব", payload: "BTN_CANCEL_ORDER" },
   ]);
@@ -1334,27 +1338,33 @@ async function processOneEvent(webhookEvent) {
     return;
   }
 
-  if (!isPhoto && conversationStage === 'reviewing' && (payload === 'BTN_CONFIRM_ORDER' || Parser.isConfirmIntent(text))) {
-    const order = await getOrder(senderId);
-    const stillMissing = Parser.nextMissingField(order);
-    if (stillMissing || !order.quantity) {
-      // Don't guess / don't silently proceed with incomplete info (ABSOLUTE RULE #10)
-      if (!order.quantity) {
-        const msg = 'কনফার্ম করার আগে একটা তথ্য বাকি আছে — মোট কত পিস কার্ড লাগবে সেটা বলবেন?';
-        await sendMessengerText(senderId, msg);
-        await appendMessage(senderId, 'bot', msg);
-      } else {
-        await askNextMissingField(senderId);
-      }
-      return;
+  if (!isPhoto && (payload === 'BTN_CONFIRM_ORDER' || payload?.startsWith('BTN_CONFIRM_ORDER') || Parser.isConfirmIntent(text))) {
+    let category = (await getCurrentCategory(senderId)) || 'affordable';
+    let qty = 100;
+    let advance = 0;
+
+    if (payload?.startsWith('BTN_CONFIRM_ORDER|')) {
+      const parts = payload.split('|');
+      category = parts[1] || category;
+      qty = parseInt(parts[2], 10) || 100;
+      advance = parseInt(parts[3], 10) || 0;
+    } else {
+      const order = await getOrder(senderId);
+      if (order?.quantity) qty = order.quantity;
+      const total = getOrderTotal(qty, category);
+      advance = getAdvanceAmount(total);
     }
+
+    if (!advance) {
+      const total = getOrderTotal(qty, category);
+      advance = getAdvanceAmount(total);
+    }
+
     await setConversationStage(senderId, 'payment_pending');
-    // FIX: previously used 0 as the total for any order under 50 pieces,
-    // which would have asked a low-quantity customer to pay a 0৳ advance.
-    // getOrderTotal correctly prices 1-49 piece orders via the low-qty
-    // fixed-price bands (see lib/pricing.js).
-    const advance = getAdvanceAmount(getOrderTotal(order.quantity, (await getCurrentCategory(senderId)) || 'affordable'));
-    const reply = `আলহামদুলিল্লাহ! আপনার অর্ডারটি কনফার্ম হলো। 🌸\n\nঅর্ডারটি এগিয়ে নিতে ৩০% অ্যাডভান্স পেমেন্ট পাঠান:\n📲 বিকাশ / নগদ / রকেট (পার্সোনাল): 01682588856\n\nপেমেন্ট সম্পন্ন করে লাস্ট ৪ ডিজিট বা স্ক্রিনশট এখানে পাঠিয়ে দিন।\n\nআমাদের অভিজ্ঞ ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে। আপনার ফাইনাল অনুমোদনের পরই কেবল প্রিন্ট হবে! 😊`;
+    await setUserAwaitingPayment(senderId, true);
+
+    const advanceText = advance > 0 ? `💰 ৩০% অ্যাডভান্সের পরিমাণ: ${bngDigits(advance)}৳\n` : '';
+    const reply = `আলহামদুলিল্লাহ! আপনার অর্ডারটি কনফার্ম হলো। 🌸\n\nঅর্ডারটি এগিয়ে নিতে ৩০% অ্যাডভান্স পেমেন্ট পাঠান:\n📲 বিকাশ / নগদ / রকেট (পার্সোনাল): 01682588856\n${advanceText}\nপেমেন্ট সম্পন্ন করে লাস্ট ৪ ডিজিট বা স্ক্রিনশট এখানে পাঠিয়ে দিন।\n\nআমাদের অভিজ্ঞ ডিজাইনার আপনার তথ্য দিয়ে কার্ডের ডিজাইন তৈরি করে আপনাকে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে। আপনার ফাইনাল অনুমোদনের পরই কেবল প্রিন্ট হবে! 😊`;
     await sendMessengerButtonBlock(senderId, reply, [
       { title: "পেমেন্ট করেছি", payload: "BTN_PAID" },
       { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
@@ -1529,14 +1539,10 @@ async function processOneEvent(webhookEvent) {
       // wiring in a business rule the original file imported but never
       // actually used.
       let reply;
-      if (VISUAL_CATALOG_RULES?.IDENTICAL_DESIGNS) {
-        reply = `দারুণ পছন্দ! 😍 এই ডিজাইনটি আমাদের দুই সাইজেই পাওয়া যায় — শুধু কার্ডের ফিজিক্যাল সাইজে পার্থক্য, ডিজাইন একই:\n\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\nকোনটা নিতে চান? আর কত পিস লাগবে বলুন! 😊`;
-      } else {
-        const priceTable = getFullPriceTable(category);
-        const emoji = category === 'premium' ? '✨' : '💚';
-        const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-        reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
-      }
+      const priceTable = getFullPriceTable(category);
+      const emoji = category === 'premium' ? '✨' : '💚';
+      const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+      reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস লাগবে বলুন! 😊`;
 
       if (customerPhotoCaption) {
         const capQtyResult = Parser.extractQuantity(customerPhotoCaption);
@@ -1585,21 +1591,14 @@ async function processOneEvent(webhookEvent) {
       const driveHighMatch = matchResult && matchResult.similarity >= 0.65;
       const driveMediumMatch = matchResult && matchResult.similarity >= 0.48 && matchResult.similarity < 0.65;
 
-      // Shared reply-builder for a confirmed catalog match, now honoring
-      // VISUAL_CATALOG_RULES the same way as the quoted-card path above (P1-3).
       const buildMatchedReply = async (category, matchCode) => {
         await setCurrentCategory(senderId, category);
         await setSelectedCard(senderId, { category, code: matchCode, url: photoUrl });
 
-        let reply;
-        if (VISUAL_CATALOG_RULES?.IDENTICAL_DESIGNS) {
-          reply = `দারুণ পছন্দ! 😍 এই ডিজাইনটি আমাদের দুই সাইজেই পাওয়া যায় — শুধু কার্ডের ফিজিক্যাল সাইজে পার্থক্য, ডিজাইন একই:\n\n${getFullPriceTable('affordable')}\n\n${getFullPriceTable('premium')}\n\nকোনটা নিতে চান? আর কত পিস লাগবে বলুন! 😊`;
-        } else {
-          const priceTable = getFullPriceTable(category);
-          const emoji = category === 'premium' ? '✨' : '💚';
-          const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
-          reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
-        }
+        const priceTable = getFullPriceTable(category);
+        const emoji = category === 'premium' ? '✨' : '💚';
+        const catName = category === 'premium' ? 'Premium (লাক্সারি)' : 'Affordable (সাশ্রয়ী)';
+        let reply = `দারুণ পছন্দ! 😍 এটি আমাদের ${emoji} ${catName} কালেকশনের কার্ড।\n\n${priceTable}\n\nআপনার কত পিস কার্ড লাগবে বলুন! 😊`;
 
         if (customerPhotoCaption) {
           const capQtyResult = Parser.extractQuantity(customerPhotoCaption);
@@ -1628,7 +1627,10 @@ async function processOneEvent(webhookEvent) {
         });
 
         if (visionCheck?.type === 'WEDDING_CARD') {
-          const category = matchResult.category === 'premium' ? 'premium' : 'affordable';
+          let category = matchResult.category === 'premium' ? 'premium' : 'affordable';
+          if (visionCheck.detectedCategory === 'premium' || visionCheck.detectedCategory === 'affordable') {
+            category = visionCheck.detectedCategory;
+          }
           await buildMatchedReply(category, matchResult.code);
         } else if (visionCheck?.type === 'PAYMENT_RECEIPT') {
           await setCustomerAwaitingPayment(senderId, true);
@@ -1920,7 +1922,7 @@ async function processOneEvent(webhookEvent) {
     await appendMessage(senderId, 'bot', reply);
   }
   // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
-  else if (payload === 'BTN_ORDER' || payload === 'BTN_ORDER_PREMIUM' || payload === 'BTN_ORDER_AFFORDABLE' || txt.match(/অর্ডার|order|বুকিং|booking|কনফার্ম/)) {
+  else if (payload === 'BTN_ORDER' || payload === 'BTN_ORDER_PREMIUM' || payload === 'BTN_ORDER_AFFORDABLE' || (!payload && txt.match(/^(?:অর্ডার|order|বুকিং|booking|অর্ডার\s*করবো|অর্ডার\s*করব)$/i))) {
     let orderCategory = null;
     if (payload === 'BTN_ORDER_PREMIUM') orderCategory = 'premium';
     else if (payload === 'BTN_ORDER_AFFORDABLE') orderCategory = 'affordable';
