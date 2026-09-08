@@ -25,10 +25,10 @@ export default async function handler(req, res) {
       userConvData = { error: e.message };
     }
 
-    // 4. Test thread inspection for the admin reply thread
+    // 4. Test thread inspection for the admin reply thread with app_id
     let adminThreadData = null;
     try {
-      const threadRes = await fetch(`https://graph.facebook.com/v20.0/t_1067134939367634?fields=messages.limit(5){from,created_time,message,tags}&access_token=${token}`);
+      const threadRes = await fetch(`https://graph.facebook.com/v20.0/t_1067134939367634?fields=messages.limit(5){from,created_time,message,tags,app_id}&access_token=${token}`);
       adminThreadData = await threadRes.json();
     } catch (e) {
       adminThreadData = { error: e.message };
