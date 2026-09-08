@@ -777,6 +777,7 @@ const userLastMsgMap = new Map();
 const userLastPhotoMap = new Map();
 const selectedCardMap = new Map();   // In-memory card selection (Vercel /tmp is ephemeral!)
 const userCategoryMap = new Map();   // In-memory category backup
+const humanTakeoverMap = new Map();  // In-memory human takeover { senderId: timestamp }
 
 // Wrappers that write to BOTH in-memory Map AND file-based store
 function setSelectedCardSafe(senderId, cardInfo) {
@@ -793,6 +794,51 @@ function setCurrentCategorySafe(senderId, cat) {
 }
 function getCurrentCategorySafe(senderId) {
   return userCategoryMap.get(senderId) || getCurrentCategory(senderId) || null;
+}
+
+// Human takeover wrappers — in-memory Map is PRIMARY, file-based is backup
+const TAKEOVER_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+function setHumanTakeoverSafe(userId, active) {
+  if (active) {
+    humanTakeoverMap.set(userId, Date.now());
+  } else {
+    humanTakeoverMap.delete(userId);
+  }
+  try { setHumanTakeover(userId, active); } catch(e) { console.error('setHumanTakeover file err:', e.message); }
+}
+
+function isHumanTakeoverActive(userId) {
+  const now = Date.now();
+
+  // Check in-memory first (most reliable on Vercel)
+  const memTime = humanTakeoverMap.get(userId);
+  if (memTime) {
+    if (now - memTime < TAKEOVER_DURATION_MS) {
+      return true; // Still within 15 min
+    } else {
+      humanTakeoverMap.delete(userId); // Expired
+      try { setHumanTakeover(userId, false); } catch(e) {}
+      return false;
+    }
+  }
+
+  // Fallback: check file-based store
+  try {
+    const conv = getConversation(userId);
+    if (conv && conv.humanTakeover === true) {
+      const lastAdmin = conv.lastAdminReplyTime || 0;
+      if (now - lastAdmin < TAKEOVER_DURATION_MS) {
+        humanTakeoverMap.set(userId, lastAdmin); // Sync to memory
+        return true;
+      } else {
+        setHumanTakeover(userId, false); // Expired
+        return false;
+      }
+    }
+  } catch(e) {}
+
+  return false;
 }
 
 function isUserDebounced(senderId, isPhoto) {
@@ -931,9 +977,9 @@ export default async function handler(req, res) {
               // Admin/human replied from Page Inbox → activate human takeover
               const recipientId = webhookEvent.recipient?.id;
               if (recipientId) {
-                setHumanTakeover(recipientId, true);
                 appendMessage(recipientId, 'admin', webhookEvent.message?.text || '(admin reply)');
-                console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — admin replied manually`);
+                setHumanTakeoverSafe(recipientId, true);
+                console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — bot OFF for 15 min`);
               }
               continue;
             }
@@ -959,24 +1005,10 @@ export default async function handler(req, res) {
 
             appendMessage(senderId, 'customer', text);
 
-            // ===== HUMAN TAKEOVER CHECK WITH AUTO-RESUME =====
-            const existingConv = getConversation(senderId);
-            const AUTO_RESUME_MS = 15 * 60 * 1000; // 15 minutes
-            
-            if (existingConv && existingConv.humanTakeover === true) {
-              const lastAdmin = existingConv.lastAdminReplyTime || 0;
-              const elapsed = Date.now() - lastAdmin;
-              
-              if (elapsed > AUTO_RESUME_MS) {
-                // Admin inactive > 15 min → auto-resume bot
-                setHumanTakeover(senderId, false);
-                console.log(`🤖 BOT AUTO-RESUMED for ${senderId} — admin inactive ${Math.round(elapsed/60000)} min`);
-                // Fall through to bot logic below
-              } else {
-                // Admin still active → skip bot reply
-                console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Admin replied ${Math.round(elapsed/60000)} min ago. Skipping bot.`);
-                continue;
-              }
+            // ===== HUMAN TAKEOVER CHECK (in-memory + file fallback) =====
+            if (isHumanTakeoverActive(senderId)) {
+              console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
+              continue;
             }
 
             const attachments = message?.attachments;
@@ -1289,7 +1321,7 @@ export default async function handler(req, res) {
                     appendMessage(senderId, 'bot', reply);
                   } else if (visionCheck?.type === 'PAYMENT_RECEIPT') {
                     setCustomerAwaitingPayment(senderId, true);
-                    setHumanTakeover(senderId, true);
+                    setHumanTakeoverSafe(senderId, true);
                     const reply = visionCheck.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন।`;
                     await sendMessengerButtonBlock(senderId, reply, [
                       { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
@@ -1319,7 +1351,7 @@ export default async function handler(req, res) {
 
                   if (visionRes?.type === 'PAYMENT_RECEIPT') {
                     setCustomerAwaitingPayment(senderId, true);
-                    setHumanTakeover(senderId, true); // Hand over to human agent for manual check
+                    setHumanTakeoverSafe(senderId, true); // Hand over to human agent for manual check
                     const reply = visionRes.reply || `অনেক ধন্যবাদ! আপনার টাকা পাঠানোর স্ক্রিনশটটি আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে আপনার বিকাশ/নগদ নম্বরের শেষ ৪টি ডিজিট লিখে দিন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।`;
                     await sendMessengerButtonBlock(senderId, reply, [
                       { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
@@ -1453,7 +1485,7 @@ export default async function handler(req, res) {
 
               setCustomerAwaitingPayment(senderId, false);
               setOrderStatus(senderId, 'Payment_Submitted');
-              setHumanTakeover(senderId, true); // Hand over to human agent for manual check
+              setHumanTakeoverSafe(senderId, true); // Hand over to human agent for manual check
 
               const reply = `অনেক ধন্যবাদ! আপনার পেমেন্টের লাস্ট ৪ ডিজিট${digitsText} আমরা পেয়েছি। 🌸\n\nঅনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। আমাদের অ্যাকাউন্টস টিম স্টেটমেন্ট দেখে পেমেন্টটি চেক করে কিছুক্ষণের মধ্যেই আপনাকে নিশ্চিত করবে।\n\nপেমেন্ট নিশ্চিত হওয়ামাত্রই আমাদের ডিজাইনার আপনার কার্ডের কাজ শুরু করে দেবে! 😊`;
               await sendMessengerButtonBlock(senderId, reply, [
