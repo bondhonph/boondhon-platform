@@ -6,25 +6,30 @@ export default async function handler(req, res) {
     const pageRes = await fetch(`https://graph.facebook.com/v20.0/me?access_token=${token}`);
     const pageData = await pageRes.json();
 
-    // 2. Fetch Subscribed Apps
-    const subRes = await fetch(`https://graph.facebook.com/v20.0/me/subscribed_apps?access_token=${token}`);
-    const subData = await subRes.json();
+    // 2. Fetch App Details
+    let appData = null;
+    try {
+      const appRes = await fetch(`https://graph.facebook.com/v20.0/app?access_token=${token}`);
+      appData = await appRes.json();
+    } catch (e) {
+      appData = { error: e.message };
+    }
 
-    // 3. Optional Auto Subscribe
-    let autoSub = null;
-    if (req.query.subscribe === 'true') {
-      const autoSubRes = await fetch(`https://graph.facebook.com/v20.0/me/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_reads&access_token=${token}`, {
-        method: 'POST'
-      });
-      autoSub = await autoSubRes.json();
+    // 3. Test Conversations endpoint
+    let convData = null;
+    try {
+      const convRes = await fetch(`https://graph.facebook.com/v20.0/me/conversations?limit=2&fields=updated_time,messages.limit(1){from,created_time,message}&access_token=${token}`);
+      convData = await convRes.json();
+    } catch (e) {
+      convData = { error: e.message };
     }
 
     return res.status(200).json({
       status: "API Online",
       timestamp: new Date().toISOString(),
       page: pageData,
-      subscriptions: subData,
-      autoSub: autoSub
+      app: appData,
+      conversations: convData
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
