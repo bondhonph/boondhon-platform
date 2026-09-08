@@ -1366,7 +1366,7 @@ async function processOneEvent(webhookEvent) {
   const message = webhookEvent.message;
   const postback = webhookEvent.postback;
 
-  let text = message?.text || postback?.payload || postback?.title || '';
+  let text = message?.text || postback?.title || postback?.payload || '';
   let payload = quickReplyPayload || postbackPayload || '';
   const txt = text.toLowerCase();
 
@@ -2173,8 +2173,58 @@ async function processOneEvent(webhookEvent) {
     ]);
     await appendMessage(senderId, 'bot', reply);
   }
+  // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
+  else if (
+    payload === 'BTN_ORDER' ||
+    payload === 'BTN_ORDER_PREMIUM' ||
+    payload === 'BTN_ORDER_AFFORDABLE' ||
+    (payload && payload.startsWith('BTN_ORDER')) ||
+    (!payload && (
+      txt.match(/(?:অর্ডার|order|বুকিং|booking)\s*(?:করবো|করব|করতে\s*চাই|করমু|দিব|দিবো|দেবো)?/i) ||
+      txt === 'অর্ডার' || txt === 'order' || txt === 'বুকিং' || txt === 'booking'
+    ))
+  ) {
+    let orderCategory = null;
+    if (payload === 'BTN_ORDER_PREMIUM') orderCategory = 'premium';
+    else if (payload === 'BTN_ORDER_AFFORDABLE') orderCategory = 'affordable';
+
+    if (!orderCategory) {
+      const sc = await getSelectedCard(senderId);
+      if (sc) orderCategory = sc.category;
+    }
+    if (!orderCategory) {
+      orderCategory = await getCurrentCategory(senderId);
+    }
+
+    const isOrderButtonClick = payload && payload.startsWith('BTN_ORDER');
+
+    if (!orderCategory && !isOrderButtonClick) {
+      const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 আমাদের পেজ বা পোস্টের যে কার্ডটি আপনার পছন্দ হয়েছে, দয়া করে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন!\n👀 কালেকশন দেখতে চাইলে নিচের বাটন চাপুন: 😊`;
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
+        { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+    } else {
+      const catLabel = orderCategory === 'premium' ? '✨ Premium' : (orderCategory === 'affordable' ? '💚 Affordable' : '🌸');
+      const cardDesc = orderCategory ? `(${catLabel})` : '';
+
+      await sendMessengerText(senderId, ORDER_RULES_MSG);
+      await appendMessage(senderId, 'bot', ORDER_RULES_MSG);
+
+      const followUp = `দারুণ! আপনার পছন্দের কার্ড ${cardDesc} সিলেক্ট হয়েছে। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
+      await setConversationStage(senderId, 'card_selected');
+      await sendMessengerButtonBlock(senderId, followUp, [
+        { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
+        { title: "অন্য ডিজাইন দেখুন", payload: "BTN_AFFORDABLE" },
+        { title: "দাম জানুন", payload: "BTN_PRICE" }
+      ]);
+      await appendMessage(senderId, 'bot', followUp);
+    }
+  }
   // ===== AFFORDABLE COLLECTION =====
-  else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')) {
+  else if (payload === 'BTN_AFFORDABLE' || payload === 'MORE_AFFORDABLE' || payload.startsWith('MORE_AFFORDABLE_') || (!payload && (txt.includes('affordable') || txt.includes('অ্যাফোর্ডেবল') || txt.includes('সাশ্রয়ী')))) {
     let offset = 0;
     if (payload.startsWith('MORE_AFFORDABLE_')) {
       offset = parseInt(payload.replace('MORE_AFFORDABLE_', ''), 10) || 0;
@@ -2182,7 +2232,7 @@ async function processOneEvent(webhookEvent) {
     await sendSequentialGallery(senderId, 'affordable', offset);
   }
   // ===== PREMIUM COLLECTION =====
-  else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')) {
+  else if (payload === 'BTN_PREMIUM' || payload === 'MORE_PREMIUM' || payload.startsWith('MORE_PREMIUM_') || (!payload && (txt.includes('premium') || txt.includes('প্রিমিয়াম') || txt.includes('লাক্সারি')))) {
     let offset = 0;
     if (payload.startsWith('MORE_PREMIUM_')) {
       offset = parseInt(payload.replace('MORE_PREMIUM_', ''), 10) || 0;
@@ -2241,47 +2291,6 @@ async function processOneEvent(webhookEvent) {
       { title: "💚 Affordable রেট", payload: "BTN_AFFORDABLE_PRICE" }
     ]);
     await appendMessage(senderId, 'bot', reply);
-  }
-  // ===== ORDER INTENT (VERIFY CARD SELECTION FIRST!) =====
-  else if (payload === 'BTN_ORDER' || payload === 'BTN_ORDER_PREMIUM' || payload === 'BTN_ORDER_AFFORDABLE' || (!payload && txt.match(/^(?:অর্ডার|order|বুকিং|booking|অর্ডার\s*করবো|অর্ডার\s*করব)$/i))) {
-    let orderCategory = null;
-    if (payload === 'BTN_ORDER_PREMIUM') orderCategory = 'premium';
-    else if (payload === 'BTN_ORDER_AFFORDABLE') orderCategory = 'affordable';
-
-    if (!orderCategory) {
-      const sc = await getSelectedCard(senderId);
-      if (sc) orderCategory = sc.category;
-    }
-    if (!orderCategory) {
-      orderCategory = await getCurrentCategory(senderId);
-    }
-
-    const isOrderButtonClick = payload && payload.startsWith('BTN_ORDER');
-
-    if (!orderCategory && !isOrderButtonClick) {
-      const reply = `অর্ডার কনফার্ম করার আগে আপনার পছন্দের কার্ডটি জেনে নেওয়া প্রয়োজন! 🌸\n\nআপনি কোন কার্ডটি বানাতে চাইছেন?\n\n📸 আমাদের পেজ বা পোস্টের যে কার্ডটি আপনার পছন্দ হয়েছে, দয়া করে তার ছবি বা স্ক্রিনশট এখানে ইনবক্সে পাঠিয়ে দিন!\n👀 কালেকশন দেখতে চাইলে নিচের বাটন চাপুন: 😊`;
-      await sendMessengerButtonBlock(senderId, reply, [
-        { title: "💚 Affordable কালেকশন", payload: "BTN_AFFORDABLE" },
-        { title: "✨ Premium কালেকশন", payload: "BTN_PREMIUM" },
-        { title: "দাম জানুন", payload: "BTN_PRICE" }
-      ]);
-      await appendMessage(senderId, 'bot', reply);
-    } else {
-      const catLabel = orderCategory === 'premium' ? '✨ Premium' : (orderCategory === 'affordable' ? '💚 Affordable' : '🌸');
-      const cardDesc = orderCategory ? `(${catLabel})` : '';
-
-      await sendMessengerText(senderId, ORDER_RULES_MSG);
-      await appendMessage(senderId, 'bot', ORDER_RULES_MSG);
-
-      const followUp = `দারুণ! আপনার পছন্দের কার্ড ${cardDesc} সিলেক্ট হয়েছে। 🎉\n\nএবার কার্ডের তথ্য পূরণ করতে নিচের 'ফর্ম পূরণ' বাটনে চাপুন! 👇`;
-      await setConversationStage(senderId, 'card_selected');
-      await sendMessengerButtonBlock(senderId, followUp, [
-        { title: "📝 ফর্ম পূরণ করুন", payload: "BTN_FORM" },
-        { title: "অন্য ডিজাইন দেখুন", payload: "BTN_AFFORDABLE" },
-        { title: "দাম জানুন", payload: "BTN_PRICE" }
-      ]);
-      await appendMessage(senderId, 'bot', followUp);
-    }
   }
   // ===== CUSTOMER SAYS THEY SENT PHOTO BY TEXT (CHECK IF REAL PHOTO EXISTS) =====
   else if (payload === 'BTN_HAS_PHOTO' || txt.match(/ছবি\s*(দিয়েছি|দিছি|পাঠিয়েছি|পাঠাইছি)|chobi\s*(disi|diasi|dichi|pathaisi)/i)) {
