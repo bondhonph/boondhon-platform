@@ -15,21 +15,20 @@ export default async function handler(req, res) {
       appData = { error: e.message };
     }
 
-    // 3. Test Conversations endpoint
-    let convData = null;
+    // 3. Test query for specific user
+    const testUser = req.query.userId || "25012005838395062";
+    let userConvData = null;
     try {
-      const convRes = await fetch(`https://graph.facebook.com/v20.0/me/conversations?limit=2&fields=updated_time,messages.limit(1){from,created_time,message}&access_token=${token}`);
-      convData = await convRes.json();
+      const userConvRes = await fetch(`https://graph.facebook.com/v20.0/100208292579845/conversations?user_id=${testUser}&fields=messages.limit(3){from,created_time,message}&access_token=${token}`);
+      userConvData = await userConvRes.json();
     } catch (e) {
-      convData = { error: e.message };
+      userConvData = { error: e.message };
     }
 
     return res.status(200).json({
       status: "API Online",
       timestamp: new Date().toISOString(),
-      page: pageData,
-      app: appData,
-      conversations: convData
+      userConv: userConvData
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
