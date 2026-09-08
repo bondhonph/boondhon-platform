@@ -718,6 +718,14 @@ async function isHumanTakeoverActive(userId) {
             const elapsed = now - msgTime;
             if (elapsed >= TAKEOVER_DURATION_MS) break;
 
+            const msgContent = (msg.message || '').trim().toLowerCase();
+            // If the admin's most recent message is /active or /bot, immediately cancel takeover!
+            if (msgContent === '/active' || msgContent === 'active' || msgContent === '/bot' || msgContent === '/on') {
+              console.log(`🤖 Admin explicitly resumed bot with command "${msg.message}" for ${userId}. Takeover deactivated!`);
+              humanTakeoverMemCache.delete(userId);
+              return false;
+            }
+
             const tagNames = (msg.tags?.data || []).map(t => (t.name || '').toLowerCase());
             const isHumanReply = tagNames.includes('messenger') ||
                                  tagNames.includes('source:mobile') ||
@@ -1101,7 +1109,18 @@ async function processOneEvent(webhookEvent) {
 
     const recipientId = webhookEvent.recipient?.id;
     if (recipientId) {
-      await appendMessage(recipientId, 'admin', webhookEvent.message?.text || '(admin reply)');
+      const echoText = (webhookEvent.message?.text || '').trim();
+      const lowerEcho = echoText.toLowerCase();
+
+      // Check if admin is sending the trigger command to RE-ACTIVATE the bot
+      if (lowerEcho === '/active' || lowerEcho === 'active' || lowerEcho === '/bot' || lowerEcho === '/on') {
+        humanTakeoverMemCache.delete(recipientId);
+        await setHumanTakeoverSafe(recipientId, false);
+        console.log(`🤖 ADMIN TRIGGERED "${echoText}": Bot RE-ACTIVATED immediately for ${recipientId}!`);
+        return;
+      }
+
+      await appendMessage(recipientId, 'admin', echoText || '(admin reply)');
       await setHumanTakeoverSafe(recipientId, true);
       console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — bot OFF for 15 min`);
     }
