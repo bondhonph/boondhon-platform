@@ -808,10 +808,10 @@ function setHumanTakeoverSafe(userId, active) {
   try { setHumanTakeover(userId, active); } catch(e) { console.error('setHumanTakeover file err:', e.message); }
 }
 
-function isHumanTakeoverActive(userId) {
+async function isHumanTakeoverActive(userId) {
   const now = Date.now();
 
-  // Check in-memory first (most reliable on Vercel)
+  // 1. Fast check: in-memory map (0ms latency for warm container)
   const memTime = humanTakeoverMap.get(userId);
   if (memTime) {
     if (now - memTime < TAKEOVER_DURATION_MS) {
@@ -823,7 +823,52 @@ function isHumanTakeoverActive(userId) {
     }
   }
 
-  // Fallback: check file-based store
+  // 2. LIVE CHECK: Query Facebook Graph API directly (100% persistent across ALL Vercel serverless instances!)
+  if (PAGE_ACCESS_TOKEN && userId) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
+      const url = `https://graph.facebook.com/v20.0/100208292579845/conversations?user_id=${userId}&fields=messages.limit(5){from,created_time,message,tags}&access_token=${PAGE_ACCESS_TOKEN}`;
+
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const messages = data?.data?.[0]?.messages?.data || [];
+
+        for (const msg of messages) {
+          // Check if message was sent by the Page (Admin or Bot)
+          if (msg.from?.id === "100208292579845") {
+            const msgTime = new Date(msg.created_time).getTime();
+            const elapsed = now - msgTime;
+
+            // If message is older than 15 minutes, stop checking older messages
+            if (elapsed >= TAKEOVER_DURATION_MS) break;
+
+            const tagNames = (msg.tags?.data || []).map(t => (t.name || '').toLowerCase());
+            // Human admin replies from Messenger app, Meta Business Suite, or Desktop Page Inbox have 'messenger' or 'source:mobile' or 'source:page_inbox'
+            // Bot automated messages only have ['inbox', 'read', 'sent', 'source:web'] WITHOUT 'messenger'
+            const isHumanReply = tagNames.includes('messenger') ||
+                                 tagNames.includes('source:mobile') ||
+                                 tagNames.includes('source:page_inbox');
+
+            if (isHumanReply) {
+              console.log(`🙋 LIVE HUMAN TAKEOVER confirmed from Facebook for ${userId}! Admin replied ${Math.round(elapsed / 1000)}s ago: "${msg.message || ''}". Bot paused for 15 min.`);
+              humanTakeoverMap.set(userId, msgTime); // Cache in memory
+              return true;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Error querying Facebook for human takeover:', err.message);
+      }
+    }
+  }
+
+  // 3. Fallback: check file-based store (if available)
   try {
     const conv = getConversation(userId);
     if (conv && conv.humanTakeover === true) {
@@ -966,7 +1011,7 @@ export default async function handler(req, res) {
 
             // ===== ECHO DETECTION: Admin manual reply → auto-takeover =====
             if (webhookEvent.message?.is_echo) {
-              const echoAppId = webhookEvent.message?.app_id;
+              const echoAppId = String(webhookEvent.message?.app_id || '');
               const BOT_APP_ID = "2563899990649523";
               
               if (echoAppId === BOT_APP_ID) {
@@ -1005,8 +1050,8 @@ export default async function handler(req, res) {
 
             appendMessage(senderId, 'customer', text);
 
-            // ===== HUMAN TAKEOVER CHECK (in-memory + file fallback) =====
-            if (isHumanTakeoverActive(senderId)) {
+            // ===== HUMAN TAKEOVER CHECK (in-memory + Facebook Graph API live check) =====
+            if (await isHumanTakeoverActive(senderId)) {
               console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
               continue;
             }
