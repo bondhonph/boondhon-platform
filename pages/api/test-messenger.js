@@ -16,34 +16,28 @@ export default async function handler(req, res) {
   const results = {};
   const embedResults = {};
 
-  const testConfigs = {
-    salesBrainProductionConfig: {
-      maxOutputTokens: 600,
-      thinkingConfig: { thinkingLevel: "LOW" }
-    }
-  };
-
-  const modelsToTest = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
-  for (const mod of modelsToTest) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${key}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'Respond with JSON: {"status":"ok","model":"' + mod + '"}' }] }],
-          generationConfig: { maxOutputTokens: 200 }
-        })
-      });
-      const data = await response.json();
-      results[mod] = {
-        httpStatus: response.status,
-        ok: response.ok,
-        data: data
-      };
-    } catch (err) {
-      results[mod] = { error: err.message };
-    }
+  const model = 'gemini-3.6-flash';
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: req.query.prompt ? String(req.query.prompt) : 'Respond with JSON: {"status":"ok","model":"gemini-3.6-flash"}' }] }],
+        generationConfig: {
+          maxOutputTokens: 600,
+          thinkingConfig: { thinkingLevel: "LOW" }
+        }
+      })
+    });
+    const data = await response.json();
+    results[model] = {
+      httpStatus: response.status,
+      ok: response.ok,
+      data: data
+    };
+  } catch (err) {
+    results[model] = { error: err.message };
   }
 
   for (const model of embedModels) {
