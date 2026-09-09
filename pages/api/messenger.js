@@ -2594,7 +2594,7 @@ async function processOneEvent(webhookEvent) {
   }
   // ===== INNER PAGE / DESIGN SAMPLE QUERY =====
   else if (Parser.isInnerPageQuery(text)) {
-    const sampleImg = INNER_DESIGN_SAMPLE?.driveId || INNER_DESIGN_SAMPLE?.url || "1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-";
+    const sampleImg = INNER_DESIGN_SAMPLE?.url || INNER_DESIGN_SAMPLE?.driveId || "https://boondhon-platform-qr9a.vercel.app/samples/inner-sample-01.jpg";
     await sendMessengerImage(senderId, sampleImg, 'inner_sample');
 
     const reply = "এটা আমাদের ভেতরের পাতার একটা sample layout। আপনার ধর্ম অনুযায়ী (ইসলামিক — বিসমিল্লাহ ক্যালিগ্রাফি, বা সনাতন — শ্রী শ্রী গণেশায় নমঃ) উপরের অংশ পরিবর্তন করে দেওয়া হবে, বাকি design অপরিবর্তিত থাকবে। আপনার আর কনে/বরের নাম, তারিখ, ঠিকানাও এখানে বসিয়ে দেওয়া হবে।";
