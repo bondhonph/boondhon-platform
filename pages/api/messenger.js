@@ -1309,7 +1309,7 @@ async function processOneEvent(webhookEvent) {
       }
 
       // 2. TURN BOT OFF / PAUSE (Admin wants full manual control)
-      if (['/off', 'off', '/pause', 'pause', '/stop', 'stop'].includes(lowerEcho)) {
+      if (['/off', 'off', '/pause', 'pause', '/stop', 'stop', '/admin', 'admin'].includes(lowerEcho)) {
         await setHumanTakeoverSafe(recipientId, true);
         console.log(`🛑 ADMIN EXPLICITLY TURNED BOT OFF for ${recipientId}`);
         return;
@@ -1449,14 +1449,27 @@ async function processOneEvent(webhookEvent) {
   }
 
   // ===== HUMAN TAKEOVER CHECK (in-memory cache + durable store + live Facebook Graph API check) =====
-  const isButtonClick = !!(payload || postbackPayload || quickReplyPayload) ||
-    txt === 'get started' || txt === 'get_started' || txt === 'start';
+  const isResumeCmd = ['/on', 'on', '/bot', 'bot', '/active', 'active', '/start', 'start', 'get started', 'get_started', 'শুরু', 'চালু', 'বট'].includes(txt) ||
+    payload === 'BTN_RESUME_BOT';
+
+  const isButtonClick = !!(payload || postbackPayload || quickReplyPayload) || isResumeCmd;
 
   if (isButtonClick) {
-    // Button clicks and 'Get Started' break takeover immediately so customer is never stuck!
+    // Button clicks and resume commands break takeover immediately so customer is never stuck!
     humanTakeoverMemCache.delete(senderId);
     await setHumanTakeoverSafe(senderId, false);
   } else if (!webhookEvent.is_replay && (await isHumanTakeoverActive(senderId))) {
+    // If customer explicitly asks for admin while takeover is already active, acknowledge instead of staying silent
+    if (Parser.isHumanHandoffIntent(text)) {
+      const waitMsg = "আপনার মেসেজটি আমাদের টিমকে জানানো হয়েছে। 🙏 আমাদের প্রতিনিধি খুব শীঘ্রই আপনার সাথে সরাসরি যোগাযোগ করবেন।\n\n📞 জরুরি প্রয়োজনে সরাসরি কল/হোয়াটসঅ্যাপ করতে পারেন: 01701016826";
+      await sendMessengerButtonBlock(senderId, waitMsg, [
+        { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+        { title: "🤖 বট চালু করুন", payload: "BTN_RESUME_BOT" },
+        { title: "💚 কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
+      ]);
+      await appendMessage(senderId, 'bot', waitMsg);
+      return;
+    }
     console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
     return;
   }
@@ -1646,6 +1659,19 @@ async function processOneEvent(webhookEvent) {
   // "customer can go back / correct / restart at any time" (Part C).
   // ================================================================
 
+  if (!isPhoto && (payload === 'BTN_RESUME_BOT' || ['/on', 'on', '/bot', 'bot', '/active', 'active', 'চালু', 'বট'].includes(txt))) {
+    humanTakeoverMemCache.delete(senderId);
+    await setHumanTakeoverSafe(senderId, false);
+    const reply = "বট চালু করা হয়েছে! 🌸\nআসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউসে স্বাগতম। আপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
   if (!isPhoto && Parser.isRestartIntent(text)) {
     await resetCustomerState(senderId);
     const reply = "ঠিক আছে, আবার নতুন করে শুরু করছি! 🌸\nআসসালামু আলাইকুম! বন্ধন প্রিন্টিং হাউসে স্বাগতম। আপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
@@ -1660,8 +1686,12 @@ async function processOneEvent(webhookEvent) {
 
   if (!isPhoto && Parser.isHumanHandoffIntent(text)) {
     await setHumanTakeoverSafe(senderId, true);
-    const reply = "জি অবশ্যই! 🙏 আপনাকে আমাদের টিমের একজন সদস্যের সাথে সংযুক্ত করে দিচ্ছি। একটু সময় দিন, আমাদের কেউ শীঘ্রই আপনার সাথে সরাসরি কথা বলবেন।\n\n📞 জরুরি হলে সরাসরি কল/হোয়াটসঅ্যাপ করতে পারেন: 01701016826";
-    await sendMessengerText(senderId, reply);
+    const reply = "জি অবশ্যই! 🙏 আপনাকে আমাদের এডমিন / সাপোর্ট টিমের সাথে সংযুক্ত করে দিচ্ছি। অনুগ্রহ করে একটু সময় দিন, আমাদের প্রতিনিধি শীঘ্রই আপনার সাথে সরাসরি কথা বলবেন।\n\n📞 জরুরি প্রয়োজনে সরাসরি কল/হোয়াটসঅ্যাপ করতে পারেন: 01701016826";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+      { title: "🤖 আবার বট চালু করুন", payload: "BTN_RESUME_BOT" },
+      { title: "💚 কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
+    ]);
     await appendMessage(senderId, 'bot', reply);
     return;
   }
