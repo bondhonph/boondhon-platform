@@ -6,7 +6,7 @@ import {
   isUserAwaitingPayment, setSelectedCard, getSelectedCard,
   setLastShownCards, getLastShownCards, getConversationStage, setConversationStage,
   getOrder, updateOrder, setPaymentStatus, resetCustomerState,
-  getAwaitingField, setAwaitingField,
+  getAwaitingField, setAwaitingField, isRedisTakeoverActive,
 } from '../../lib/chat-store';
 import { VISUAL_CATALOG_RULES, AFFORDABLE_IDS, PREMIUM_IDS } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
@@ -704,6 +704,15 @@ async function isHumanTakeoverActive(userId) {
       humanTakeoverMemCache.delete(userId);
     }
   }
+
+  // 1. DISTRIBUTED CHECK: Upstash Redis instant takeover check across all instances
+  try {
+    const isRedisActive = await isRedisTakeoverActive(userId);
+    if (isRedisActive) {
+      humanTakeoverMemCache.set(userId, now);
+      return true;
+    }
+  } catch (_) {}
 
   // LIVE CHECK: Query Facebook Graph API directly for a human admin reply
   // from Page Inbox / Messenger app in the last 15 minutes.
