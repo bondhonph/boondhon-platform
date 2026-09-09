@@ -40,6 +40,11 @@ export default async function handler(req, res) {
       maxOutputTokens: 600,
       thinkingConfig: { thinkingLevel: "LOW" }
     },
+    visionThinkingLevelLow: {
+      maxOutputTokens: 400,
+      thinkingConfig: { thinkingLevel: "LOW" },
+      responseMimeType: "application/json"
+    },
     cleanSalesBrainConfig: {
       maxOutputTokens: 600
     },
