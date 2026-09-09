@@ -16,23 +16,59 @@ export default async function handler(req, res) {
   const results = {};
   const embedResults = {};
 
-  for (const model of models) {
+  const testConfigs = {
+    currentSalesBrainConfig: {
+      temperature: 0.6,
+      maxOutputTokens: 600,
+      thinkingConfig: { thinkingBudget: 0 }
+    },
+    currentVisionConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 400,
+      thinkingConfig: { thinkingBudget: 0 },
+      responseMimeType: "application/json"
+    },
+    thinkingBudgetOnly: {
+      maxOutputTokens: 600,
+      thinkingConfig: { thinkingBudget: 0 }
+    },
+    temperatureOnly: {
+      temperature: 0.6,
+      maxOutputTokens: 600
+    },
+    thinkingLevelLow: {
+      maxOutputTokens: 600,
+      thinkingConfig: { thinkingLevel: "LOW" }
+    },
+    cleanSalesBrainConfig: {
+      maxOutputTokens: 600
+    },
+    cleanVisionConfig: {
+      maxOutputTokens: 400,
+      responseMimeType: "application/json"
+    }
+  };
+
+  const model = 'gemini-3.6-flash';
+  for (const [testName, genConfig] of Object.entries(testConfigs)) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'Respond with JSON: {"status":"ok","model":"' + model + '"}' }] }]
+          contents: [{ role: 'user', parts: [{ text: 'Hello, respond with JSON: {"status":"ok"}' }] }],
+          generationConfig: genConfig
         })
       });
       const data = await response.json();
-      results[model] = {
+      results[testName] = {
         httpStatus: response.status,
+        ok: response.ok,
         data: data
       };
     } catch (err) {
-      results[model] = { error: err.message };
+      results[testName] = { error: err.message };
     }
   }
 
