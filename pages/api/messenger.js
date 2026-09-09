@@ -1079,7 +1079,25 @@ function verifyWebhookSignature(req, rawBuffer) {
   return { ok: true, skipped: false };
 }
 
+let pageSubscriptionChecked = false;
+async function ensurePageSubscribed() {
+  if (pageSubscriptionChecked || !PAGE_ACCESS_TOKEN) return;
+  pageSubscriptionChecked = true;
+  try {
+    const fields = 'messages,messaging_postbacks,message_reads,message_echoes';
+    const res = await fetch(`https://graph.facebook.com/v20.0/me/subscribed_apps?subscribed_fields=${fields}&access_token=${PAGE_ACCESS_TOKEN}`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    console.log('[messenger] ensurePageSubscribed result:', JSON.stringify(data));
+  } catch (err) {
+    console.error('[messenger] ensurePageSubscribed error:', err.message);
+  }
+}
+
 export default async function handler(req, res) {
+  ensurePageSubscribed();
+
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -1178,7 +1196,13 @@ async function replyToLastCustomerMessage(recipientId) {
   let lastText = '';
   let lastAttachments = null;
 
-  const triggerCommands = ['/on', 'on', '/active', 'active', '/bot', 'bot', '/start', 'start'];
+  const triggerCommands = [
+    '/on', 'on', '/active', 'active', '/bot', 'bot', '/start', 'start',
+    '/off', 'off', '/pause', 'pause', '/stop', 'stop', '/admin', 'admin',
+    '/card', '/cards', 'card', 'cards', '/affordable', 'affordable',
+    '/premium', 'premium', '/rules', '/rule', '/policy', 'policy', 'rules',
+    '/form', 'form', '/price', 'price', '/rate', '/dam', '/payment', '/advance'
+  ];
 
   // 1. PRIMARY: Check live Facebook Graph API first (ground truth across all Vercel instances)
   if (PAGE_ACCESS_TOKEN) {
@@ -2384,11 +2408,31 @@ async function processOneEvent(webhookEvent) {
     }
     await sendSequentialGallery(senderId, 'premium', offset);
   }
+  // ===== DESIGN & PRICE QUERY (e.g. "ডিজাইন এবং প্রাইজ দিবেন", "design and price", "ডিজাইন ও দাম") =====
+  else if (txt.match(/ডিজাইন\s*(?:ও|এবং)?\s*(?:প্রাইজ|দাম|রেট)|(?:প্রাইজ|দাম|রেট)\s*(?:ও|এবং)?\s*ডিজাইন/i) || txt.match(/design\s*(?:and|o)?\s*(?:price|rate)|(?:price|rate)\s*(?:and|o)?\s*design/i)) {
+    const reply = buildBothCategoriesPriceText(bngDigits) + "\n\nআমাদের সেরা ডিজাইনগুলোর ছবি দেখতে নিচে ক্যাটাগরি বেছে নিন: 👇";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== GENERAL DESIGN / CARD GALLERY REQUEST (e.g. "ডিজাইন দেখান", "কার্ড দেখান", "ডিজাইন দেখতে চাই") =====
+  else if (txt.match(/(?:কার্ড|ডিজাইন|design|card)\s*(?:দেখান|দেখবো|দেখব|দেখতে\s*চাই|আছে|দিবেন|পাঠান|send\s*koren)/i) || txt === 'ডিজাইন' || txt === 'design' || txt === 'কার্ড' || txt === 'cards') {
+    const reply = "আমাদের জনপ্রিয় সব বিয়ের কার্ডের ডিজাইন দেখতে নিচে ক্যাটাগরি বেছে নিন: 🌸";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+  }
   // ===== PRICE — Context-aware or complete price table (NO LOOPS!) =====
   else if ((
     payload === 'BTN_PRICE' ||
     txt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto|koto\s*tk)\b/i) ||
-    txt.match(/দাম|কত|কতো|মূল্য|রেট|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
+    txt.match(/দাম|কত|কতো|মূল্য|রেট|প্রাইজ|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
     txt === 'pp' || txt === 'pp?' || txt === 'p?' || txt === 'দাম' || txt === 'দাম?' || txt === 'কত?' || txt === 'কতো?'
   ) && !isPriceObjectionOrDiscount) {
     const currentCat = await getCurrentCategory(senderId);
