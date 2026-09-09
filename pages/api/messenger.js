@@ -8,7 +8,7 @@ import {
   getOrder, updateOrder, setPaymentStatus, resetCustomerState,
   getAwaitingField, setAwaitingField, isRedisTakeoverActive,
 } from '../../lib/chat-store';
-import { VISUAL_CATALOG_RULES, AFFORDABLE_IDS, PREMIUM_IDS } from '../../lib/data';
+import { VISUAL_CATALOG_RULES, AFFORDABLE_IDS, PREMIUM_IDS, INNER_DESIGN_SAMPLE } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
 import { bngDigits, normalizeBengaliDigits } from '../../lib/bangla-digits';
 import {
@@ -548,8 +548,9 @@ async function checkCustomerAwaitingPayment(senderId) {
 async function sendMessengerImage(recipientId, id, category = null) {
   const url = `https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`;
 
-  const primaryUrl = `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`;
-  const fallbackUrl = `https://lh3.googleusercontent.com/d/${id}`;
+  const isDirectUrl = String(id).startsWith('http://') || String(id).startsWith('https://');
+  const primaryUrl = isDirectUrl ? id : `https://boondhon-platform-qr9a.vercel.app/api/img/${id}.jpg`;
+  const fallbackUrl = isDirectUrl ? id : `https://lh3.googleusercontent.com/d/${id}`;
 
   const payload = {
     recipient: { id: recipientId },
@@ -2589,6 +2590,19 @@ async function processOneEvent(webhookEvent) {
   else if (Parser.isWaitOrDeferIntent(text)) {
     const reply = "জি, কোনো তাড়া নেই! 😊 যখন সময় হবে জানাবেন, আমি এখানেই আছি।";
     await sendMessengerText(senderId, reply);
+    await appendMessage(senderId, 'bot', reply);
+  }
+  // ===== INNER PAGE / DESIGN SAMPLE QUERY =====
+  else if (Parser.isInnerPageQuery(text)) {
+    const sampleImg = INNER_DESIGN_SAMPLE?.driveId || INNER_DESIGN_SAMPLE?.url || "1cOCFSa1ap-Z54Ldf2AuoUKlEaQ5Ccql-";
+    await sendMessengerImage(senderId, sampleImg, 'inner_sample');
+
+    const reply = "এটা আমাদের ভেতরের পাতার একটা sample layout। আপনার ধর্ম অনুযায়ী (ইসলামিক — বিসমিল্লাহ ক্যালিগ্রাফি, বা সনাতন — শ্রী শ্রী গণেশায় নমঃ) উপরের অংশ পরিবর্তন করে দেওয়া হবে, বাকি design অপরিবর্তিত থাকবে। আপনার আর কনে/বরের নাম, তারিখ, ঠিকানাও এখানে বসিয়ে দেওয়া হবে।";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
     await appendMessage(senderId, 'bot', reply);
   }
   // ===== ACKNOWLEDGEMENTS ("ok", "okay", "ঠিক আছে", "জি", "আচ্ছা", "হুম", "ধন্যবাদ") =====
