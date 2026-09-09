@@ -993,14 +993,32 @@ async function handleWeddingInfoMessage(senderId, text) {
 }
 
 // ============================================================
-// Webhook signature verification (P1-5 / STEP 19)
+// Webhook signature verification & Raw Body extraction (P1-5)
 // ============================================================
-// NOT FIXED / pending credential: this only actively rejects requests
-// once FB_APP_SECRET is set in the environment. Until then it logs a
-// warning and lets requests through, so deploying this fix doesn't lock
-// out the existing webhook before the secret is configured. Once
-// FB_APP_SECRET is set, invalid/missing signatures are rejected with 403.
-function verifyWebhookSignature(req) {
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+async function getRawBodyBuffer(req) {
+  if (Buffer.isBuffer(req.rawBody)) return req.rawBody;
+  if (typeof req.rawBody === 'string') return Buffer.from(req.rawBody, 'utf8');
+  if (Buffer.isBuffer(req.body)) return req.body;
+
+  if (req.readableEnded || (req.complete && req.body && Object.keys(req.body).length > 0)) {
+    return Buffer.from(JSON.stringify(req.body), 'utf8');
+  }
+
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', err => reject(err));
+  });
+}
+
+function verifyWebhookSignature(req, rawBuffer) {
   if (!FB_APP_SECRET) {
     return { ok: true, skipped: true };
   }
@@ -1008,11 +1026,15 @@ function verifyWebhookSignature(req) {
   if (!signature || !signature.startsWith('sha256=')) {
     return { ok: false, reason: 'missing signature header' };
   }
-  const rawBody = req.rawBody || JSON.stringify(req.body || {});
-  const expected = 'sha256=' + crypto.createHmac('sha256', FB_APP_SECRET).update(rawBody).digest('hex');
+  if (!rawBuffer || rawBuffer.length === 0) {
+    return { ok: false, reason: 'empty raw body buffer' };
+  }
+  const cleanSecret = FB_APP_SECRET.replace(/^["']|["']$/g, '').trim();
+  const expected = 'sha256=' + crypto.createHmac('sha256', cleanSecret).update(rawBuffer).digest('hex');
   const sigBuf = Buffer.from(signature);
   const expBuf = Buffer.from(expected);
   if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    console.warn(`[security] Signature mismatch. Received: ${signature.substring(0, 15)}..., Expected: ${expected.substring(0, 15)}...`);
     return { ok: false, reason: 'signature mismatch' };
   }
   return { ok: true, skipped: false };
@@ -1034,7 +1056,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const sigCheck = verifyWebhookSignature(req);
+      const rawBuffer = await getRawBodyBuffer(req);
+      const sigCheck = verifyWebhookSignature(req, rawBuffer);
       if (!sigCheck.ok) {
         logError({ route: 'messenger.webhook', error: `Rejected: ${sigCheck.reason}` });
         return res.status(403).send('Invalid signature');
@@ -1047,7 +1070,16 @@ export default async function handler(req, res) {
         }
       }
 
-      const body = req.body;
+      let body = req.body;
+      if (!body || Object.keys(body).length === 0) {
+        try {
+          const bodyStr = rawBuffer.toString('utf8');
+          body = bodyStr ? JSON.parse(bodyStr) : {};
+        } catch (jsonErr) {
+          logError({ route: 'messenger.webhook', error: `JSON parse failed: ${jsonErr.message}` });
+          return res.status(400).send('Invalid JSON');
+        }
+      }
 
       if (body.object === 'page') {
         const entries = body.entry || [];
@@ -1075,7 +1107,7 @@ export default async function handler(req, res) {
               });
               try {
                 const fallbackSenderId = webhookEvent?.sender?.id;
-                if (fallbackSenderId) {
+                if (fallbackSenderId && fallbackSenderId !== PAGE_ID) {
                   await sendMessengerText(
                     fallbackSenderId,
                     'দুঃখিত, একটু সমস্যা হয়েছে। 🙏 আবার লিখুন, অথবা সরাসরি কল/হোয়াটসঅ্যাপ করুন: 📞 01701016826'
@@ -1157,7 +1189,7 @@ async function replyToLastCustomerMessage(recipientId) {
           }
         } else {
           console.log(`Bot already replied to all pending customer messages for ${recipientId}. No replay needed.`);
-          return;
+          return false;
         }
       } else {
         console.warn('Graph API lookup returned non-ok status in replyToLastCustomerMessage:', gRes.status);
@@ -1196,7 +1228,7 @@ async function replyToLastCustomerMessage(recipientId) {
 
   if ((!lastText || lastText.trim() === '') && !lastAttachments) {
     console.log(`No pending customer message found to replay for ${recipientId}.`);
-    return;
+    return false;
   }
 
   console.log(`🤖 Replaying customer's last message for ${recipientId}: "${lastText}"`);
@@ -1214,6 +1246,7 @@ async function replyToLastCustomerMessage(recipientId) {
   };
 
   await processOneEvent(syntheticEvent);
+  return true;
 }
 
 // ============================================================
@@ -1249,7 +1282,16 @@ async function processOneEvent(webhookEvent) {
         console.log(`🤖 ADMIN TRIGGERED "${echoText}": Bot RE-ACTIVATED immediately for ${recipientId}!`);
 
         try {
-          await replyToLastCustomerMessage(recipientId);
+          const replied = await replyToLastCustomerMessage(recipientId);
+          if (!replied) {
+            const welcomeBack = "আসসালামু আলাইকুম! 🌸 বন্ধন প্রিন্টিং হাউসে স্বাগতম। আপনি কি বিয়ের কার্ড দেখতে চাইছেন?";
+            await sendMessengerButtonBlock(recipientId, welcomeBack, [
+              { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+              { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+              { title: "দাম জানুন", payload: "BTN_PRICE" }
+            ]);
+            await appendMessage(recipientId, 'bot', welcomeBack);
+          }
         } catch (replayErr) {
           console.error('Error replying to customer last message on re-activation:', replayErr);
         }
