@@ -20,37 +20,29 @@ export default async function handler(req, res) {
     salesBrainProductionConfig: {
       maxOutputTokens: 600,
       thinkingConfig: { thinkingLevel: "LOW" }
-    },
-    visionProductionConfig: {
-      maxOutputTokens: 400,
-      thinkingConfig: { thinkingLevel: "LOW" },
-      responseMimeType: "application/json"
     }
   };
 
-  const model = 'gemini-3.6-flash';
-  const customPrompt = req.query.prompt ? String(req.query.prompt) : null;
-
-  for (const [testName, genConfig] of Object.entries(testConfigs)) {
+  const modelsToTest = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  for (const mod of modelsToTest) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${key}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: customPrompt || 'Respond with JSON: {"status":"ok","model":"gemini-3.6-flash"}' }] }],
-          generationConfig: genConfig
+          contents: [{ role: 'user', parts: [{ text: 'Respond with JSON: {"status":"ok","model":"' + mod + '"}' }] }],
+          generationConfig: { maxOutputTokens: 200 }
         })
       });
       const data = await response.json();
-      results[testName] = {
+      results[mod] = {
         httpStatus: response.status,
         ok: response.ok,
-        text: data?.candidates?.[0]?.content?.parts?.[0]?.text || null,
         data: data
       };
     } catch (err) {
-      results[testName] = { error: err.message };
+      results[mod] = { error: err.message };
     }
   }
 
