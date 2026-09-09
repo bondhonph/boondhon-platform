@@ -6,7 +6,7 @@ import {
   isUserAwaitingPayment, setSelectedCard, getSelectedCard,
   setLastShownCards, getLastShownCards, getConversationStage, setConversationStage,
   getOrder, updateOrder, setPaymentStatus, resetCustomerState,
-  getAwaitingField, setAwaitingField, isRedisTakeoverActive,
+  getAwaitingField, setAwaitingField, isRedisTakeoverActive, getTakeoverState,
 } from '../../lib/chat-store';
 import { VISUAL_CATALOG_RULES, AFFORDABLE_IDS, PREMIUM_IDS, INNER_DESIGN_SAMPLE } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
@@ -683,24 +683,31 @@ async function fetchCustomerNameSafe(senderId) {
 // takeover customer within the same warm instance (P0-3: NOT the primary
 // store anymore, unlike the original selectedCardMap/humanTakeoverMap).
 const humanTakeoverMemCache = new Map();
-const TAKEOVER_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const TAKEOVER_DURATION_MS = 15 * 60 * 1000; // 15 minutes for natural/automatic takeover
+const EXPLICIT_TAKEOVER_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours for explicit admin /off
 
-async function setHumanTakeoverSafe(userId, active) {
+async function setHumanTakeoverSafe(userId, active, isExplicit = false) {
   if (active) {
-    humanTakeoverMemCache.set(userId, Date.now());
+    humanTakeoverMemCache.set(userId, {
+      time: Date.now(),
+      isExplicitOff: Boolean(isExplicit)
+    });
   } else {
     humanTakeoverMemCache.delete(userId);
   }
-  await setHumanTakeover(userId, active);
+  await setHumanTakeover(userId, active, isExplicit);
 }
 
-async function isHumanTakeoverActive(userId) {
+async function getHumanTakeoverState(userId) {
   const now = Date.now();
 
-  const memTime = humanTakeoverMemCache.get(userId);
-  if (memTime) {
-    if (now - memTime < TAKEOVER_DURATION_MS) {
-      return true;
+  const mem = humanTakeoverMemCache.get(userId);
+  if (mem) {
+    const memTime = typeof mem === 'object' ? mem.time : mem;
+    const isExplicitOff = typeof mem === 'object' ? Boolean(mem.isExplicitOff) : false;
+    const ttl = isExplicitOff ? EXPLICIT_TAKEOVER_DURATION_MS : TAKEOVER_DURATION_MS;
+    if (now - memTime < ttl) {
+      return { active: true, isExplicitOff };
     } else {
       humanTakeoverMemCache.delete(userId);
     }
@@ -708,15 +715,18 @@ async function isHumanTakeoverActive(userId) {
 
   // 1. DISTRIBUTED CHECK: Upstash Redis instant takeover check across all instances
   try {
-    const isRedisActive = await isRedisTakeoverActive(userId);
-    if (isRedisActive) {
-      humanTakeoverMemCache.set(userId, now);
-      return true;
+    const redisState = await getTakeoverState(userId);
+    if (redisState && redisState.active) {
+      humanTakeoverMemCache.set(userId, {
+        time: now,
+        isExplicitOff: Boolean(redisState.isExplicitOff)
+      });
+      return { active: true, isExplicitOff: Boolean(redisState.isExplicitOff) };
     }
   } catch (_) {}
 
-  // LIVE CHECK: Query Facebook Graph API directly for a human admin reply
-  // from Page Inbox / Messenger app in the last 15 minutes.
+  // 2. LIVE CHECK: Query Facebook Graph API directly for a human admin reply
+  // from Page Inbox / Messenger app in the last 15 minutes (or 24h for explicit off).
   if (PAGE_ACCESS_TOKEN && userId) {
     try {
       const controller = new AbortController();
@@ -734,15 +744,27 @@ async function isHumanTakeoverActive(userId) {
           if (msg.from?.id === PAGE_ID) {
             const msgTime = new Date(msg.created_time).getTime();
             const elapsed = now - msgTime;
-            if (elapsed >= TAKEOVER_DURATION_MS) break;
 
             const msgContent = (msg.message || '').trim().toLowerCase();
             // If the admin's most recent message is a trigger command, immediately cancel takeover!
             if (['/active', 'active', '/bot', 'bot', '/on', 'on', '/start', 'start'].includes(msgContent)) {
               console.log(`🤖 Admin explicitly resumed bot with command "${msg.message}" for ${userId}. Takeover deactivated!`);
               humanTakeoverMemCache.delete(userId);
-              return false;
+              await setHumanTakeoverSafe(userId, false);
+              return { active: false, isExplicitOff: false };
             }
+
+            // If the admin's most recent message is an explicit OFF command:
+            if (['/off', 'off', '/pause', 'pause', '/stop', 'stop', '/admin', 'admin'].includes(msgContent)) {
+              if (elapsed < EXPLICIT_TAKEOVER_DURATION_MS) {
+                console.log(`🛑 Live Graph API detected EXPLICIT ADMIN /OFF for ${userId}`);
+                humanTakeoverMemCache.set(userId, { time: msgTime, isExplicitOff: true });
+                return { active: true, isExplicitOff: true };
+              }
+              break;
+            }
+
+            if (elapsed >= TAKEOVER_DURATION_MS) break;
 
             const tagNames = (msg.tags?.data || []).map(t => (t.name || '').toLowerCase());
             const isHumanReply = tagNames.includes('messenger') ||
@@ -751,8 +773,8 @@ async function isHumanTakeoverActive(userId) {
 
             if (isHumanReply) {
               console.log(`🙋 LIVE HUMAN TAKEOVER confirmed from Facebook for ${userId}! Admin replied ${Math.round(elapsed / 1000)}s ago. Bot paused for 15 min.`);
-              humanTakeoverMemCache.set(userId, msgTime);
-              return true;
+              humanTakeoverMemCache.set(userId, { time: msgTime, isExplicitOff: false });
+              return { active: true, isExplicitOff: false };
             }
           }
         }
@@ -764,22 +786,29 @@ async function isHumanTakeoverActive(userId) {
     }
   }
 
-  // Durable store (source of truth)
+  // 3. Durable store (source of truth)
   try {
     const conv = await getConversation(userId);
     if (conv && conv.humanTakeover === true) {
+      const isExplicitOff = Boolean(conv.isExplicitOff);
       const lastAdmin = conv.lastAdminReplyTime || 0;
-      if (now - lastAdmin < TAKEOVER_DURATION_MS) {
-        humanTakeoverMemCache.set(userId, lastAdmin);
-        return true;
+      const ttl = isExplicitOff ? EXPLICIT_TAKEOVER_DURATION_MS : TAKEOVER_DURATION_MS;
+      if (now - lastAdmin < ttl) {
+        humanTakeoverMemCache.set(userId, { time: lastAdmin, isExplicitOff });
+        return { active: true, isExplicitOff };
       } else {
         await setHumanTakeover(userId, false);
-        return false;
+        return { active: false, isExplicitOff: false };
       }
     }
   } catch (e) {}
 
-  return false;
+  return { active: false, isExplicitOff: false };
+}
+
+async function isHumanTakeoverActive(userId) {
+  const state = await getHumanTakeoverState(userId);
+  return state.active;
 }
 
 // Send 8 Direct Full-Size Card Photos sequentially using guaranteed offset tracking
@@ -1310,8 +1339,8 @@ async function processOneEvent(webhookEvent) {
 
       // 2. TURN BOT OFF / PAUSE (Admin wants full manual control)
       if (['/off', 'off', '/pause', 'pause', '/stop', 'stop', '/admin', 'admin'].includes(lowerEcho)) {
-        await setHumanTakeoverSafe(recipientId, true);
-        console.log(`🛑 ADMIN EXPLICITLY TURNED BOT OFF for ${recipientId}`);
+        await setHumanTakeoverSafe(recipientId, true, true);
+        console.log(`🛑 ADMIN EXPLICITLY TURNED BOT OFF for ${recipientId} (strict override active)`);
         return;
       }
 
@@ -1408,10 +1437,10 @@ async function processOneEvent(webhookEvent) {
         return;
       }
 
-      // NORMAL ADMIN TEXT: Manual human chat → pauses bot for 15 mins
+      // NORMAL ADMIN TEXT: Manual human chat → pauses bot for 15 mins (natural takeover)
       await appendMessage(recipientId, 'admin', echoText || '(admin reply)');
-      await setHumanTakeoverSafe(recipientId, true);
-      console.log(`🙋 ADMIN TAKEOVER activated for ${recipientId} — bot OFF for 15 min`);
+      await setHumanTakeoverSafe(recipientId, true, false);
+      console.log(`🙋 NATURAL ADMIN TAKEOVER activated for ${recipientId} — bot OFF for 15 min (button click will release)`);
     }
     return;
   }
@@ -1449,29 +1478,45 @@ async function processOneEvent(webhookEvent) {
   }
 
   // ===== HUMAN TAKEOVER CHECK (in-memory cache + durable store + live Facebook Graph API check) =====
+  const takeoverState = webhookEvent.is_replay
+    ? { active: false, isExplicitOff: false }
+    : await getHumanTakeoverState(senderId);
+
   const isResumeCmd = ['/on', 'on', '/bot', 'bot', '/active', 'active', '/start', 'start', 'get started', 'get_started', 'শুরু', 'চালু', 'বট'].includes(txt) ||
     payload === 'BTN_RESUME_BOT';
 
   const isButtonClick = !!(payload || postbackPayload || quickReplyPayload) || isResumeCmd;
 
-  if (isButtonClick) {
-    // Button clicks and resume commands break takeover immediately so customer is never stuck!
-    humanTakeoverMemCache.delete(senderId);
-    await setHumanTakeoverSafe(senderId, false);
-  } else if (!webhookEvent.is_replay && (await isHumanTakeoverActive(senderId))) {
-    // If customer explicitly asks for admin while takeover is already active, acknowledge instead of staying silent
-    if (Parser.isHumanHandoffIntent(text)) {
-      const waitMsg = "আপনার মেসেজটি আমাদের টিমকে জানানো হয়েছে। 🙏 আমাদের প্রতিনিধি খুব শীঘ্রই আপনার সাথে সরাসরি যোগাযোগ করবেন।\n\n📞 জরুরি প্রয়োজনে সরাসরি কল/হোয়াটসঅ্যাপ করতে পারেন: 01701016826";
-      await sendMessengerButtonBlock(senderId, waitMsg, [
-        { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
-        { title: "🤖 বট চালু করুন", payload: "BTN_RESUME_BOT" },
-        { title: "💚 কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
-      ]);
-      await appendMessage(senderId, 'bot', waitMsg);
+  if (takeoverState.active) {
+    if (takeoverState.isExplicitOff) {
+      // STRICT OVERRIDE: Admin explicitly turned off the bot (/off, /pause, /stop, /admin).
+      // Customer button clicks, resume commands, or text must NEVER wake up the bot!
+      // Only the admin from Page Inbox sending /on, /active, /bot, /start can turn the bot back on.
+      console.log(`🛑 Strict Admin /off is ACTIVE for ${senderId}. Bot is completely silent. Ignoring customer input (isButtonClick=${isButtonClick}).`);
       return;
     }
-    console.log(`🙋 Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
-    return;
+
+    // Natural / automatic takeover (admin manually chatted with customer)
+    if (isButtonClick) {
+      // Button clicks and resume commands break natural takeover immediately so customer is never stuck!
+      humanTakeoverMemCache.delete(senderId);
+      await setHumanTakeoverSafe(senderId, false);
+      console.log(`🤖 Customer clicked button during natural takeover. Bot RESUMED for ${senderId}`);
+    } else {
+      // If customer explicitly asks for admin while natural takeover is already active, acknowledge instead of staying silent
+      if (Parser.isHumanHandoffIntent(text)) {
+        const waitMsg = "আপনার মেসেজটি আমাদের টিমকে জানানো হয়েছে। 🙏 আমাদের প্রতিনিধি খুব শীঘ্রই আপনার সাথে সরাসরি যোগাযোগ করবেন।\n\n📞 জরুরি প্রয়োজনে সরাসরি কল/হোয়াটসঅ্যাপ করতে পারেন: 01701016826";
+        await sendMessengerButtonBlock(senderId, waitMsg, [
+          { title: "📞 হটলাইনে কথা বলুন", payload: "BTN_HOTLINE" },
+          { title: "🤖 বট চালু করুন", payload: "BTN_RESUME_BOT" },
+          { title: "💚 কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
+        ]);
+        await appendMessage(senderId, 'bot', waitMsg);
+        return;
+      }
+      console.log(`🙋 Natural Human Takeover ACTIVE for ${senderId}. Skipping bot reply.`);
+      return;
+    }
   }
 
   const attachments = message?.attachments;
