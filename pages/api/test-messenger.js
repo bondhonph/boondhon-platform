@@ -17,44 +17,20 @@ export default async function handler(req, res) {
   const embedResults = {};
 
   const testConfigs = {
-    currentSalesBrainConfig: {
-      temperature: 0.6,
-      maxOutputTokens: 600,
-      thinkingConfig: { thinkingBudget: 0 }
-    },
-    currentVisionConfig: {
-      temperature: 0.3,
-      maxOutputTokens: 400,
-      thinkingConfig: { thinkingBudget: 0 },
-      responseMimeType: "application/json"
-    },
-    thinkingBudgetOnly: {
-      maxOutputTokens: 600,
-      thinkingConfig: { thinkingBudget: 0 }
-    },
-    temperatureOnly: {
-      temperature: 0.6,
-      maxOutputTokens: 600
-    },
-    thinkingLevelLow: {
+    salesBrainProductionConfig: {
       maxOutputTokens: 600,
       thinkingConfig: { thinkingLevel: "LOW" }
     },
-    visionThinkingLevelLow: {
+    visionProductionConfig: {
       maxOutputTokens: 400,
       thinkingConfig: { thinkingLevel: "LOW" },
-      responseMimeType: "application/json"
-    },
-    cleanSalesBrainConfig: {
-      maxOutputTokens: 600
-    },
-    cleanVisionConfig: {
-      maxOutputTokens: 400,
       responseMimeType: "application/json"
     }
   };
 
   const model = 'gemini-3.6-flash';
+  const customPrompt = req.query.prompt ? String(req.query.prompt) : null;
+
   for (const [testName, genConfig] of Object.entries(testConfigs)) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
@@ -62,7 +38,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'Hello, respond with JSON: {"status":"ok"}' }] }],
+          contents: [{ role: 'user', parts: [{ text: customPrompt || 'Respond with JSON: {"status":"ok","model":"gemini-3.6-flash"}' }] }],
           generationConfig: genConfig
         })
       });
@@ -70,6 +46,7 @@ export default async function handler(req, res) {
       results[testName] = {
         httpStatus: response.status,
         ok: response.ok,
+        text: data?.candidates?.[0]?.content?.parts?.[0]?.text || null,
         data: data
       };
     } catch (err) {

@@ -272,10 +272,9 @@ STRICT JSON format:
             }
           ],
           generationConfig: {
-            temperature: 0.3,
             maxOutputTokens: 400,
             thinkingConfig: {
-              thinkingBudget: 0
+              thinkingLevel: "LOW"
             },
             responseMimeType: "application/json"
           }
@@ -412,10 +411,9 @@ ${buildPricingBlurbForAI(bngDigits)}
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: recentMsgs,
           generationConfig: {
-            temperature: 0.6,
             maxOutputTokens: 600,
             thinkingConfig: {
-              thinkingBudget: 0
+              thinkingLevel: "LOW"
             }
           }
         })

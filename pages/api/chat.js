@@ -63,7 +63,7 @@ Payment: bKash/Nagad/Rocket: 01682588856
         body: JSON.stringify({
           contents,
           systemInstruction: { parts: [{ text: systemText }] },
-          generationConfig: { maxOutputTokens: 1000, temperature: 0.8 }
+          generationConfig: { maxOutputTokens: 1000 }
         })
       }
     );
