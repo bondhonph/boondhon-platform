@@ -54,7 +54,7 @@ const messengerTransforms = [
   {
     name: 'Replace analyzeCardImage 4-model loop with single call + 8s timeout',
     search: /const modelsToTry = \['gemini-3\.6-flash',[\s\S]*?for \(const modelName of modelsToTry\) \{[\s\S]*?console\.warn\(`Vision model \$\{modelName\} call exception:`, callErr\.message\);\s*\}\s*\}/,
-    replace: `const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+    replace: `const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -110,7 +110,7 @@ const messengerTransforms = [
   {
     name: 'Replace generateAISalesResponse 4-model loop with single call + 8s timeout',
     search: /const modelsToTry = \['gemini-3\.6-flash',[\s\S]*?for \(const modelName of modelsToTry\) \{[\s\S]*?console\.warn\(`Sales brain model \$\{modelName\} error:`, mErr\.message\);\s*\}\s*\}/,
-    replace: `const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+    replace: `const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -220,8 +220,8 @@ VERIFY_TOKEN=your_verify_token_here
 # Google Gemini API Key (For Multimodal Vision & Vector Embeddings)
 GEMINI_API_KEY=your_gemini_api_key_here
 
-# Optional: Fast Gemini Model (Default: gemini-2.5-flash)
-GEMINI_MODEL=gemini-2.5-flash
+# Optional: Gemini Model (Default: gemini-3.6-flash). Must be a supported, active model.
+GEMINI_MODEL=gemini-3.6-flash
 `;
 
 fs.writeFileSync('H:/Messenger AI Bot/.env.example', envExampleContent, 'utf-8');
