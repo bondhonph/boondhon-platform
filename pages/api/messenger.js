@@ -385,6 +385,10 @@ ${buildPricingBlurbForAI(bngDigits)}
   - ধাপ ২: তথ্য পাওয়ার পর অর্ডার কনফার্ম করতে ৩০% অগ্রিম (বিকাশ/নগদ/রকেট: 01682588856) নেওয়া হবে। অগ্রিমের পর আমাদের ডিজাইনার কাস্টমারের তথ্য দিয়ে ডিজাইন তৈরি করে মেসেঞ্জার/হোয়াটসঅ্যাপে প্রুফ চেক করাবে।
   - ধাপ ৩: কাস্টমার ডিজাইন 'ওকে' করার পরই কেবল প্রিন্ট হবে। সারা দেশে জেলা শহরে ক্যাশ অন ডেলিভারি (৫-৭ কর্মদিবস)।
   - ⚠️ নিয়ম: শুরুতেই হুট করে পেমেন্ট নম্বর ধরিয়ে দেবে না। আগে অর্ডার সিস্টেম ও ফর্ম পূরণ করতে বলবে, ফর্মের তথ্য পাওয়ার পর ৩০% অ্যাডভান্স চাইবে।
+• ⚠️ পাইকারি/হোলসেল নীতি (Strict Retail Only Policy):
+  - আমরা পাইকারি (Wholesale) বা ডিলার/রিসেলার হিসেবে কোনো কার্ড বিক্রি করি না।
+  - আমরা শুধুমাত্র সরাসরি গ্রাহকদের বিয়ের অনুষ্ঠানের জন্য খুচরা (Retail) কার্ড ডিজাইন ও প্রিন্ট করে সরবরাহ করি।
+  - কেউ পাইকারি কার্ড বা ডিলারশিপ চাইলে বিনয়ের সাথে স্পষ্ট জানিয়ে দেবে যে আমরা কোনো পাইকারি কার্ড দিই না, শুধুমাত্র খুচরা রিটেইল করি। কাস্টমারের নিজের জন্য কার্ড লাগলে কত পিস লাগবে জিজ্ঞেস করবে।
 • হটলাইন: 01701016826 (বন্ধন হটলাইন)।
 
 🎯 তোমার লক্ষ্য: কাস্টমারকে আপন করে নেওয়া, তাদের দ্বিধা দূর করা এবং হাসিমুখে অর্ডারের দিকে এগিয়ে নিয়ে যাওয়া।`;
@@ -1699,6 +1703,7 @@ async function processOneEvent(webhookEvent) {
   // lib/order-parser.js) so this can't happen again.
   const isMinimumOrderQuery = Parser.isMinimumOrderQuery(txt);
   const isPriceObjectionOrDiscount = Parser.isPriceObjectionOrDiscount(normalizedTxt);
+  const isWholesaleQuery = Parser.isWholesaleQuery(normalizedTxt) || Parser.isWholesaleQuery(text);
 
   const bargainOffer = evaluateBargain(text, (await getCurrentCategory(senderId)) || 'affordable');
 
@@ -2234,6 +2239,16 @@ async function processOneEvent(webhookEvent) {
   // (see sendOrderSummary / BTN_CONFIRM_ORDER above).
   else if (isFormSubmission) {
     await handleWeddingInfoMessage(senderId, text);
+  }
+  // ===== WHOLESALE / PAIKARI INQUIRY (STRICT RETAIL ONLY POLICY) =====
+  else if (isWholesaleQuery) {
+    const reply = "আন্তরিকভাবে দুঃখিত, আমরা পাইকারি বা হোলসেল (Wholesale)-এ কার্ড বিক্রি করি না। 🌸\nআমরা শুধুমাত্র বর-কনের পরিবারের জন্য সরাসরি খুচরা (Retail) কার্ড প্রিন্ট ও হোম ডেলিভারি সরবরাহ করে থাকি।\n\nআপনার নিজের বিয়ের অনুষ্ঠানের জন্য কত পিস কার্ড প্রয়োজন জানালে, আমাদের কালেকশন ও রেট চার্ট দেখাতে পারি! 😊";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "দাম জানুন", payload: "BTN_PRICE" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
   }
   // ===== LOW QUANTITY / MINIMUM ORDER QUERY =====
   else if (!isFormSubmission && isMinimumOrderQuery) {
