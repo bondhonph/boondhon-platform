@@ -1372,8 +1372,8 @@ async function processOneEvent(webhookEvent) {
         return;
       }
 
-      // 3. SEND AFFORDABLE CARD GALLERY
-      if (['/card', '/cards', '/affordable', '/সাশ্রয়ী', 'card', 'cards'].includes(lowerEcho)) {
+      // 3. SEND AFFORDABLE CARD GALLERY (or /image)
+      if (['/card', '/cards', '/affordable', '/সাশ্রয়ী', 'card', 'cards', '/image', '/images', '/ছবি', '/photo', '/pic', 'image'].includes(lowerEcho)) {
         console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Affordable gallery to ${recipientId}`);
         await setHumanTakeoverSafe(recipientId, false); // allow bot to continue when customer reacts
         await sendSequentialGallery(recipientId, 'affordable', 0);
@@ -1385,6 +1385,23 @@ async function processOneEvent(webhookEvent) {
         console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Premium gallery to ${recipientId}`);
         await setHumanTakeoverSafe(recipientId, false); // allow bot to continue when customer reacts
         await sendSequentialGallery(recipientId, 'premium', 0);
+        return;
+      }
+
+      // 4b. SEND INNER PAGE DESIGN SAMPLE
+      if (['/inner', '/sample', '/ভেতর', '/ভিতর', '/inside', '/পাতা', 'inner', 'sample'].includes(lowerEcho)) {
+        console.log(`🤖 ADMIN COMMAND "${echoText}": Sending Inner Page sample to ${recipientId}`);
+        await setHumanTakeoverSafe(recipientId, false);
+        const sampleImg = INNER_DESIGN_SAMPLE?.url || INNER_DESIGN_SAMPLE?.driveId || "https://boondhon-platform-qr9a.vercel.app/samples/inner-sample-01.jpg";
+        await sendMessengerImage(recipientId, sampleImg, 'inner_sample');
+
+        const reply = "আমাদের কার্ডের ভেতরের পাতার স্ট্যান্ডার্ড লেআউট ডিজাইন এটি। 🌸\n\nধর্ম অনুযায়ী উপরের অংশ (ধর্মীয় ক্যালিগ্রাফি বা বাক্য যেমন 'বিসমিল্লাহির রাহমানির রাহিম' অথবা 'ওঁ শ্রী শ্রী গণেশায় নমঃ') এবং ভেতরের লেখা বর-কনের নাম ও অনুষ্ঠানসূচী দিয়ে সম্পূর্ণ কাস্টমাইজ করে দেওয়া হয়।\n\nআপনার কত পিস কার্ড প্রয়োজন জানালে কালেকশন দেখাতে পারি! 😊";
+        await sendMessengerButtonBlock(recipientId, reply, [
+          { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+          { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+          { title: "দাম জানুন", payload: "BTN_PRICE" }
+        ]);
+        await appendMessage(recipientId, 'bot', reply);
         return;
       }
 
