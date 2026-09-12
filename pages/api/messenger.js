@@ -7,6 +7,8 @@ import {
   setLastShownCards, getLastShownCards, getConversationStage, setConversationStage,
   getOrder, updateOrder, setPaymentStatus, resetCustomerState,
   getAwaitingField, setAwaitingField, isRedisTakeoverActive, getTakeoverState,
+  setSelectedTier, getSelectedTier, setSelectedQuantity, getSelectedQuantity,
+  incrementPriceInquiryCount, getPriceInquiryCount, resetPriceInquiryCount,
 } from '../../lib/chat-store';
 import { VISUAL_CATALOG_RULES, AFFORDABLE_IDS, PREMIUM_IDS, INNER_DESIGN_SAMPLE } from '../../lib/data';
 import { findCatalogMatch, isCatalogIndexReady } from '../../lib/catalog-matcher';
@@ -886,6 +888,111 @@ async function sendSequentialGallery(recipientId, type, requestedOffset = 0) {
   await appendMessage(recipientId, 'bot', progressText);
 }
 
+/**
+ * Smart 2-Step Price Qualification:
+ * Customer must have both selectedTier and selectedQuantity before specific price is quoted.
+ * Exception: Customer insists ("শুধু দাম বলেন", "আগে দাম বলেন") OR has inquired >= 2 times previously in the same conversation.
+ */
+async function handlePriceOrQualification(senderId, { isInsistent = false, explicitQty = null, explicitTier = null } = {}) {
+  if (explicitQty) {
+    await setSelectedQuantity(senderId, explicitQty);
+  }
+  if (explicitTier) {
+    await setSelectedTier(senderId, explicitTier);
+  }
+
+  const currentTier = await getSelectedTier(senderId);
+  const currentQty = await getSelectedQuantity(senderId);
+  const inquiryCount = await getPriceInquiryCount(senderId);
+
+  // Exception: Customer explicitly insists on price or asks 3rd time (>= 2 prior inquiries)
+  if (isInsistent || inquiryCount >= 2) {
+    const reply = "অবশ্যই! আমাদের সব কালেকশন ও পরিমাণের সম্পূর্ণ রেট চার্ট নিচে দেওয়া হলো: 🌸\n\n" +
+      buildBothCategoriesPriceText(bngDigits) +
+      "\n\nআপনার পছন্দসই কার্ডের ক্যাটাগরি ও পরিমাণ জানালে অর্ডার প্রসেস শুরু করতে পারি! 😊";
+
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    await resetPriceInquiryCount(senderId);
+    return;
+  }
+
+  // Case 1: Both Tier and Quantity are known
+  if (currentTier && currentQty) {
+    await resetPriceInquiryCount(senderId);
+
+    if (currentQty < 50) {
+      const reply = getLowQtyPrice(currentQty);
+      await sendMessengerButtonBlock(senderId, reply, [
+        { title: "৫০ পিস অর্ডার", payload: "QTY_50" },
+        { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+        { title: "কার্ড দেখুন", payload: currentTier === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" }
+      ]);
+      await appendMessage(senderId, 'bot', reply);
+      return;
+    }
+
+    const totalPrice = getOrderTotal(currentQty, currentTier);
+    const perPiece = getOrderPerPiece(currentQty, currentTier);
+    const tierName = currentTier === 'premium' ? 'Premium' : 'Affordable';
+
+    let reply = `${bngDigits(currentQty)} পিস ${tierName} কার্ডের মোট দাম ${bngDigits(totalPrice.toLocaleString('en-IN'))}৳ (প্রতি পিস ${bngDigits(perPiece)}৳)। প্রিন্টিং সহ, কোনো হিডেন চার্জ নেই!`;
+    if (currentQty >= 200) {
+      reply += "\n🎁 ২০০+ পিসে ১টি আকর্ষণীয় নিকাহনামা একদম ফ্রি উপহার!";
+    }
+    reply += "\n\nপছন্দ হলে অর্ডারটি কনফার্ম করতে পারেন! 😊";
+
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
+      { title: "কার্ড দেখুন", payload: currentTier === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" },
+      { title: "অর্ডার নিয়মাবলী", payload: "BTN_POLICY" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
+  // Case 2: Neither is known
+  if (!currentTier && !currentQty) {
+    await incrementPriceInquiryCount(senderId);
+    const reply = "অবশ্যই বলছি! 😊 তার আগে দুটো জিনিস জানা দরকার — আপনি কোন কালেকশনের কার্ড নিতে চাচ্ছেন, আর কত পিস লাগবে?";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
+  // Case 3: Only Tier is known, Quantity is null
+  if (currentTier && !currentQty) {
+    await incrementPriceInquiryCount(senderId);
+    const reply = "আপনার কত পিস কার্ড লাগবে বলুন, সেই অনুযায়ী দামটা বলে দিচ্ছি 😊";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "৫০ পিস", payload: "QTY_50" },
+      { title: "১০০ পিস", payload: "QTY_100" },
+      { title: "২০০ পিস", payload: "QTY_200" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+
+  // Case 4: Only Quantity is known, Tier is null
+  if (!currentTier && currentQty) {
+    await incrementPriceInquiryCount(senderId);
+    const reply = "আপনি কোন কালেকশনটা নিতে চাচ্ছেন — Affordable নাকি Premium? দুটোর ডিজাইন দেখে নিতে পারেন:";
+    await sendMessengerButtonBlock(senderId, reply, [
+      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
+      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" }
+    ]);
+    await appendMessage(senderId, 'bot', reply);
+    return;
+  }
+}
+
 // ============================================================
 // NEW (P0-4 / P0-5 / STEP 5/6/11/12/13/14): structured order collection,
 // summary, and correction flow. All state transitions are deterministic
@@ -1722,6 +1829,47 @@ async function processOneEvent(webhookEvent) {
   const isPriceObjectionOrDiscount = Parser.isPriceObjectionOrDiscount(normalizedTxt);
   const isWholesaleQuery = Parser.isWholesaleQuery(normalizedTxt) || Parser.isWholesaleQuery(text);
 
+  let detectedTier = null;
+  const isAff = (
+    payload === 'BTN_AFFORDABLE' ||
+    payload.startsWith('MORE_AFFORDABLE') ||
+    payload === 'BTN_AFFORDABLE_PRICE' ||
+    /\b(affordable|সাশ্রয়ী|কমদামী|কম\s*দামের)\b/i.test(normalizedTxt) ||
+    /AFF-\d+/i.test(normalizedTxt)
+  );
+  const isPrem = (
+    payload === 'BTN_PREMIUM' ||
+    payload.startsWith('MORE_PREMIUM') ||
+    payload === 'BTN_PREMIUM_PRICE' ||
+    /\b(premium|প্রিমিয়াম|লাক্সারি|দামী|বেশি\s*দামের)\b/i.test(normalizedTxt) ||
+    /PREM-\d+/i.test(normalizedTxt)
+  );
+
+  if (isAff && !isPrem) {
+    detectedTier = 'affordable';
+  } else if (isPrem && !isAff) {
+    detectedTier = 'premium';
+  }
+
+  if (detectedTier) {
+    await setSelectedTier(senderId, detectedTier);
+  }
+
+  const isPriceInsistence = (
+    /(?:শুধু|আগে|first|only|just)\s*(?:দাম|price|রেট|rate)|(?:দাম|price|রেট|rate)\s*(?:বলেন|জানান|বলো|বলুন|দেখান|দিবেন|বল)\s*(?:না|আগে|শুধু)|দামটা\s*(?:তো\s*)?বলেন|দাম\s*বলবেন\s*না|age\s*dam|shudhu\s*dam|shudu\s*dam/i.test(normalizedTxt) ||
+    /^(?:শুধু\s*দাম|আগে\s*দাম|দাম\s*বলেন|দাম\s*বলুন|দাম\s*বলো)$/i.test(normalizedTxt.trim())
+  );
+
+  const isPriceQuery = (
+    payload === 'BTN_PRICE' ||
+    payload === 'BTN_AFFORDABLE_PRICE' ||
+    payload === 'BTN_PREMIUM_PRICE' ||
+    txt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto|koto\s*tk)\b/i) ||
+    txt.match(/দাম|কত|কতো|মূল্য|রেট|প্রাইজ|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
+    txt === 'pp' || txt === 'pp?' || txt === 'p?' || txt === 'দাম' || txt === 'দাম?' || txt === 'কত?' || txt === 'কতো?' ||
+    isPriceInsistence
+  ) && !isPriceObjectionOrDiscount && !isWholesaleQuery;
+
   const bargainOffer = evaluateBargain(text, (await getCurrentCategory(senderId)) || 'affordable');
 
   let quantity = null;
@@ -1737,6 +1885,10 @@ async function processOneEvent(webhookEvent) {
   } else if (!isPaymentInfoSubmission) {
     const qtyResult = Parser.extractQuantity(text);
     if (qtyResult) quantity = qtyResult.qty;
+  }
+
+  if (quantity) {
+    await setSelectedQuantity(senderId, quantity);
   }
 
   const existingConv = existingConvBeforeAppend; // FIX (P0-1): this is the crash this whole rewrite started from.
@@ -2329,31 +2481,13 @@ async function processOneEvent(webhookEvent) {
     ]);
     await appendMessage(senderId, 'bot', reply);
   }
-  // ===== QUANTITY — Show price for CURRENT category or Min 50 Pcs Warning =====
-  else if (quantity && !isPriceObjectionOrDiscount) {
-    if (quantity < 50) {
-      const reply = getLowQtyPrice(quantity);
-      await sendMessengerButtonBlock(senderId, reply, [
-        { title: "৫০ পিস অর্ডার", payload: "QTY_50" },
-        { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-        { title: "কার্ড দেখুন", payload: "BTN_AFFORDABLE" }
-      ]);
-      await appendMessage(senderId, 'bot', reply);
-    } else {
-      const currentCat = (await getCurrentCategory(senderId)) || 'affordable';
-      const reply = getCategoryPrice(quantity, currentCat) + "\n\nঅর্ডার করতে চাইলে বলুন! 😊";
-
-      const oppositeBtn = currentCat === 'premium'
-        ? { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" }
-        : { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" };
-
-      await sendMessengerButtonBlock(senderId, reply, [
-        { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-        oppositeBtn,
-        { title: "দাম জানুন", payload: "BTN_PRICE" }
-      ]);
-      await appendMessage(senderId, 'bot', reply);
-    }
+  // ===== QUANTITY OR PRICE QUERY — Smart 2-Step Qualification =====
+  else if ((quantity || isPriceQuery) && !isPriceObjectionOrDiscount) {
+    await handlePriceOrQualification(senderId, {
+      isInsistent: isPriceInsistence,
+      explicitQty: quantity,
+      explicitTier: detectedTier
+    });
   }
   // ===== GENERAL DESIGN / CARD VIEW REQUEST =====
   else if (
@@ -2460,58 +2594,13 @@ async function processOneEvent(webhookEvent) {
     ]);
     await appendMessage(senderId, 'bot', reply);
   }
-  // ===== PRICE — Context-aware or complete price table (NO LOOPS!) =====
-  else if ((
-    payload === 'BTN_PRICE' ||
-    txt.match(/\b(pp|p|dp|prc|pr|price|rate|cost|dam|daam|koto|koto\s*tk)\b/i) ||
-    txt.match(/দাম|কত|কতো|মূল্য|রেট|প্রাইজ|টাকা|খরচ|পিস\s*কত|eita\s*koto|aita\s*koto|etar\s*dam|eitar\s*dam|atar\s*dam/i) ||
-    txt === 'pp' || txt === 'pp?' || txt === 'p?' || txt === 'দাম' || txt === 'দাম?' || txt === 'কত?' || txt === 'কতো?'
-  ) && !isPriceObjectionOrDiscount) {
-    const currentCat = await getCurrentCategory(senderId);
-
-    if (currentCat) {
-      const priceTable = getFullPriceTable(currentCat);
-      const altCat = currentCat === 'premium' ? 'affordable' : 'premium';
-      const altName = altCat === 'premium' ? '✨ Premium' : '💚 Affordable';
-      const reply = `${priceTable}\n\n💡 (${altName} কালেকশনের দামও দেখতে পারেন)\nকত পিস লাগবে বলুন! 😊`;
-
-      await sendMessengerButtonBlock(senderId, reply, [
-        { title: `${altName} রেট`, payload: altCat === 'premium' ? "BTN_PREMIUM_PRICE" : "BTN_AFFORDABLE_PRICE" },
-        { title: "কার্ড দেখুন", payload: currentCat === 'premium' ? "BTN_PREMIUM" : "BTN_AFFORDABLE" },
-        { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-      ]);
-      await appendMessage(senderId, 'bot', reply);
-    } else {
-      const reply = buildBothCategoriesPriceText(bngDigits) + "\nআপনার কত পিস লাগবে বলুন? 😊";
-
-      await sendMessengerButtonBlock(senderId, reply, [
-        { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-        { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-        { title: "অর্ডার করবো", payload: "BTN_ORDER" }
-      ]);
-      await appendMessage(senderId, 'bot', reply);
-    }
-  }
-  // ===== CATEGORY-SPECIFIC PRICE BUTTONS =====
-  else if (payload === 'BTN_AFFORDABLE_PRICE') {
-    await setCurrentCategory(senderId, 'affordable');
-    const reply = getFullPriceTable('affordable') + "\n\nকত পিস লাগবে বলুন! 😊";
-    await sendMessengerButtonBlock(senderId, reply, [
-      { title: "💚 Affordable দেখুন", payload: "BTN_AFFORDABLE" },
-      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-      { title: "✨ Premium রেট", payload: "BTN_PREMIUM_PRICE" }
-    ]);
-    await appendMessage(senderId, 'bot', reply);
-  }
-  else if (payload === 'BTN_PREMIUM_PRICE') {
-    await setCurrentCategory(senderId, 'premium');
-    const reply = getFullPriceTable('premium') + "\n\nকত পিস লাগবে বলুন! 😊";
-    await sendMessengerButtonBlock(senderId, reply, [
-      { title: "✨ Premium দেখুন", payload: "BTN_PREMIUM" },
-      { title: "অর্ডার করবো", payload: "BTN_ORDER" },
-      { title: "💚 Affordable রেট", payload: "BTN_AFFORDABLE_PRICE" }
-    ]);
-    await appendMessage(senderId, 'bot', reply);
+  // ===== PRICE — Handled by Smart 2-Step Qualification above (Safety Fallback) =====
+  else if (isPriceQuery && !isPriceObjectionOrDiscount) {
+    await handlePriceOrQualification(senderId, {
+      isInsistent: isPriceInsistence,
+      explicitQty: quantity,
+      explicitTier: detectedTier
+    });
   }
   // ===== CUSTOMER SAYS THEY SENT PHOTO BY TEXT (CHECK IF REAL PHOTO EXISTS) =====
   else if (payload === 'BTN_HAS_PHOTO' || txt.match(/ছবি\s*(দিয়েছি|দিছি|পাঠিয়েছি|পাঠাইছি)|chobi\s*(disi|diasi|dichi|pathaisi)/i)) {
